@@ -581,13 +581,6 @@ void setup() {
         APP_STATE.showBootScreen = true;
         APP_STATE.saveToFile();
         if (Storage.exists(SLEEP_FRAME_FILE) && loadSleepFrameBuffer()) {
-          const bool useDifferentialRefresh = gpio.deviceIsX3();
-          if (useDifferentialRefresh) {
-            // begin() clears the X3 controller RAM, so restore the saved frame as
-            // the baseline before replacing the moon with the loading icon.
-            renderer.cleanupGrayscaleWithFrameBuffer();
-          }
-
           const auto pageHeight = renderer.getScreenHeight();
           renderer.drawImage(LoadingIcon, 0, pageHeight - LOADINGICON_HEIGHT, LOADINGICON_WIDTH, LOADINGICON_HEIGHT);
           if (useDifferentialRefresh) {

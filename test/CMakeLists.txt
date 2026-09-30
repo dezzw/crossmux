@@ -64,7 +64,6 @@ add_subdirectory(txt_page_index)
 add_subdirectory(txt_paragraph)
 add_subdirectory(txt_encoding)
 add_subdirectory(txt_chapter_index)
-add_subdirectory(game_ui)
 add_subdirectory(credential_integrity)
 add_subdirectory(footnote_list)
 add_subdirectory(waveshare_function_button)
@@ -81,8 +80,6 @@ add_subdirectory(xml_parser_utils)
 add_subdirectory(token_boundary)
 add_subdirectory(button_navigation)
 add_subdirectory(bitmap_memory_source)
-add_subdirectory(murphy_m4_batch)
-add_subdirectory(murphy_m4_input)
 add_subdirectory(system_settings_reset)
 add_subdirectory(user_guide)
 add_subdirectory(font_cache_manager)
@@ -112,8 +109,6 @@ add_test(NAME BuiltinFontShrink
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_builtin_font_shrink.py)
 add_test(NAME PioarduinoCache
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_pioarduino_cache.py)
-add_test(NAME ControlCenterGesture
-  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_control_center_gesture.py)
 add_test(NAME ReadingUiRegressions
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_reading_ui_regressions.py)
 add_test(NAME DownloadMemoryLifecycle

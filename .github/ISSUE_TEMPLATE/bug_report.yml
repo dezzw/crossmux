@@ -14,12 +14,7 @@ body:
       label: Device
       description: Which device does this happen on? Pick "Other" for boards CrossPoint does not release firmware for — those are maintained in their own port repositories.
       options:
-        - Xteink X3
-        - Xteink X4
-        - Xteink X4 Classic
-        - Xteink X4 Pro
-        - Seeed Sticky
-        - M5Stack Paper Mono
+        - Waveshare ESP32-S3 ePaper 3.97
         - Other / not listed
     validations:
       required: true

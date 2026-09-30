@@ -64,16 +64,6 @@
 
 namespace {
 constexpr uint8_t MAX_PAGE_TURN_RATE = 30;
-// The X4 Pro and X4 Classic carry the X4's panel but sit outside isXteinkDevice()
-// (that helper also gates power management). Overlay refresh choices are per-panel:
-// this family runs the grayscale anti-aliasing pass, so chrome painted over a
-// fresh page needs the HALF ghost-cleanup and closing re-renders the page.
-// EEGO A4 runs the same grayscale AA pass on its UC8279C 4-gray panel, so its
-// overlay paints need the identical full-waveform treatment: a FAST differential
-// after the AA waveform leaves the covered page ghosting through the chrome.
-bool xteinkClassPanel() {
-  return gpio.isXteinkDevice() || BoardConfig::isX4Pro() || FREEINK_DEVICE_X4CLASSIC || FREEINK_DEVICE_EEGO_A4;
-}
 
 constexpr int PAGE_TURN_RATES[] = {1, 1, 3, 6, 12};
 constexpr size_t initialBookmarkCacheCapacity = 16;
@@ -278,10 +268,6 @@ void EpubReaderActivity::onExit() {
   ACHIEVEMENTS.recordSessionEnded(READING_STATS.getLastSessionSnapshot());
   showPendingAchievementPopups(renderer);
   ReaderActivity::onExit();
-#if FREEINK_DEVICE_EEGO_A4
-  // EEGO uses a single-pass grayscale page; force a clean first frame after exit.
-  renderer.requestNextFullRefresh();
-#endif
 }
 
 bool EpubReaderActivity::loadBook() {
@@ -403,26 +389,6 @@ bool EpubReaderActivity::loadBook() {
 
 void EpubReaderActivity::openReaderMenu() {
   pendingManualTurn = 0;
-  if (usesToolbarMenu()) {
-    // Reached from a child activity's result handler (footnotes, bookmarks,
-    // go-to-percent... cancelled back to the menu), so the framebuffer holds
-    // that screen, not the page: re-render the page and let renderBook() put
-    // the toolbar on top. The in-reader fast path is openOverlay().
-    overlay = Overlay::Toolbar;
-    focusedTool = 0;
-    panelHoldJumped = false;
-    panelCursorShown = !mappedInput.hasTouch();
-    if (!toolbarUi) toolbarUi = makeUniqueNoThrow<ReaderToolbarUi>(renderer);
-    if (!toolbarUi) {
-      LOG_ERR("ERS", "OOM allocating reader toolbar");
-      overlay = Overlay::None;
-      return;
-    }
-    toolbarUi->begin();
-    discardOverlayPage();
-    requestUpdate();
-    return;
-  }
   const int currentPage = section ? section->currentPage + 1 : 0;
   const int totalPages = section ? section->estimatedTotalPages() : 0;
   float bookProgress = 0.0f;
@@ -440,11 +406,6 @@ void EpubReaderActivity::openReaderMenu() {
           applyOrientation(menu.orientation);
         }
         toggleAutoPageTurn(menu.pageTurnRate);
-#if FREEINK_DEVICE_EEGO_A4
-        // EEGO's single-pass grayscale page must clear the menu first.
-        pagesUntilFullRefresh = 1;
-        forcedRefreshPending = true;
-#endif
         if (!result.isCancelled) {
           onReaderMenuConfirm(static_cast<EpubReaderMenuActivity::MenuAction>(menu.action));
         }
@@ -455,7 +416,6 @@ void EpubReaderActivity::openReaderMenu() {
 
 ReaderRenderSpec EpubReaderActivity::effectiveRenderSpec(const uint16_t width, const uint16_t height) const {
   auto spec = SETTINGS.readerRenderSpec(width, height);
-  spec.collectTouchLinks = mappedInput.hasTouch();
   if (stylesDisabledForSession_) spec.embeddedStyle = false;
   return spec;
 }
@@ -652,8 +612,6 @@ void EpubReaderActivity::loop() {
     pendingReadFolderMove = false;
   }
 
-  const auto touch = ReaderUtils::detectTouchPageTurn(renderer, mappedInput);
-
   if (showBookmarkMessage && (millis() - bookmarkMessageTime) >= ReaderUtils::BOOKMARK_MESSAGE_DURATION_MS) {
     showBookmarkMessage = false;
     requestUpdate();
@@ -664,29 +622,9 @@ void EpubReaderActivity::loop() {
     requestUpdate();
   }
 
-  // The toolbar reader menu owns all input while shown, ahead of the automatic page turn
-  // below: the More panel's rate popup switches automatic turning on and leaves the panel
-  // open, so the timer must neither flip the page under it nor eat the panel's next
-  // Confirm/Back release.
-  if (overlay != Overlay::None) {
-    if (usesToolbarMenu()) {
-      // Hold the interval at zero elapsed so closing the panel starts a fresh one.
-      lastPageTurnTime = millis();
-      handleOverlayInput();
-      return;
-    }
-    // The style was switched off while an overlay was up (Settings reached via
-    // the More panel); fall back to the clean page.
-    overlay = Overlay::None;
-    discardOverlayPage();
-    requestUpdate();
-    return;
-  }
-
   if (automaticPageTurnActive) {
     if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) ||
-        mappedInput.wasReleased(MappedInputManager::Button::Back) ||
-        ReaderUtils::isTouchMenuGesture(renderer, mappedInput)) {
+        mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       automaticPageTurnActive = false;
       requestUpdate();
       return;
@@ -780,11 +718,7 @@ void EpubReaderActivity::loop() {
         }
         return;
       case CrossPointSettings::LP_MENU_READER_MENU:
-        if (usesToolbarMenu() && section) {
-          openOverlay(Overlay::Toolbar);
-        } else {
-          openReaderMenu();
-        }
+        openReaderMenu();
         return;
       case CrossPointSettings::LP_MENU_DISABLED:
       default:
@@ -792,29 +726,8 @@ void EpubReaderActivity::loop() {
     }
   }
 
-  // Link taps take priority over the reader-menu and page-turn zones.
-  if (!atEndOfBook && !currentPageLinks.empty() && SETTINGS.touchReaderControls && mappedInput.hasTouch()) {
-    int touchX = 0;
-    int touchY = 0;
-    if (mappedInput.wasScreenTapped(touchX, touchY)) {
-      const auto* link = EpubReaderUtils::linkAtPoint(currentPageLinks, touchX, touchY, currentPageLinkMarginLeft,
-                                                      currentPageLinkMarginTop);
-      if (link) {
-        navigateToHref(link->href, true);
-        return;
-      }
-    }
-  }
-
-  if (confirmReleased || ReaderUtils::isTouchMenuGesture(renderer, mappedInput)) {
-    // Toolbar style: the page is on screen and in the framebuffer, so paint the
-    // toolbar over it (one refresh) instead of pushing a full-screen menu.
-    if (usesToolbarMenu() && section) {
-      pendingManualTurn = 0;
-      openOverlay(Overlay::Toolbar);
-    } else {
-      openReaderMenu();
-    }
+  if (confirmReleased) {
+    openReaderMenu();
   }
 
   if (footnoteDepth > 0 && mappedInput.wasReleased(MappedInputManager::Button::Back) &&
@@ -866,8 +779,6 @@ void EpubReaderActivity::loop() {
   }
 
   auto [prevTriggered, nextTriggered, fromTilt] = ReaderUtils::detectPageTurn(mappedInput);
-  prevTriggered = prevTriggered || touch.prev;
-  nextTriggered = nextTriggered || touch.next;
   if (!prevTriggered && !nextTriggered) {
     return;
   }
@@ -881,7 +792,7 @@ void EpubReaderActivity::loop() {
     return;
   }
 
-  const unsigned long heldMs = (touch.prev || touch.next) ? touch.heldMs : mappedInput.getHeldTime();
+  const unsigned long heldMs = mappedInput.getHeldTime();
   const bool longPress = !fromTilt && heldMs >= ReaderUtils::SKIP_HOLD_MS;
   if (longPress && SETTINGS.longPressButtonBehavior == SETTINGS.CHAPTER_SKIP) {
     skipPages(nextTriggered ? 1 : -1);
@@ -1491,12 +1402,6 @@ void EpubReaderActivity::renderBook() {
   } else {
     orientedMarginBottom += std::max(SETTINGS.screenMargin, statusBarHeight);
   }
-#if FREEINK_DEVICE_EEGO_A4
-  // The A4's status bar is lifted 4 px so the bezel does not cover it (see
-  // BaseTheme::drawStatusBar); reserve the same space for the content.
-  orientedMarginBottom += 4;
-#endif
-
   const uint16_t viewportWidth = renderer.getScreenWidth() - orientedMarginLeft - orientedMarginRight;
   const uint16_t viewportHeight = renderer.getScreenHeight() - orientedMarginTop - orientedMarginBottom;
   buildViewportWidth = viewportWidth;
@@ -1710,10 +1615,6 @@ void EpubReaderActivity::renderBook() {
 
   // Serialize SD access in this render path against the main task's SD writes
   // (progress, bookmarks, background build) so they cannot interleave mid-FAT-op.
-#if FREEINK_DEVICE_EEGO_A4 && !defined(SIMULATOR)
-  HalStorage::StorageLock storageLock;
-#endif
-
   {
     auto p = section->loadPage(section->currentPage);
     if (!p) {
@@ -1780,21 +1681,6 @@ void EpubReaderActivity::renderBook() {
     GUI.drawPopup(renderer, tr(STR_DICT_NO_DICT_SET));
   }
 
-  // Toolbar menu: overlay the toolbar / panel on top of the freshly rendered page.
-  if (overlay != Overlay::None && usesToolbarMenu()) {
-    // The page just re-rendered under the overlay: refresh the snapshot that
-    // backs panel->toolbar restores (any previous copy is stale).
-    overlayPageStored = renderer.storeBwBuffer();
-    renderOverlay();
-    // An open option picker rides on top of the freshly drawn panel.
-    if (overlayPopup.isActive()) overlayPopup.render(renderer);
-    // FAST, same as openOverlay: HALF's inverting pass flashes the sheet
-    // (white, in night mode) on every repaint under an open panel. Any AA
-    // residue a FAST differential leaves under the chrome has not shown in
-    // practice; restore a HALF cleanup here if text ever visibly ghosts
-    // through the sheet (see #2190 for the mechanism).
-    renderer.displayBuffer(HalDisplay::FAST_REFRESH);
-  }
 }
 
 void EpubReaderActivity::onEndOfBookRendered() {
@@ -1830,18 +1716,6 @@ bool EpubReaderActivity::applyDeferredReposition() {
     if (section->pageCount > 0 && newPage >= static_cast<int>(section->pageCount)) {
       newPage = section->pageCount - 1;
     }
-#if FREEINK_DEVICE_EEGO_A4
-    // Suppress A4's duplicate grayscale flash when the deferred reposition
-    // resolves to the page already on screen.
-    if (mappedOffset && currentPageVisibleOffset.has_value()) {
-      if (const auto newPageOffset = section->getVisibleTextOffsetForPage(static_cast<uint16_t>(newPage));
-          newPageOffset == currentPageVisibleOffset) {
-        cachedChapterTotalPageCount = 0;  // consumed; don't read cached progress again
-        cachedVisibleTextOffset.reset();
-        return false;
-      }
-    }
-#endif
     if (newPage != section->currentPage) {
       section->currentPage = newPage;
       changed = true;
@@ -1954,18 +1828,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   // Night mode renders crisp B/W; the SDK disables every grayscale display path.
   const bool grayscaleEnabled = !renderer.isInverted();
   const bool needsTextGrayscale = grayscaleEnabled && SETTINGS.textAntiAliasing;
-#if FREEINK_DEVICE_EEGO_A4
-  // A4 single-refresh design: displayGrayBuffer() replaces the B/W base on the
-  // panel, so whatever the gray pass draws IS the final frame. With text AA
-  // off, the gray pass would render only the page's images (see
-  // renderGrayscalePass) and wipe the text the base frame just showed —
-  // reported as "image pages show only the image, no text". When there is no
-  // AA to render, skip the grayscale pipeline entirely: image pages fall back
-  // to the plain B/W frame, which keeps text and image together.
-  const bool needsAnyGrayscale = grayscaleEnabled && SETTINGS.textAntiAliasing;
-#else
   const bool needsAnyGrayscale = grayscaleEnabled && (SETTINGS.textAntiAliasing || pageHasImages);
-#endif
   const bool tiledGrayscale = needsAnyGrayscale && renderer.supportsStripGrayscale();
   // Combined text AA: defer the B/W base activation so
   // the gray planes join it in a single waveform. Displaying the base
@@ -1973,12 +1836,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   // flash on every AA page.
   const bool combinedGrayscaleBase =
       tiledGrayscale && !pageHasImages && !SETTINGS.readingBackgroundEnabled && renderer.supportsTextOnlyCombinedBase();
-#if FREEINK_DEVICE_EEGO_A4
-  const bool overlapRefresh =
-      tiledGrayscale && renderer.supportsAsyncRefresh() && !pageHasImages && !needsTextGrayscale;
-#else
   const bool overlapRefresh = tiledGrayscale && renderer.supportsAsyncRefresh() && !pageHasImages;
-#endif
   const auto drawGuideLines = [&] {
     if (!SETTINGS.readingGuideLineEnabled) return;
     const int x1 = orientedMarginLeft;
@@ -2007,13 +1865,6 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     } else {
       page->renderImages(renderer, fontId, orientedMarginLeft, orientedMarginTop);
     }
-#if FREEINK_DEVICE_EEGO_A4
-    // A4: include the status bar in the gray pass so the final anti-aliased
-    // frame keeps the bottom UI. Without this the gray pass only re-renders
-    // the body and wipes the status bar that the earlier BW frame drew.
-    // (Other devices keep the upstream gray-pass contents.)
-    renderStatusBar();
-#endif
   };
 
   if (SETTINGS.readingBackgroundEnabled && !readingBackground::load(renderer)) renderer.clearScreen();
@@ -2045,16 +1896,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     // base + grays as one waveform.
     ReaderUtils::displayBaseWithRefreshCycle(renderer, pagesUntilFullRefresh, manualRefreshPending);
   } else {
-#if FREEINK_DEVICE_EEGO_A4
-    if (needsTextGrayscale) {
-      const auto mode = ReaderUtils::consumeRefreshMode(pagesUntilFullRefresh);
-      if (mode == HalDisplay::HALF_REFRESH) renderer.displayGrayscaleBase(mode);
-    } else {
-      ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, overlapRefresh);
-    }
-#else
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, overlapRefresh);
-#endif
   }
   const auto tDisplay = millis();
 
@@ -2306,11 +2148,7 @@ static_assert(std::size(kSpacingIds) == CrossPointSettings::LINE_COMPRESSION_COU
 static_assert(std::size(kAlignIds) == CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT, "alignment labels");
 }  // namespace
 
-bool EpubReaderActivity::usesToolbarMenu() const {
-  // Touch-first chrome: button boards always get the classic list menu, even
-  // if a settings file (e.g. an SD card moved from a touch board) says Toolbar.
-  return mappedInput.hasTouch() && SETTINGS.readerMenuStyle == CrossPointSettings::READER_MENU_TOOLBAR;
-}
+bool EpubReaderActivity::usesToolbarMenu() const { return false; }
 
 std::string EpubReaderActivity::currentChapterTitle() const {
   if (!epub) return "";
@@ -2413,8 +2251,7 @@ void EpubReaderActivity::openOverlay(Overlay target) {
     return;
   }
   if (previous == Overlay::None) toolbarUi->begin();
-  // Buttons show a cursor from the start; touch boards only once a button moves it.
-  panelCursorShown = !mappedInput.hasTouch();
+  panelCursorShown = true;
   switch (target) {
     case Overlay::Toolbar:
       focusedTool = 0;
@@ -2454,15 +2291,6 @@ void EpubReaderActivity::openOverlay(Overlay target) {
       // Snapshot the clean page so stepping back from a panel to the toolbar
       // (and closing, where supported) can restore it without a re-render.
       overlayPageStored = renderer.storeBwBuffer();
-#if FREEINK_DEVICE_EEGO_A4
-      // The page under the chrome is a grayscale AA frame: its gray MSB plane
-      // (DTM1) survives in the controller RAM and ghosts through the overlay
-      // even after a full waveform (only DTM2 is rewritten). Write the BW page
-      // into both planes so the chrome opens over a clean B/W state — the
-      // frontlight panel's "refresh and become B/W" handoff. The close path
-      // re-renders the AA page to restore the gray look.
-      renderer.cleanupGrayscaleWithFrameBuffer();
-#endif
     } else if (overlayPageStored) {
       // Overlay -> overlay: wipe the previous chrome (toolbar header, sheet,
       // progress row) back to the clean page so none of it shows around or
@@ -2473,18 +2301,12 @@ void EpubReaderActivity::openOverlay(Overlay target) {
       overlayPageStored = renderer.storeBwBuffer();
     }
     renderOverlay();
-    // Grayscale-panel boards (Xteink class + EEGO A4) just ran the AA waveform
-    // on the page under the chrome; a FAST differential would ghost the covered
-    // text through the overlay. Push the full-waveform HALF instead.
-    renderer.displayBuffer(xteinkClassPanel() ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH);
+    renderer.displayBuffer(HalDisplay::FAST_REFRESH);
   } else {
     requestUpdate();  // no page yet: renderBook() draws the overlay once it is
   }
 }
 
-// Close the overlay back to the reading page. Boards without the Xteink
-// grayscale-AA pass restore the page snapshot and push one FAST refresh -- no
-// re-render, no flash; Xteink boards re-render to restore the AA planes.
 void EpubReaderActivity::closeOverlayToPage() {
   overlay = Overlay::None;
   overlayPopup.dismiss();  // an option picker cannot outlive its panel
@@ -2496,14 +2318,7 @@ void EpubReaderActivity::closeOverlayToPage() {
     imageScalingDirty = false;
     discardOverlayPage();
   }
-#if FREEINK_DEVICE_EEGO_A4
-  // The AA page return sits on top of the B/W chrome frame (openOverlay's
-  // cleanup wrote both planes); force the reader's next render onto the full
-  // waveform so the AA pass comes back clean — the frontlight panel's onExit
-  // handoff.
-  renderer.requestNextFullRefresh();
-#endif
-  if (!xteinkClassPanel() && overlayPageStored) {
+  if (overlayPageStored) {
     RenderLock lock;  // the render task shares the framebuffer
     // No baseline resync: the glass shows the chrome, and erasing it needs
     // the differential to keep diffing against the last pushed frame.
@@ -2545,10 +2360,8 @@ void EpubReaderActivity::renderOverlay() {
 
   // Panels (Contents / Text / More): a bottom sheet over the page + button hints.
   model.panel = true;
-  if (!mappedInput.hasTouch()) {
-    model.bottomReserve = UITheme::getInstance().getMetrics().buttonHintsHeight;
-    model.denseRows = true;
-  }
+  model.bottomReserve = UITheme::getInstance().getMetrics().buttonHintsHeight;
+  model.denseRows = true;
   // Tap-first: the cursor is only drawn once a button has moved it, so a
   // tapped row does not stay inverted after its action.
   model.selectedIndex = panelCursorShown ? panelIndex : -1;
@@ -2574,10 +2387,8 @@ void EpubReaderActivity::renderOverlay() {
   toolbarUi->setModel(model);
   toolbarUi->render();
 
-  if (!mappedInput.hasTouch()) {
-    const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
-    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
-  }
+  const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
 void EpubReaderActivity::handleOverlayInput() {

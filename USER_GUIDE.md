@@ -1,12 +1,11 @@
 # CrossPoint User Guide
 
-Welcome to the **CrossPoint** firmware. This guide outlines the hardware controls, navigation, and reading features of the device.
+Welcome to **CrossMux** on the **Waveshare ESP32-S3 ePaper 3.97**. This guide covers the face buttons, power key, optional BLE page-turner, and reading features. Board-specific button timing is summarized in [docs/engineering/waveshare-epaper-397.md](./docs/engineering/waveshare-epaper-397.md).
 
 - [CrossPoint User Guide](#crosspoint-user-guide)
   - [1. Hardware Overview](#1-hardware-overview)
     - [Button Layout](#button-layout)
     - [Taking a Screenshot](#taking-a-screenshot)
-    - [Frontlight (X4 Pro only)](#frontlight-x4-pro-only)
   - [2. Power \& Startup](#2-power--startup)
     - [Power On / Off](#power-on--off)
     - [First Launch](#first-launch)
@@ -41,7 +40,6 @@ Welcome to the **CrossPoint** firmware. This guide outlines the hardware control
     - [Page Turning](#page-turning)
     - [Chapter Navigation](#chapter-navigation)
     - [Auto Page Turn](#auto-page-turn)
-    - [Tilt Page Turn (X3 only)](#tilt-page-turn-x3-only)
     - [Footnote Navigation](#footnote-navigation)
     - [Dictionary Lookup](#dictionary-lookup)
     - [System Navigation](#system-navigation)
@@ -54,34 +52,27 @@ Welcome to the **CrossPoint** firmware. This guide outlines the hardware control
 
 ## 1. Hardware Overview
 
-The device utilises the standard buttons on the Xteink X4 (in the same layout as the manufacturer firmware, by default):
+The Waveshare board exposes **four face buttons** and a **Power** key on the side (PMIC). There is **no frontlight** and **no touch screen**.
 
 ### Button Layout
 
-| Location        | Buttons                                              |
-| --------------- | ---------------------------------------------------- |
-| **Bottom Edge** | **Back**, **Confirm**, **Left**, **Right**           |
-| **Right Side**  | **Power**, **Side Up**, **Side Down**, **Reset** |
+| Button | Default role |
+| --- | --- |
+| **Back** | Back / cancel |
+| **Left** | Move selection up; in the reader, previous page |
+| **Function** (center) | **Confirm** / menu; double-click within ~300 ms acts as **Back** |
+| **Right** | Move selection down; in the reader, next page |
+| **Power** | Hold ~1 s to power on; hold to sleep/shutdown (see **[Controls Settings](#363-controls)**) |
 
-Button layout can be customized in the **[Controls Settings](#363-controls)**.
+**Long press:** Holding **Left** or **Right** for about 650 ms emits **Up** or **Down** (used for chapter skip while reading and for list page scroll when configured).
+
+Remap face buttons in **[Controls Settings](#363-controls)**. Optional **BLE HID** remotes use the same logical actions (page turn, Confirm, Back, directions).
 
 ### Taking a Screenshot
 
-When the Power button and the lower side button (Side Down) are pressed at the same time, it will take a screenshot and save it in the folder `screenshots/`.
+Press **Power** and **Down** together (on this board, **Down** is produced by holding **Right** until the long-press threshold). Screenshots are saved under `screenshots/`.
 
-Alternatively, while reading a book, press the **Confirm** button to open the reader menu and select **Take screenshot**.
-
-### Frontlight (X4 Pro only)
-
-The X4 Pro has a built-in frontlight with adjustable brightness and warmth. It is controlled from a swipe panel rather than the Settings menu:
-
-* **Open the frontlight panel:** Swipe down from the top edge of the screen, from almost any screen (Home, Browse Files, Reading Mode, etc.). Drag the brightness and warmth sliders to adjust the light live, or tap the sun icon to turn it on or off.
-* **Quick toggle:** Double-click the **Power** button to turn the frontlight on or off instantly, without opening the panel.
-
-> [!NOTE]
-> Frontlight brightness and warmth are intentionally not listed in **[Display Settings](#361-display)** — the swipe panel is the only place to adjust them. The on/off state can also be toggled with the Power-button double-click above.
-
-If the frontlight doesn't come back on after the device wakes from sleep, check **Restore Light on Wake** in **[Display Settings](#361-display)** (on by default). Turning it off is intentional if you'd rather have the light stay off on wake and switch it on yourself each time — but it's easy to forget you changed it.
+While reading, you can also open the reader menu with **Function** (Confirm) and choose **Take screenshot**.
 
 ---
 
@@ -89,10 +80,11 @@ If the frontlight doesn't come back on after the device wakes from sleep, check 
 
 ### Power On / Off
 
-To turn the device on or off, **press and hold the Power button for approximately half a second**.
-In the **[Controls Settings](#363-controls)** you can configure the power button to turn the device off with a short press instead of a long one.
+To turn the device on, **hold the Power button for about one second** until the screen wakes.
 
-To reboot the device (for example after a firmware update or if it's frozen), press and release the Reset button, and then quickly press and hold the Power button for a few seconds.
+To sleep or power off, use the configured Power hold duration in **[Controls Settings](#363-controls)** (default long-press). A very long continuous hold (~4 s) is the PMIC hard power-off fallback.
+
+If the firmware is unresponsive, use the PMIC power cycle (full power off, then hold Power to boot again). After an OTA update, normal restart completes automatically when the update finishes.
 
 ### First Launch
 
@@ -119,7 +111,7 @@ See [Reading Mode](#4-reading-mode) below for more information.
 
 The Browse Files screen acts as a file and folder browser. The full path to the current directory is shown at the top of the screen. File extensions are displayed alongside each filename, and directories are shown with brackets (e.g. `[folder-name]`). Hidden directories (those beginning with `.`) are also visible.
 
-* **Navigate List:** Use **Left** (or **Side Up**), or **Right** (or **Side Down**) to move the selection cursor up and down through folders and books. You can also long-press these buttons to scroll a full page up or down.
+* **Navigate List:** Use **Left** or **Right** to move the selection cursor up and down through folders and books. Long-press **Left** or **Right** (Up/Down) to scroll a full page up or down when that behavior is enabled.
 * **Open Selection:** Press **Confirm** to open a folder or start reading a selected book. Selecting a `.bmp` file will open the image viewer.
 * **Delete Files or Folders:** Hold and release **Confirm** to delete the selected file or folder. You will be given an option to either confirm or cancel. Multiple files can be selected for deletion in a single operation.
 * **Rename or Move:** Files can be renamed or moved to a different folder from within the browse screen.
@@ -237,11 +229,6 @@ The Settings screen allows you to configure the device's behavior. There are a f
 - **Inx Library Layout**: Choose Icons or List for the Inx Library. The default is Icons.
 - **Inx Apps Layout**: Choose Icons or List for the Inx Apps hub. The default is Icons.
 
-- **Sunlight Fading Fix**: Configure whether to enable a software-fix for the issue where white X4 models may fade when used in direct sunlight:
-  
-  - "OFF" (default) - Disable the fix
-  - "ON" - Enable the fix
-
 > [!NOTE]
 > A battery charging indicator is shown on the battery icon whenever the device is actively charging.
 
@@ -296,7 +283,7 @@ The Settings screen allows you to configure the device's behavior. There are a f
 
 - **Remap Front Buttons**: A menu for customising the function of each bottom edge button.
 
-- **Side Button Layout (reader)**: Swap the order of the up and down side buttons from "Prev/Next" (default) to "Next/Prev". You can also disable them entirely. This change is only in effect when reading.
+- **Up/Down layout (reader)**: Swap logical **Up** and **Down** (long-press **Left**/**Right** or a BLE remote) between "Prev/Next" (default) and "Next/Prev", or disable them. Applies while reading only.
 
 - **Long-press Chapter Skip**: Set whether long-pressing page turn buttons skips to the next/previous chapter:
   
@@ -556,8 +543,7 @@ Transparent overlay files are intentionally separate from normal sleep images. R
 > For best results:
 > - For non-transparent **Custom** mode, use uncompressed BMP files with 24-bit color depth.
 > - For **Transparent** mode, use a PNG or uncompressed 32-bit BGRA BMP for per-pixel alpha, or a regular BMP for white-as-transparent artwork.
-> - X4: Use a resolution of 480x800 pixels to match the device's screen resolution.
-> - X3: Use a resolution of 528x792 pixels to match the device's screen resolution.
+> - Use **800×480** pixels (landscape) to match this panel.
 
 > [!TIP]
 > You can set an image as the sleep screen cover directly from the BMP image viewer in the **[Browse Files](#33-browse-files-screen)** screen.
@@ -588,27 +574,21 @@ Once you have opened a book, the button layout changes to facilitate reading.
 
 | Action            | Buttons                              |
 | ----------------- | ------------------------------------ |
-| **Previous Page** | Press **Left** _or_ **Side Up**    |
-| **Next Page**     | Press **Right** _or_ **Side Down** |
-
-The role of the side buttons can be swapped in the **[Controls Settings](#363-controls)**.
+| **Previous Page** | Press **Left** |
+| **Next Page**     | Press **Right** |
 
 If the **Short Power Button Click** setting is set to "Page Turn", you can also turn to the next page by briefly pressing the Power button.
 
 ### Chapter Navigation
 
-* **Next Chapter:** Press and **hold** the **Right** (or **Side Down**) button briefly, then release.
-* **Previous Chapter:** Press and **hold** the **Left** (or **Side Up**) button briefly, then release.
+* **Next Chapter:** Press and **hold** **Right** until **Down** is active (~650 ms), then release.
+* **Previous Chapter:** Press and **hold** **Left** until **Up** is active (~650 ms), then release.
 
 This feature can be disabled in the **[Controls Settings](#363-controls)** to help avoid changing chapters by mistake.
 
 ### Auto Page Turn
 
 Auto Page Turn automatically advances pages at a set interval, useful for hands-free reading. This feature can be enabled and configured from the **[Reader Menu](#5-reader-menu)** while reading an EPUB.
-
-### Tilt Page Turn (X3 only)
-
-On the **Xteink X3**, the gyroscope can be used to turn pages by tilting the device. This feature is available in the Controls settings.
 
 ### Footnote Navigation
 
@@ -666,7 +646,7 @@ Press **Back** at any time to close the menu and return to your current page.
 
 Accessible by selecting **Chapters** from the Reader Menu.
 
-1. Use **Left** (or **Side Up**), or **Right** (or **Side Down**) to highlight the desired chapter.
+1. Use **Left** or **Right** to highlight the desired chapter.
 2. Press **Confirm** to jump to that chapter.
 3. *Alternatively, press **Back** to cancel and return to your current page.*
 
@@ -738,6 +718,6 @@ python3 scripts/debugging_monitor.py --suppress "[SD]"
 
 Press **Ctrl-C** or close the graph window to exit.
 
-If the device is stuck in a bootloop, press and release the Reset button. Then, press and hold on to the configured Back button and the Power Button to boot to the Home Screen.
+If the device is stuck in a bootloop, power-cycle the board (PMIC off, then hold **Power** to boot). If it still loops, hold **Back** while powering on to reach the Home screen when that recovery path is enabled.
 
 There can be issues with broken cache or config. In this case, delete the `.crosspoint` directory on your SD card (or consider deleting only `settings.json`, `state.json`, or `epub_*` cache directories in the `.crosspoint/` folder).

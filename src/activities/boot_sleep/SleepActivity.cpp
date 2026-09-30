@@ -837,13 +837,7 @@ void SleepActivity::renderCoverSleepScreen() const {
 void SleepActivity::renderLastScreenSleepScreen() const {
   const auto pageHeight = renderer.getScreenHeight();
   renderer.drawImage(MoonIcon, 0, pageHeight - MOONICON_HEIGHT, MOONICON_WIDTH, MOONICON_HEIGHT);
-  if (gpio.deviceIsX3()) {
-    // The controller still holds the displayed page, so its differential base
-    // waveform can add the moon without a full-screen flash.
-    renderer.displayGrayscaleBase(HalDisplay::FAST_REFRESH);
-  } else {
-    renderer.displayBuffer(HalDisplay::HALF_REFRESH);
-  }
+  renderer.displayBuffer(HalDisplay::HALF_REFRESH);
 }
 
 void SleepActivity::renderBlankSleepScreen() const {

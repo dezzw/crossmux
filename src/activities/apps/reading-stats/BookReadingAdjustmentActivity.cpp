@@ -298,21 +298,6 @@ void BookReadingAdjustmentActivity::render(RenderLock&&) {
   const std::string shortHint = renderer.truncatedText(UI_10_FONT_ID, hint.c_str(), infoWidth);
   renderer.drawText(UI_10_FONT_ID, sidePadding, infoTop + renderer.getLineHeight(UI_10_FONT_ID), shortHint.c_str());
 
-  if (mappedInput.hasTouch()) {
-    GUI.drawActionButton(renderer,
-                         gameTouchActionRect(pageWidth, renderer.getScreenHeight(), metrics.contentSidePadding,
-                                             metrics.menuSpacing, metrics.menuRowHeight, 0, 3),
-                         "-");
-    GUI.drawActionButton(renderer,
-                         gameTouchActionRect(pageWidth, renderer.getScreenHeight(), metrics.contentSidePadding,
-                                             metrics.menuSpacing, metrics.menuRowHeight, 1, 3),
-                         "+");
-    GUI.drawActionButton(renderer,
-                         gameTouchActionRect(pageWidth, renderer.getScreenHeight(), metrics.contentSidePadding,
-                                             metrics.menuSpacing, metrics.menuRowHeight, 2, 3),
-                         selectedField == 1 ? tr(STR_SELECT) : tr(STR_CONFIRM));
-  }
-
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), selectedField == 1 ? tr(STR_SELECT) : tr(STR_CONFIRM),
                                             tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);

@@ -36,9 +36,7 @@ def version_for(base_version, target_id, channel, flavor, short_sha):
         return base_version
     if channel != 'nightly':
         raise KeyError(channel)
-    parts = [base_version]
-    if target_id != 'xteink_x4':
-        parts.append(target['deviceSlug'])
+    parts = [base_version, target['deviceSlug']]
     if flavor not in FLAVOR_TOKENS:
         raise KeyError(flavor)
     return f"{'-'.join(parts)}-rc+{short_sha[:7]}"

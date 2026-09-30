@@ -1,56 +1,59 @@
 # Hardware Constraints & The Resource Protocol
 
-> Deep reference for [AGENTS.md](../../AGENTS.md). The ESP32-C3 baseline is about
-> 380KB usable RAM without PSRAM; shared code must fit it. S3 budgets and
-> capabilities are target-specific.
+> Deep reference for [AGENTS.md](../../AGENTS.md). This fork targets the
+> **Waveshare ESP32-S3 ePaper 3.97**: dual-core ESP32-S3 @ 240 MHz, **16 MiB
+> flash**, **8 MiB OPI PSRAM**, and **800×480** SSD1677 e-ink. Budget shared
+> reader code for **~512 KiB internal SRAM** first; PSRAM is for large, explicit
+> buffers (framebuffer, audio), not a substitute for tight internal-heap discipline.
 
-## Development Environment Awareness
+Board-specific wiring, buttons, and acceptance notes:
+[waveshare-epaper-397.md](waveshare-epaper-397.md).
 
-**CRITICAL**: Detect the host platform at session start to choose appropriate tools and commands.
+## Platform snapshot
 
-### Platform Detection
-```bash
-# Detect platform (run once per session)
-uname -s
-# Returns: MINGW64_NT-* (Windows Git Bash), Linux, Darwin (macOS)
-```
+| Resource | Waveshare baseline |
+|---|---|
+| Internal SRAM | ~512 KiB usable for heap, stacks, DMA-capable allocations |
+| PSRAM | 8 MiB OPI; primary 48 KiB monochrome framebuffer when enabled |
+| Framebuffer | 800 × 480 ÷ 8 = **48 000 bytes** (single buffer in normal builds) |
+| Display | Monochrome e-ink; full refresh ~1–2 s; partial/grayscale paths for reading |
+| Storage | SD card (4-bit SDMMC); aggressive EPUB/cache on card |
 
-**Detection Required**: Run `uname -s` at session start to determine platform
+**PSRAM vs internal:** Code and small hot structures stay in internal RAM.
+Display scratch, large transient decode buffers, and similar assets may use
+PSRAM only when the build and driver contract allow it. Anything that must be
+DMA-safe or latency-critical still belongs in internal heap unless the HAL
+documents otherwise.
 
-### Platform-Specific Behaviors
-- **Windows (Git Bash)**: Unix commands, `C:\` paths in Windows but `/` in bash, limited glob (use `find`+`xargs`)
-- **Linux/WSL**: Full bash, Unix paths, native glob support
+## The Resource Protocol
 
-**Cross-Platform Code Formatting**:
-```bash
-find src -name "*.cpp" -o -name "*.h" | xargs clang-format -i
-```
+Same spirit as the upstream CrossMux guide, applied to this S3 target:
 
----
+1. **Stack safety:** Keep large locals off the stack; prefer static pools or
+   activity-owned buffers allocated in `onEnter()`.
+2. **Heap fragmentation:** No allocate/free per frame or per page turn. Reuse
+   buffers for the activity lifetime; `.reserve()` before `push_back()` loops.
+3. **Flash for constants:** UI string tables and lookup data stay `static const`
+   / `constexpr` in flash, not copied into DRAM at runtime.
+4. **Hot-path strings:** Avoid `std::string` / Arduino `String` in render and
+   reader loops; use `string_view`, fixed `char[]`, and `snprintf`.
+5. **UI text:** User-facing strings use `tr()`; logs may be hardcoded.
+6. **`constexpr` first:** Tables and sizes known at compile time should be
+   `constexpr` for flash placement and dead-code elimination.
+7. **SPIFFS / settings writes:** Write only on change; debounce progress and
+   frequent toggles to protect flash wear.
+8. **Allocation failure:** With `-fno-exceptions`, bare `new` aborts on failure.
+   Use `makeUniqueNoThrow<T>()` from `lib/Memory/Memory.h` (or
+   `new (std::nothrow)` when a C API takes ownership); null-check and `LOG_ERR`.
 
-## Platform and Hardware Constraints
+See also: [memory-and-allocation.md](memory-and-allocation.md),
+[esp32-pitfalls.md](esp32-pitfalls.md) (alignment, ISRs, RISC-V/S3 shared rules).
 
-### Xteink X4 / ESP32-C3 Baseline
-* MCU: ESP32-C3 (Single-core RISC-V @ 160MHz)
-* RAM: ~380KB usable (VERY LIMITED - primary project constraint)
-  * **ESP32-C3 has no PSRAM** and remains the compatibility baseline
-  * Supported ESP32-S3 N16R8 targets provide 8 MB OPI PSRAM, but every use must
-    retain the normal internal-heap fallback for builds or hardware without it
-  * **Single Buffer Mode**: Only ONE 48KB framebuffer (not double-buffered)
-* Flash: 16MB (Instruction storage and static data)
-* Display: 800x480 E-Ink (Slow refresh, monochrome, 1-2s full update)
-  * Framebuffer: 48,000 bytes (800 × 480 ÷ 8)
-* Storage: SD Card (Used for books and aggressive caching)
+## Verification
 
-### The Resource Protocol
-1. Stack Safety: Limit local function variables to < 256 bytes. The ESP32-C3 default stack is small; use std::unique_ptr or static pools for larger buffers.
-2. Heap Fragmentation: Avoid repeated new/delete in loops. Allocate buffers once during onEnter() and reuse them.
-3. Flash Persistence: Large constant data (UI strings, lookup tables) MUST be marked static const to stay in Flash (Instruction Bus), freeing DRAM.
-4. String Policy: Prohibit std::string and Arduino String in hot paths. Use std::string_view for read-only access and snprintf with fixed char[] buffers for construction.
-5. UI Strings: All user-facing text must use the `tr()` macro (e.g., `tr(STR_LOADING)`) for i18n support. Never hardcode UI strings directly. For the avoidance of doubt, logging messages (LOG_DBG/LOG_ERR) can be hardcoded, but user-facing text must use `tr()`.
-6. `constexpr` First: Compile-time constants and lookup tables must be `constexpr`, not just `static const`. This moves computation to compile time, enables dead-branch elimination, and guarantees flash placement. Use `static constexpr` for class-level constants.
-7. `std::vector` Pre-allocation: Always call `.reserve(N)` before any `push_back()` loop. Each growth event allocates a new block (2×), copies all elements, then frees the old one — three heap operations that fragment DRAM. When the final size is unknown, estimate conservatively.
-8. SPIFFS Write Throttling: Never write a settings file on every user interaction. Guard all writes with a value-change check (`if (newVal == _current) return;`). Progress saves during reading must be debounced — write on activity exit or every N page turns, not on every turn. SPIFFS sectors have a finite erase cycle limit.
-9. `new` is not nothrow on ESP32: With `-fno-exceptions`, bare `new` that fails calls `abort()` — it does NOT return `nullptr`. Always use `new (std::nothrow)` and null-check the result, or use `makeUniqueNoThrow<T>()` from `lib/Memory/Memory.h`. Never write bare `new` for any fallible allocation.
+After changes that affect memory or startup:
 
-See also: [memory-and-allocation.md](memory-and-allocation.md) for allocation patterns, [esp32-pitfalls.md](esp32-pitfalls.md) for platform-specific hazards.
+- Log free heap and minimum free heap after boot and after opening a large EPUB
+  (`pio device monitor` or `python3 scripts/debugging_monitor.py`).
+- On hardware, exercise sleep/wake, SD mount, and several page turns without
+  monotonic heap decline.

@@ -252,7 +252,7 @@ void DateTimeSettingsActivity::manualScreen(UiScreen& screen, void* user) {
 }
 
 void DateTimeSettingsActivity::buildManualScreen(UiScreen& screen) {
-  if (mode != Mode::ManualEdit || !mappedInput.hasTouch()) return;
+  if (mode != Mode::ManualEdit) return;
   const auto& metrics = UITheme::getInstance().getMetrics();
   screen.setContentMargin(fui::Insets{
       static_cast<int16_t>(metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing),
@@ -383,36 +383,32 @@ void DateTimeSettingsActivity::renderManualEdit() {
   const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing * 2;
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_SET_DATE_AND_TIME));
-  if (mappedInput.hasTouch()) {
-    renderUi();
-  } else {
-    GUI.drawList(
-        renderer, Rect{0, contentTop, pageWidth, contentHeight}, EDIT_FIELD_COUNT, selectedEditField,
-        [](int index) {
-          static constexpr StrId NAMES[] = {StrId::STR_YEAR, StrId::STR_MONTH, StrId::STR_DAY, StrId::STR_HOUR,
-                                            StrId::STR_MINUTE};
-          return std::string(I18N.get(NAMES[index]));
-        },
-        nullptr, nullptr,
-        [this](int index) {
-          switch (static_cast<EditField>(index)) {
-            case EditField::Year:
-              return std::to_string(year);
-            case EditField::Month:
-              return twoDigits(month);
-            case EditField::Day:
-              return twoDigits(day);
-            case EditField::Hour:
-              return twoDigits(hour);
-            case EditField::Minute:
-              return twoDigits(minute);
-            case EditField::Count:
-              return std::string();
-          }
-          return std::string();
-        },
-        true);
-  }
+  GUI.drawList(
+      renderer, Rect{0, contentTop, pageWidth, contentHeight}, EDIT_FIELD_COUNT, selectedEditField,
+      [](int index) {
+        static constexpr StrId NAMES[] = {StrId::STR_YEAR, StrId::STR_MONTH, StrId::STR_DAY, StrId::STR_HOUR,
+                                          StrId::STR_MINUTE};
+        return std::string(I18N.get(NAMES[index]));
+      },
+      nullptr, nullptr,
+      [this](int index) {
+        switch (static_cast<EditField>(index)) {
+          case EditField::Year:
+            return std::to_string(year);
+          case EditField::Month:
+            return twoDigits(month);
+          case EditField::Day:
+            return twoDigits(day);
+          case EditField::Hour:
+            return twoDigits(hour);
+          case EditField::Minute:
+            return twoDigits(minute);
+          case EditField::Count:
+            return std::string();
+        }
+        return std::string();
+      },
+      true);
 
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_CONFIRM), tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);

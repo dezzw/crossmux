@@ -195,16 +195,6 @@ void ClockOffsetActivity::loop() {
   // requestUpdate themselves, so the app's invalidation flag is deliberately
   // ignored: held frames dispatch every pass and must not repaint an
   // unchanged screen.
-  if (routingReady() && mappedInput.hasTouch()) {
-    const fui::InputSnapshot snap = touchSnapshotFrom(mappedInput);
-    if (snap.touchPressed || snap.touchHeld || snap.touchReleased) {
-      routedRelease = snap.touchReleased;
-      if (route(snap)) {
-        return;
-      }
-    }
-  }
-
   buttonNavigator.onNextRelease([this] {
     adjustActiveField(+1);
     requestUpdate();
@@ -254,32 +244,7 @@ void ClockOffsetActivity::offsetScreen(UiScreen& screen, void* user) {
   static_cast<ClockOffsetActivity*>(user)->buildOffsetScreen(screen);
 }
 
-void ClockOffsetActivity::buildOffsetScreen(UiScreen& screen) {
-  // All visuals stay on the legacy renderer draws in render(); this screen
-  // only registers the touch hit rects over them, so button-only boards (which
-  // also skip the -/+ buttons) register nothing.
-  if (!mappedInput.hasTouch()) return;
-
-  auto toFui = [](const Rect& rect) { return fui::makeRect(rect.x, rect.y, rect.width, rect.height); };
-
-  Rect signRect;
-  Rect hoursRect;
-  Rect minutesRect;
-  getFieldRects(signRect, hoursRect, minutesRect);
-  // InputDrag: contact binds and dispatches while the finger is down, so the
-  // field selects on touch-down like the old hand-rolled hit test did.
-  // (const, not constexpr: the SDK's InputMask operator| is a plain inline.)
-  const uint16_t fieldMask = static_cast<uint16_t>(fui::InputTouch | fui::InputDrag);
-  screen.frame().hit(toFui(signRect), ACTION_FIELD, FIELD_SIGN, fieldMask);
-  screen.frame().hit(toFui(hoursRect), ACTION_FIELD, FIELD_HOURS, fieldMask);
-  screen.frame().hit(toFui(minutesRect), ACTION_FIELD, FIELD_MINUTES, fieldMask);
-
-  Rect minusRect;
-  Rect plusRect;
-  getTouchControlRects(minusRect, plusRect);
-  screen.frame().hit(toFui(minusRect), ACTION_STEP, -1, fui::InputTouch);
-  screen.frame().hit(toFui(plusRect), ACTION_STEP, +1, fui::InputTouch);
-}
+void ClockOffsetActivity::buildOffsetScreen(UiScreen& /*screen*/) {}
 
 void ClockOffsetActivity::render(RenderLock&&) {
   renderer.clearScreen();
@@ -339,21 +304,6 @@ void ClockOffsetActivity::render(RenderLock&&) {
 
   drawField(minutesStr, x, minutesBoxW, FIELD_MINUTES);
 
-  if (mappedInput.hasTouch()) {
-    Rect minusRect;
-    Rect plusRect;
-    getTouchControlRects(minusRect, plusRect);
-    auto drawTouchButton = [&](const Rect& rect, const char* label) {
-      renderer.fillRectDither(rect.x, rect.y, rect.width, rect.height, Color::White);
-      renderer.drawRect(rect.x, rect.y, rect.width, rect.height, true);
-      const int textX = rect.x + (rect.width - widthOf(label)) / 2;
-      const int textY = rect.y + (rect.height - lineHeight) / 2;
-      renderer.drawText(UI_12_FONT_ID, textX, textY, label, true, EpdFontFamily::BOLD);
-    };
-    drawTouchButton(minusRect, "-");
-    drawTouchButton(plusRect, "+");
-  }
-
   // Live preview of the resulting wall-clock time, so users can verify against a watch.
   char timeBuf[9];
   const uint8_t encoded = encodeOffset(sign, hours, minutesQuarter);
@@ -364,10 +314,6 @@ void ClockOffsetActivity::render(RenderLock&&) {
     snprintf(preview, sizeof(preview), "%s %s", tr(STR_CURRENT_TIME), timeBuf);
     renderer.drawCenteredText(UI_10_FONT_ID, centreY + 60, preview);
   }
-
-  // Rebuild the app's touch hit rects over the legacy-drawn controls (the
-  // screen builder draws nothing, so the visuals above are untouched).
-  renderUi();
 
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_NEXT_FIELD), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);

@@ -46,13 +46,7 @@ void ActivityManager::begin() {
 #else
   constexpr BaseType_t renderTaskCore = 0;
 #endif
-  // A4 prewarms fonts, decodes covers and runs Bidi in this task; keep its
-  // measured stack allowance local to that experimental target.
-#if FREEINK_DEVICE_EEGO_A4
-  constexpr uint32_t kRenderTaskStackBytes = 16384;
-#else
   constexpr uint32_t kRenderTaskStackBytes = 8192;
-#endif
   xTaskCreatePinnedToCore(&renderTaskTrampoline, "ActivityManagerRender",
                           kRenderTaskStackBytes,  // Stack size (see above)
                           this,                   // Parameters

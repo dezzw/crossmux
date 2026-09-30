@@ -74,7 +74,7 @@ bool UITheme::showSelectionCursor() const {
 #ifdef CROSSPOINT_EMULATED
   return true;
 #else
-  return SelectionCursorPolicy::visible(currentType == CrossPointSettings::UI_THEME::INX, gpio.hasTouch(),
+  return SelectionCursorPolicy::visible(currentType == CrossPointSettings::UI_THEME::INX, false,
                                         gpio.lastInputModality());
 #endif
 }

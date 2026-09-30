@@ -906,21 +906,6 @@ void WifiSelectionActivity::buildListScreen(UiScreen& screen) {
 
   if (networks.empty()) {
     screen.centeredText(tr(STR_NO_NETWORKS), screen.theme().bodyText);
-    if (mappedInput.hasTouch()) {
-      // Touch has no OK button to rescan with; offer the retry on screen instead
-      // of the "Press OK" hint renderNetworkList draws for button boards.
-      const auto& theme = screen.theme();
-      const fui::Rect body = screen.body();
-      const int16_t buttonWidth = static_cast<int16_t>(body.width / 2);
-      const fui::Rect buttonRect{static_cast<int16_t>(body.x + (body.width - buttonWidth) / 2),
-                                 static_cast<int16_t>(body.y + body.height * 2 / 3), buttonWidth, theme.rowHeight};
-      fui::ButtonProps scan;
-      scan.label = tr(STR_RETRY);
-      scan.action = ACTION_SCAN;
-      scan.inputMask = fui::InputTouch;
-      scan.text = theme.bodyText;
-      fui::button(screen.frame(), buttonRect, scan);
-    }
     return;
   }
 
@@ -940,16 +925,8 @@ void WifiSelectionActivity::buildListScreen(UiScreen& screen) {
   props.labelText.maxLines = 2;
   props.balanceWrappedLabelWithValue = false;
   listNav.selected = static_cast<int>(selectedNetworkIndex);
-  int16_t rowHeight = screen.theme().rowHeight;
-  if (!mappedInput.hasTouch()) {
-    // Non-touch hardware (X3/X4) keeps the original, denser row height
-    // instead of FreeInkUI's touch-target-sized default (see
-    // UiListActivity::syncListViewport; this screen predates that base and
-    // syncs its own viewport directly). A long SSID that wraps grows only
-    // its own row: list() sizes wrapped items per-row.
-    rowHeight = static_cast<int16_t>(metrics.listRowHeight);
-    props.rowHeight = rowHeight;
-  }
+  int16_t rowHeight = static_cast<int16_t>(metrics.listRowHeight);
+  props.rowHeight = rowHeight;
   listNav.syncToProps(screen.body(), rowHeight, screen.theme().listRowGap, static_cast<int>(networks.size()), props);
   screen.list(props);
 }
@@ -1012,9 +989,8 @@ void WifiSelectionActivity::buildPromptDialog(UiScreen& screen) {
 
 void WifiSelectionActivity::renderNetworkList(const Rect* screen, const ThemeMetrics* metrics) {
   renderUi();
-  if (networks.empty() && !mappedInput.hasTouch()) {
-    // Below the centered "no networks" line the app drew. Touch boards get an
-    // on-screen Retry button from the screen builder instead of this hint.
+  if (networks.empty()) {
+    // Below the centered "no networks" line the app drew.
     const auto height = renderer.getLineHeight(UI_10_FONT_ID);
     const auto top = screen->y + (screen->height - height) / 2;
     UITheme::drawCenteredText(renderer, *screen, SMALL_FONT_ID, top + height + 10, tr(STR_PRESS_OK_SCAN));

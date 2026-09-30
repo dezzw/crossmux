@@ -377,9 +377,6 @@ void StandbyActivity::processFaceTick(const bool waitForUpdate) {
     case StandbyFace::TickResult::Redraw:
       break;
     case StandbyFace::TickResult::RedrawWithGhostCleanup:
-#if CROSSPOINT_EMULATED == 0
-      if (gpio.isXteinkDevice()) renderer.requestNextRefresh(HalDisplay::HALF_REFRESH);
-#endif
       break;
   }
 
