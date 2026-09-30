@@ -75,11 +75,11 @@ class BleHostCompatTest(unittest.TestCase):
                 self.assertEqual(sdk.read_text(), content)
                 self.assertEqual(target.path.read_text(), previous)
 
-            env["custom_nimble_config"] = "src/platform/NimbleC3Config.h"
+            env["custom_nimble_config"] = "src/platform/NimblePsramConfig.h"
             target = env.callback(env, source)
-            c3_config = str(root / env["custom_nimble_config"])
-            self.assertEqual(env.flags["CCFLAGS"][-2:], ["-include", c3_config])
-            self.assertIn((target, c3_config), env["dependencies"])
+            override_config = str(root / env["custom_nimble_config"])
+            self.assertEqual(env.flags["CCFLAGS"][-2:], ["-include", override_config])
+            self.assertIn((target, override_config), env["dependencies"])
 
 
 if __name__ == "__main__":

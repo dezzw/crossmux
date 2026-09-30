@@ -270,11 +270,9 @@ missing `H2O_RUNNER_TOKEN`, API errors, and an unavailable H2O fall back to
 `ubuntu-latest`. The token must be repository-scoped with read-only
 Administration permission. Selection is best effort: a runner that disconnects
 after selection can still leave the selected job queued. Formatting, static
-analysis, unit tests, and GitHub publishing remain GitHub-hosted. Nightly COS
-publishing is the exception: it requires the H2O labels with no fallback, has
-read-only repository contents, and receives COS credentials but no GitHub write
-credential. If H2O is unavailable, that regional job waits while the independent
-GitHub publish job can continue.
+analysis, unit tests, and GitHub firmware publishing remain GitHub-hosted.
+Firmware build jobs may still use the H2O self-hosted runner when it is online;
+publish and verify jobs run on GitHub-hosted runners.
 
 ---
 

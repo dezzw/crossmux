@@ -46,14 +46,11 @@ def validate_url(url, index_url, channel):
     index_host = urlparse(index_url).hostname
     if parsed.scheme != 'https':
         raise ValueError(f'published URL is not HTTPS: {url}')
-    if index_host == 'github.com':
-        valid = parsed.hostname == 'github.com' and parsed.path.startswith(
-            f'/0x1abin/crossmux/releases/download/{channel}-build-'
-        )
-    elif index_host == 'assets.crossmux.cn':
-        valid = parsed.hostname == 'assets.crossmux.cn' and parsed.path.startswith('/firmware/builds/')
-    else:
-        valid = False
+    valid = (
+        index_host == 'github.com'
+        and parsed.hostname == 'github.com'
+        and parsed.path.startswith(f'/0x1abin/crossmux/releases/download/{channel}-build-')
+    )
     if not valid:
         raise ValueError(f'published URL is outside the expected release path: {url}')
 

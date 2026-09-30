@@ -40,7 +40,7 @@ Installed firmware can update over Wi-Fi when a matching package is published on
 
 ## Chinese fonts and content profiles
 
-One language-unified firmware per build. Simplified Chinese selects the China content profile (`crossmux.cn`); other UI languages select Global (`crossmux.com`). Changing the UI language updates the profile and regional apps, including WeRead and Chinese Chess.
+One language-unified firmware per build. Simplified Chinese selects the China content profile for regional metadata and apps such as WeRead; OTA, font downloads, and other network services always use `crossmux.com` with the global OTA variant. Other UI languages use the Global content profile.
 
 The UI includes compact 8/10/12pt Simplified-Chinese fallback fonts. Built-in reader font choices share a 12pt offline fallback; complete families, other sizes, style variants, and broader Unicode coverage use SD-card `.cpfont` files. Embedded fonts are a subset, so rare or Traditional Chinese characters may require an appropriate SD font.
 

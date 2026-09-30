@@ -32,17 +32,7 @@ class HalGPIO {
   bool inputModalityChanged = false;
 
  public:
-  enum class DeviceType : uint8_t { X4, X3 };
-
- private:
-  DeviceType _deviceType = DeviceType::X4;
-
- public:
   HalGPIO() = default;
-
-  inline bool deviceIsX3() const { return _deviceType == DeviceType::X3; }
-  inline bool deviceIsX4() const { return _deviceType == DeviceType::X4; }
-  bool isXteinkDevice() const;
 
   // True when the board's page buttons sit on the left/right screen edges rather
   // than an off-screen vertical rocker.

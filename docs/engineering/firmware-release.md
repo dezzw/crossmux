@@ -26,26 +26,21 @@ Each target job builds once and packages one binary set plus two compatibility
 manifests. Packaging checks the ESP image chip ID, required board tag, partition
 layout, app-slot size, and SHA-256 before emitting the manifests.
 
-The global and China publish jobs run independently. Each writes in this order:
+Publishing writes in this order:
 
 1. immutable binaries and checksum files;
 2. immutable target manifests;
-3. rolling regional indexes.
+3. the rolling GitHub index.
 
-Every target selected for a channel must build successfully before either region
-publishes. Nightly also requires its previous rolling index because that index
-protects the immediately preceding build during cleanup. Once both regions
-publish, CI resolves every manifest and verifies each distinct asset's size and
-SHA-256. Cleanup then runs for Nightly only.
+Every target selected for a channel must build successfully before publish runs.
+Nightly also requires its previous rolling index because that index protects the
+immediately preceding build during cleanup. After publish, CI resolves every
+manifest and verifies each distinct asset's size and SHA-256. Cleanup then runs
+for Nightly only.
 
-The global index is the `release-index.json` asset of the rolling `stable` or
-`nightly` GitHub Release. Binaries and compatibility manifests live in an
-immutable `<channel>-build-<sha>-<run>-<attempt>` GitHub Release. China indexes
-are `/firmware/releases/<channel>/index.json`; target assets live under
-`/firmware/builds/<channel>-build-<sha>-<run>-<attempt>/<target>/` in COS.
-
-COS publishing runs only on the H2O self-hosted runner. It uses a version-pinned,
-SHA-256-verified COSCLI binary from the runner's temporary directory.
+The rolling index is the `release-index.json` asset of the `stable` or `nightly`
+GitHub Release. Binaries and compatibility manifests live in an immutable
+`<channel>-build-<sha>-<run>-<attempt>` GitHub Release.
 
 ## Index contract and failure behavior
 

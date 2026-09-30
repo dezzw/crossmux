@@ -136,10 +136,6 @@ EpdFontFamily cjk10FontFamily(&cjk10Font);
 EpdFont cjk12Font(&notosans_cjk_12);
 EpdFontFamily cjk12FontFamily(&cjk12Font);
 
-// Chinese chess piece glyphs (subset CJK font, 14 characters at 16pt).
-EpdFont chineseChessPieceFont(&chinese_chess_16);
-EpdFontFamily chineseChessPieceFontFamily(&chineseChessPieceFont);
-
 // measurement of power button press duration calibration value
 unsigned long t1 = 0;
 unsigned long t2 = 0;
@@ -342,7 +338,6 @@ bool setupDisplayAndFonts(bool seamless = false, bool logSdFontLoadHeap = false)
   renderer.setFallbackFont(UI_10_FONT_ID, CJK_UI_10_FONT_ID);
   renderer.setFallbackFont(UI_12_FONT_ID, CJK_UI_12_FONT_ID);
   renderer.insertFont(BaseTheme::STATUS_NUMERIC_FONT_ID, smallFontFamily);
-  renderer.insertFont(CHINESE_CHESS_FONT_ID, chineseChessPieceFontFamily);
 
   // Discover and load SD card fonts
   if (logSdFontLoadHeap) {
@@ -511,7 +506,6 @@ void setup() {
       settingsLoaded ? LanguageSelectActivity::Mode::Upgrade : LanguageSelectActivity::Mode::Initial;
   const bool requiresOnboarding = CrossPointSettings::requiresOnboarding(SETTINGS.onboardingVersion);
 #ifndef SIMULATOR
-  halClock.setUseChinaServers(SETTINGS.contentProfile == CrossPointSettings::ContentProfile::China);
 #endif
   halClock.setAutoSyncEnabled(SETTINGS.clockAutoSync != 0);
   APP_STATE.loadFromFile();

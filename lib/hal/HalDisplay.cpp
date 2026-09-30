@@ -11,17 +11,9 @@ HalDisplay::HalDisplay() : einkDisplay(EPD_SCLK, EPD_MOSI, EPD_CS, EPD_DC, EPD_R
 HalDisplay::~HalDisplay() {}
 
 void HalDisplay::begin(bool seamless) {
-  // Set X3-specific panel mode before initializing.
-  if (gpio.deviceIsX3()) {
-    einkDisplay.setDisplayX3();
-  }
-
   einkDisplay.begin();
 
   if (seamless) {
-    // Defuse the SDK's X3 _x3InitialFullSyncsRemaining counter (no-op on X4)
-    // so the first paint isn't promoted to FULL (~770ms). Skips the wakeup-
-    // gated requestResync() below for the same reason.
     einkDisplay.skipInitialResync();
     return;
   }
@@ -74,18 +66,10 @@ EInkDisplay::RefreshContext convertRefreshContext(DisplayRefreshContext context)
 }  // namespace
 
 void HalDisplay::displayBuffer(HalDisplay::RefreshMode mode, bool turnOffScreen, DisplayRefreshContext context) {
-  if (gpio.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
-    einkDisplay.requestResync(1);
-  }
-
   einkDisplay.displayBuffer(convertRefreshMode(mode), turnOffScreen, convertRefreshContext(context));
 }
 
 void HalDisplay::displayBufferAsync(HalDisplay::RefreshMode mode, DisplayRefreshContext context) {
-  if (gpio.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
-    einkDisplay.requestResync(1);
-  }
-
   einkDisplay.displayBufferAsyncNoShadow(convertRefreshMode(mode), convertRefreshContext(context));
 }
 
@@ -94,10 +78,6 @@ void HalDisplay::waitRefreshComplete() { einkDisplay.waitRefreshComplete(); }
 bool HalDisplay::supportsAsyncRefresh() const { return einkDisplay.supportsAsyncRefresh(); }
 
 void HalDisplay::refreshDisplay(HalDisplay::RefreshMode mode, bool turnOffScreen) {
-  if (gpio.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
-    einkDisplay.requestResync(1);
-  }
-
   einkDisplay.refreshDisplay(convertRefreshMode(mode), turnOffScreen);
 }
 
@@ -119,20 +99,7 @@ void HalDisplay::copyGrayscaleBuffers(const uint8_t* lsbBuffer, const uint8_t* m
   einkDisplay.copyGrayscaleBuffers(lsbBuffer, msbBuffer);
 }
 
-void HalDisplay::displayGrayscaleBase(RefreshMode fallback, bool turnOffScreen, DisplayRefreshContext context) {
-  // X3: a HALF fallback means the caller wants a clean base (e.g. the sleep
-  // cover, a full-screen swap from arbitrary prior content). Without this, the
-  // X3 grayscale base takes its gentle differential happy path and the prior
-  // home/reader frame ghosts through the soft aa_pre_bw_mid waveform. Forcing a
-  // resync makes displayGrayscaleBase clear first, matching displayBuffer(HALF).
-  // The reader's FAST path is deliberately left on the differential path so
-  // per-page grayscale stays cheap.
-  if (gpio.deviceIsX3() && fallback == RefreshMode::HALF_REFRESH) {
-    einkDisplay.requestResync(1);
-  }
-
-  einkDisplay.displayGrayscaleBase(convertRefreshMode(fallback), turnOffScreen, convertRefreshContext(context));
-}
+void HalDisplay::displayGrayscaleBase(RefreshMode fallback, bool turnOffScreen, DisplayRefreshContext context) {}
 
 void HalDisplay::preconditionGrayscale() { einkDisplay.preconditionGrayscale(); }
 

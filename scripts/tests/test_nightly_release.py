@@ -29,7 +29,7 @@ class NightlyTargetTest(unittest.TestCase):
             verify_nightly_release.urllib.request, 'urlopen', return_value=response
         ) as urlopen, mock.patch.object(verify_nightly_release.time, 'sleep'):
             self.assertEqual(
-                verify_nightly_release.fetch_bytes('https://assets.crossmux.cn/asset.bin'),
+                verify_nightly_release.fetch_bytes('https://github.com/example/asset.bin'),
                 b'complete',
             )
         self.assertEqual(urlopen.call_count, 2)
@@ -105,38 +105,31 @@ class NightlyTargetTest(unittest.TestCase):
             hardware_workflow,
         )
 
-    def test_workflow_fails_closed_and_verifies_both_regions(self):
+    def test_workflow_fails_closed_and_verifies_github_index(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
         self.assertIn("group: firmware-${{ github.event_name == 'push'", workflow)
         self.assertIn("if: needs.prepare.outputs.channel == 'stable'", workflow)
-        self.assertEqual(workflow.count("if: needs.prepare.outputs.channel == 'nightly'"), 6)
+        self.assertEqual(workflow.count("if: needs.prepare.outputs.channel == 'nightly'"), 3)
         self.assertNotIn("if: always() && needs.prepare.result == 'success'", workflow)
         self.assertNotIn('--dir previous/global || true', workflow)
         self.assertNotIn('-o previous/cn.json || true', workflow)
         self.assertNotIn('--previous previous/', workflow)
         self.assertNotIn('name: nightly-previous-', workflow)
+        self.assertNotIn('  publish_cn:', workflow)
+        self.assertNotIn('  cleanup_cn:', workflow)
+        self.assertNotIn('assets.crossmux.cn', workflow)
         rolling = workflow.split('- name: Publish rolling global index last', 1)[1].split(
-            '  publish_cn:', 1
+            '  verify_publish:', 1
         )[0]
         self.assertIn('legacy_assets=', rolling)
         self.assertNotIn('xteink-firmware.bin', rolling)
         verify = workflow.split('  verify_publish:', 1)[1]
-        self.assertIn('needs: [prepare, publish_github, publish_cn]', verify)
-        self.assertEqual(verify.count('python3 scripts/verify_nightly_release.py'), 2)
-        self.assertIn(
-            '  cleanup_github:\n    if:', workflow
-        )
-        self.assertIn('  cleanup_cn:\n    if:', workflow)
-        self.assertEqual(workflow.count('python3 scripts/nightly_retention.py'), 2)
+        self.assertIn('needs: [prepare, publish_github]', verify)
+        self.assertEqual(verify.count('python3 scripts/verify_nightly_release.py'), 1)
+        self.assertIn('  cleanup_github:\n    if:', workflow)
+        self.assertEqual(workflow.count('python3 scripts/nightly_retention.py'), 1)
         self.assertIn('gh release delete "$build_tag"', workflow)
-        self.assertIn('cos://${COS_BUCKET}/firmware/builds/${build_id}/', workflow)
         self.assertIn('--cleanup-tag --yes', workflow)
-        self.assertIn('--recursive --force', workflow)
-        cleanup = workflow.split('- name: Delete obsolete COS Nightly builds', 1)[1]
-        versioning = cleanup.split('versioning=', 1)[1].split('list_args=', 1)[0]
-        self.assertIn('"${cos_args[@]}"', versioning)
-        self.assertIn('cos:GetBucketVersioning', versioning)
-        self.assertIn('2>&1', versioning)
 
     def test_package_contains_one_binary_set_and_two_compatible_manifests(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -191,54 +184,11 @@ class NightlyTargetTest(unittest.TestCase):
             self.assertEqual(manifests[0]['version'], '1.6.0-waveshare-epaper-397-rc+aaaaaaa')
             self.assertEqual(manifests[0]['supportedChannels'], ['nightly'])
 
-    def test_publish_jobs_keep_credentials_scoped(self):
+    def test_publish_github_job_runs_on_github_hosted_runner(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
-        github_job, china_job = workflow.split('  publish_cn:\n')
-        github_job = github_job.split('  publish_github:\n')[1]
-        china_job = china_job.split('  verify_publish:\n')[0]
+        github_job = workflow.split('  publish_github:\n')[1].split('  verify_publish:\n')[0]
         self.assertIn('runs-on: ubuntu-latest', github_job)
         self.assertNotIn('COS_SECRET_', github_job)
-        self.assertIn('runs-on: [self-hosted, Linux, X64, h2o]', china_job)
-        self.assertIn('persist-credentials: false', china_job)
-        self.assertNotIn("select_runner.outputs['runs-on']", china_job)
-        self.assertNotIn('GH_TOKEN:', china_job)
-
-    def test_coscli_is_verified_before_publishing(self):
-        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
-        china_job = workflow.split('  publish_cn:\n')[1]
-        self.assertIn('coscli-v1.0.8-linux-amd64', workflow)
-        self.assertIn(
-            '7165f2ae16c5f7ac495864c963ca574a76e04ec72680d7bc8a8eee3234d8cf91', workflow
-        )
-        self.assertLess(
-            china_job.index('Install COS CLI'), china_job.index('Publish immutable COS objects')
-        )
-        self.assertLess(
-            china_job.index('Publish immutable COS objects'),
-            china_job.index('Publish rolling China index last'),
-        )
-        self.assertNotIn('coscli config add', workflow)
-        self.assertNotIn('/usr/local/bin/coscli', china_job)
-        self.assertIn('"$RUNNER_TEMP/coscli" cp', china_job)
-        self.assertIn('cos://${COS_BUCKET}/firmware/builds/', workflow)
-        self.assertIn('cos_args+=(--token "$COS_SESSION_TOKEN")', workflow)
-        self.assertIn('--fail-output-path "$RUNNER_TEMP/coscli-errors"', workflow)
-
-    def test_cleanup_reuses_the_published_attempt_and_lists_current_cos_objects_only(self):
-        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
-        self.assertIn('BUILD_TAG: ${{ needs.prepare.outputs.build_tag }}', workflow)
-        self.assertIn('BUILD_ID: ${{ needs.prepare.outputs.build_id }}', workflow)
-        cleanup = workflow.split('  cleanup_cn:', 1)[1]
-        self.assertNotIn('list_args+=(--recursive --all-versions)', cleanup)
-        self.assertIn('rm_args+=(--all-versions)', cleanup)
-        self.assertIn('-name error.report -exec cat {} +', workflow)
-        self.assertNotIn('--disable-log', cleanup)
-        listing = cleanup.split('if ! "$RUNNER_TEMP/coscli" ls', 1)[1].split(
-            'python3 scripts/nightly_retention.py', 1
-        )[0]
-        self.assertIn('"${cos_args[@]}"', listing)
-        self.assertIn('cos:GetBucket', listing)
-        self.assertIn('2>&1', listing)
 
     def write_image(self, chip_id=0x0009, board='waveshare_epaper_397'):
         image = bytearray(24)
@@ -313,7 +263,6 @@ class NightlyIndexTest(unittest.TestCase):
         self.write_all_pairs()
         index = build_nightly_index.build_index(
             self.root,
-            'global',
             'https://example.com/nightly/',
             '2026-08-26T00:00:00Z',
             'nightly-test',
@@ -325,34 +274,12 @@ class NightlyIndexTest(unittest.TestCase):
             'https://example.com/nightly/waveshare-epaper-397-cn-manifest.json',
         )
 
-    def test_china_variants_share_one_target_directory_and_binary(self):
-        self.write_all_pairs()
-        index = build_nightly_index.build_index(
-            self.root, 'cn', 'https://assets.example/firmware/builds/test/', 'now', 'test', 'nightly'
-        )
-        variants = index['targets']['waveshare_epaper_397']['variants']
-        self.assertEqual(
-            variants['global']['manifestUrl'],
-            'https://assets.example/firmware/builds/test/waveshare_epaper_397/waveshare-epaper-397-global-manifest.json',
-        )
-        self.assertEqual(
-            variants['zh-CN']['manifestUrl'],
-            'https://assets.example/firmware/builds/test/waveshare_epaper_397/waveshare-epaper-397-cn-manifest.json',
-        )
-        manifests = [
-            json.loads(
-                (self.root / nightly_targets.manifest_name('waveshare_epaper_397', flavor)).read_text()
-            )
-            for flavor in nightly_targets.FLAVOR_TOKENS
-        ]
-        self.assertEqual(manifests[0]['assets'], manifests[1]['assets'])
-
     def test_rejects_incomplete_target_set(self):
         self.write_all_pairs()
         (self.root / nightly_targets.manifest_name('waveshare_epaper_397', 'zh-CN')).unlink()
         with self.assertRaisesRegex(ValueError, 'expected one waveshare_epaper_397/zh-CN manifest'):
             build_nightly_index.build_index(
-                self.root, 'cn', 'https://assets.example/firmware/builds/test/', 'now', 'test', 'nightly'
+                self.root, 'https://example.com/', 'now', 'test', 'nightly'
             )
 
     def test_rejects_mismatched_sdk_pair(self):
@@ -363,7 +290,7 @@ class NightlyIndexTest(unittest.TestCase):
         chinese.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, 'SDK revisions do not match'):
             build_nightly_index.build_index(
-                self.root, 'global', 'https://example.com/', 'now', 'test', 'nightly'
+                self.root, 'https://example.com/', 'now', 'test', 'nightly'
             )
 
     def test_rejects_mismatched_asset_pair(self):
@@ -374,7 +301,7 @@ class NightlyIndexTest(unittest.TestCase):
         chinese.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, 'assets do not match'):
             build_nightly_index.build_index(
-                self.root, 'global', 'https://example.com/', 'now', 'test', 'nightly'
+                self.root, 'https://example.com/', 'now', 'test', 'nightly'
             )
 
     def test_rejects_mixed_target_revisions(self):
@@ -385,19 +312,16 @@ class NightlyIndexTest(unittest.TestCase):
         chinese.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, 'flavor revisions do not match'):
             build_nightly_index.build_index(
-                self.root, 'global', 'https://example.com/', 'now', 'test', 'nightly'
+                self.root, 'https://example.com/', 'now', 'test', 'nightly'
             )
 
 
 class NightlyRetentionTest(unittest.TestCase):
-    def previous_index(self, storage, first_build, second_build):
+    def previous_index(self, first_build, second_build):
         targets = {}
         for index, target_id in enumerate(nightly_targets.TARGETS):
             build = second_build if index == 0 else first_build
-            if storage == 'github':
-                base = f'https://github.com/0x1abin/crossmux/releases/download/{build}/'
-            else:
-                base = f'https://assets.crossmux.cn/firmware/builds/{build}/{target_id}/'
+            base = f'https://github.com/0x1abin/crossmux/releases/download/{build}/'
             targets[target_id] = {
                 'targetId': target_id,
                 'variants': {
@@ -417,28 +341,8 @@ class NightlyRetentionTest(unittest.TestCase):
         candidates = '\n'.join((current, previous, previous_fallback, obsolete, 'v1.5.7'))
         self.assertEqual(
             nightly_retention.obsolete_builds(
-                'github',
                 current,
-                self.previous_index('github', previous, previous_fallback),
-                candidates,
-            ),
-            sorted([previous, obsolete]),
-        )
-
-    def test_cos_extracts_build_directories_from_listing(self):
-        current = f'nightly-build-{"a" * 40}-10-1'
-        previous = f'{"b" * 40}-9-1'
-        previous_fallback = f'nightly-build-{"c" * 40}-8-1'
-        obsolete = f'nightly-build-{"d" * 40}-7-1'
-        candidates = '\n'.join(
-            f'firmware/builds/{build}/ | DIR'
-            for build in (current, previous, previous_fallback, obsolete)
-        )
-        self.assertEqual(
-            nightly_retention.obsolete_builds(
-                'cos',
-                current,
-                self.previous_index('cos', previous, previous_fallback),
+                self.previous_index(previous, previous_fallback),
                 candidates,
             ),
             sorted([previous, obsolete]),
@@ -447,15 +351,15 @@ class NightlyRetentionTest(unittest.TestCase):
     def test_rejects_unexpected_previous_url_and_incomplete_listing(self):
         current = f'nightly-build-{"a" * 40}-10-1'
         previous = f'nightly-build-{"b" * 40}-9-1'
-        index = self.previous_index('github', previous, previous)
+        index = self.previous_index(previous, previous)
         index['targets']['waveshare_epaper_397']['variants']['global']['manifestUrl'] = (
             'https://example.com/firmware.bin'
         )
         with self.assertRaisesRegex(ValueError, 'unexpected previous waveshare_epaper_397/global'):
-            nightly_retention.obsolete_builds('github', current, index, current)
+            nightly_retention.obsolete_builds(current, index, current)
         with self.assertRaisesRegex(ValueError, 'missing from the candidate list'):
             nightly_retention.obsolete_builds(
-                'github', current, self.previous_index('github', previous, previous), previous
+                current, self.previous_index(previous, previous), previous
             )
 
 
