@@ -29,40 +29,22 @@
 * **Standard**: C++20 (`-std=c++2a`). No Exceptions, No RTTI.
 * **Logging**: ALWAYS use `LOG_INF`, `LOG_DBG`, or `LOG_ERR` from `Logging.h`. Raw Serial output is deprecated.
 * **Environments** (in `platformio.ini`):
-  * `default`: Development (LOG_LEVEL=2, serial enabled)
-  * `gh_release`: Production (LOG_LEVEL=0)
-  * `gh_release_rc`: Release candidate (LOG_LEVEL=1)
-  * `slim`: Minimal build (no serial logging)
-  * `sticky`: Seeed Sticky ESP32-S3 development build
-  * `x4pro`: Xteink X4 Pro ESP32-S3 development build
-  * `x4c`: Xteink X4 Classic ESP32-S3 build-only development build
-  * `papermono`: M5Stack PaperMono ESP32-S3 development build
-  * `eego_a4`: eego A4 ESP32-S3 experimental development build
-  * `murphy_m4`: Murphy M4 ESP32-S3 experimental development build
-  * `waveshare_epaper_397`: Waveshare ePaper 3.97 ESP32-S3 experimental development build
-  * `simulator`: Native X4 desktop simulator supplied by the pinned simulator fork
-  * `simulator_x3`: Native X3 desktop simulator
-  * `simulator_eego_a4`: Native 768x552 eego A4 product simulator
-  * `simulator_murphy_m4`: Native 800x480 Murphy M4 product simulator
+  * `waveshare_epaper_397` (**default**): Waveshare ESP32-S3 ePaper 3.97 development build (LOG_LEVEL=2, serial enabled)
+  * `waveshare_epaper_397_nightly`: Nightly packaging build (LOG_LEVEL=1, RC version string from `CROSSPOINT_RC_HASH`)
+  * `simulator`: Native X4-class desktop simulator (pinned simulator fork)
 
-The seven S3 environments are separate hardware binaries, but each is a unified
-language firmware. `bin/ci-check` builds the default C3 target and six S3 release
-targets; X4 Classic is build-only and covered separately by Hardware CI.
+Shared ini sections used by the Waveshare profile include `base`, `ble_host`,
+`s3_ble`, `s3_ble_psram`, `s3_nightly`, and `sound_feedback_hardware`.
 
-Routine pull-request CI builds only `default` and `x4pro`. `default` remains the
-shared X3/X4 firmware with runtime device detection. The path-filtered Hardware
-CI workflow builds all four simulators and all seven S3 environments when
-hardware-sensitive files change, and can also be started manually.
+`bin/ci-check` builds `waveshare_epaper_397` after cppcheck. Pull-request CI runs
+`pio check`, builds `waveshare_epaper_397_nightly`, and runs host unit tests.
+Path-filtered Hardware CI builds `simulator` and
+`waveshare_epaper_397_nightly` when hardware-sensitive files change.
 
-Bluetooth Page Turner Beta is compiled into every hardware environment,
-including development, Nightly, release-candidate, stable, and slim builds.
-The runtime Bluetooth switch defaults to off; native simulators use SDK stubs.
-C3 environments inherit the internal-RAM and Flash-controller configuration
-from `c3_hardware`. S3 hardware profiles inherit the PSRAM and IPC configuration.
-Sticky and eego A4 use the custom-core controller-only NimBLE configuration;
-the other five S3 targets retain their prebuilt `dio_opi` core so the TinyUSB
-MSC component graph remains intact. See [C3 Bluetooth](c3-bluetooth.md) for
-memory gates, validation results, and remaining hardware acceptance work.
+Bluetooth Page Turner Beta is compiled into the Waveshare hardware profile.
+The runtime Bluetooth switch defaults to off; the simulator uses SDK stubs.
+Waveshare inherits PSRAM NimBLE host settings through `s3_ble_psram` and keeps
+the prebuilt `dio_opi` core so the TinyUSB MSC component graph remains intact.
 
 The SDK's obsolete passkey callback is removed only from a generated source copy
 under `$BUILD_DIR/ble-compat`; the SDK and NimBLE dependency sources are never
@@ -96,9 +78,6 @@ export PLATFORMIO_CORE_DIR="$PWD/.platformio/ble-psram"
 export PLATFORMIO_BUILD_DIR="$PWD/.pio/ble-psram-build"
 export PLATFORMIO_BUILD_CACHE_DIR="$PWD/.cache/ble-psram"
 export IDF_COMPONENT_CACHE_PATH="$PWD/.cache/ble-psram-idf-components"
-pio run -e sticky_nightly
-pio run -e waveshare_epaper_397_nightly
-pio run -e eego_a4_nightly
 pio run -e waveshare_epaper_397_nightly
 ```
 
@@ -114,23 +93,14 @@ files under `fs_/books/`, and run:
 
 ```bash
 pio run -e simulator -t run_simulator
-pio run -e simulator_x3 -t run_simulator
-pio run -e simulator_eego_a4 -t run_simulator
-pio run -e simulator_murphy_m4 -t run_simulator
 ```
 
 The simulator implementation and launcher come from the pinned
 [`0x1abin/crosspoint-simulator`](https://github.com/0x1abin/crosspoint-simulator)
 fork; the exact revision is recorded in `platformio.ini`.
-The firmware repository does not carry a second host implementation. Arrow
-keys are Up/Down, `P` is Power,
-mouse input provides touch, and `S` sleeps. A4 additionally maps `H` to a short
-Back or one-shot Home after 700 ms; M4 ignores `H`. Once A4/M4 is asleep, only
-Power wakes it.
-
-This product-level simulator covers UI, input, RTC state, M4 frontlight state,
-and sleep/wake flows. It does not emulate EPD waveforms or ghosting, bus timing,
-SDMMC contention, PSRAM, or power consumption.
+Arrow keys are Up/Down, `P` is Power, mouse input provides touch, and `S` sleeps.
+The simulator covers UI, input, RTC state, and sleep/wake flows. It does not
+emulate EPD waveforms, SDMMC contention, PSRAM, or power consumption.
 
 ## Critical Build Flags
 These flags in `platformio.ini` fundamentally affect firmware behavior:
@@ -141,7 +111,6 @@ These flags in `platformio.ini` fundamentally affect firmware behavior:
 -DARDUINO_USB_CDC_ON_BOOT=1          // Serial available immediately at boot
 -DXML_CONTEXT_BYTES=1024             // XML parser memory limit (EPUB parsing)
 -DUSE_UTF8_LONG_NAMES=1              // SD card long filename support
--DMINIZ_NO_ZLIB_COMPATIBLE_NAMES=1   // Avoid zlib name conflicts
 -DXML_GE=0                           // Disable XML general entities (security)
 -DDESTRUCTOR_CLOSES_FILE=1           // FsFile destructor auto-closes (SdFat)
 ```
@@ -149,28 +118,15 @@ These flags in `platformio.ini` fundamentally affect firmware behavior:
 **DESTRUCTOR_CLOSES_FILE implications**:
 - SdFat's `FsBaseFile` destructor calls `close()` automatically when the object goes out of scope
 - **Do NOT add explicit `file.close()` calls** for local `FsFile` variables — the destructor handles it
-- Explicit `close()` is still required in these cases:
-  1. **Close before delete**: Must close before `Storage.remove()` on the same path
-  2. **Close before reopen**: Must close before reopening the same `FsFile` variable (e.g., write then reopen for read, or rewrite the same path)
-  3. **Member variables**: `FsFile` members persist beyond any single function scope, so close at the intended release point (e.g., in `onExit()`)
+- Explicit `close()` is still required when closing before delete/reopen or in `onExit()` for member `FsFile` variables
 
 **SINGLE_BUFFER_MODE implications**:
 - Only ONE framebuffer exists (not double-buffered)
 - Grayscale rendering requires temporary buffer allocation (`renderer.storeBwBuffer()`)
 - Must call `renderer.restoreBwBuffer()` to free temporary buffers
-- See [lib/GfxRenderer/GfxRenderer.cpp:439-440](../../lib/GfxRenderer/GfxRenderer.cpp) for malloc usage
 
-**X4 SSD1677 display implications**:
-- The application does not override display-driver configuration. The SDK's
-  active X4 board profile selects the SSD1677 and its in-spec 20 MHz SPI clock.
-- Refresh waveforms come from the SDK's active board config. X4 FAST refreshes
-  use the stock absolute sequence (`0xFC`), which includes the temperature and
-  power sequencing needed to avoid the persistent ghosting seen with the
-  weaker incremental `0x1C` path.
-- X3 is runtime-selected before display initialization and uses its UC81xx
-  driver and SPI configuration unchanged. X4 Pro probes its SSD1677/UC81xx
-  controller once before display initialization. Sticky retains its
-  board-specific SSD1677 waveform config.
+See [device-variants.md](device-variants.md) for Waveshare-specific capabilities
+(USB MSC, sound feedback, board tag).
 
 ---
 
@@ -180,33 +136,20 @@ These flags in `platformio.ini` fundamentally affect firmware behavior:
 
 **Purpose**: Personal development settings that should NEVER be committed.
 
-**Use Cases**:
-- Serial port configuration (varies by machine)
-- Debug flags for specific testing
-- Local build optimizations
-- Developer-specific paths
-
 **Example** `platformio.local.ini`:
 ```ini
 # platformio.local.ini (gitignored)
-[env:default]
-upload_port = COM7              # Windows: COMx, Linux: /dev/ttyUSBx
+[env:waveshare_epaper_397]
+upload_port = COM7
 monitor_port = COM7
 
 build_flags =
-  ${base.build_flags}
-  -DMY_DEBUG_FLAG=1             # Personal debug flags
-  -DTEST_FEATURE_ENABLED=1
+  ${waveshare_epaper_397_hardware.build_flags}
+  -DMY_DEBUG_FLAG=1
 ```
-
-**Configuration Hierarchy**:
-1. `platformio.ini` - **Committed**, shared project settings
-2. `platformio.local.ini` - **Gitignored**, personal overrides
-3. Local file extends/overrides base config
 
 **Rules**:
 - **NEVER commit** `platformio.local.ini`
 - **NEVER put** personal info (serial ports, credentials) in main `platformio.ini`
-- Use `${base.build_flags}` to extend (not replace) base flags
 
-See also: [getting-started](../contributing/getting-started.md) for first-time toolchain setup, [testing-and-debugging.md](testing-and-debugging.md) for build/monitor commands.
+See also: [getting-started](../contributing/getting-started.md), [testing-and-debugging.md](testing-and-debugging.md).

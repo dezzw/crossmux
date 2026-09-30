@@ -70,36 +70,21 @@ cd crossmux
 # 如果尚未初始化子模块：
 git submodule update --init --recursive
 
-# X3/X4 开发构建
-pio run -e default
+# Waveshare ESP32-S3 ePaper 3.97（默认环境）
+pio run
 
-# X3/X4 统一语言稳定版构建
-pio run -e gh_release
-
-# 构建并烧录到已连接的 X3/X4
-pio run -e gh_release -t upload
+# 构建并烧录到已连接的设备
+pio run -t upload
 ```
 
-应用固件位于 `.pio/build/gh_release/firmware.bin`。其它板型使用[构建文档](./docs/engineering/build-system.md)中的对应环境。
-
-Metalio E-Ink 4 构建命令：
-
-```bash
-pio run -e metalio_eink4
-CROSSPOINT_RC_HASH=$(git rev-parse --short=7 HEAD) pio run -e metalio_eink4_nightly
-```
-
-开发版应用固件位于 `.pio/build/metalio_eink4/firmware.bin`；首次安装还需要匹配的引导程序和分区布局，详见 [Metalio 设备指南](./docs/engineering/metalio-eink4.md)。
+应用固件位于 `.pio/build/waveshare_epaper_397/firmware.bin`。详见[构建文档](./docs/engineering/build-system.md)与 [Waveshare 设备指南](./docs/engineering/waveshare-epaper-397.md)。
 
 ### 桌面模拟器
 
 安装 SDL2 与 curl（Linux 还需 OpenSSL 开发头文件），将 EPUB 放入 `fs_/books/`，然后运行：
 
 ```bash
-pio run -e simulator -t run_simulator           # X4
-pio run -e simulator_x3 -t run_simulator        # X3
-pio run -e simulator_eego_a4 -t run_simulator   # eego A4
-pio run -e simulator_murphy_m4 -t run_simulator # Murphy M4
+pio run -e simulator -t run_simulator
 ```
 
 [CrossMux 模拟器 fork](https://github.com/0x1abin/crosspoint-simulator) 的版本固定在 `platformio.ini` 中。它用于预览 UI 和输入流程，不能验证显示波形、耗电或实际硬件时序。

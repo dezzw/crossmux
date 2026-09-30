@@ -70,36 +70,21 @@ cd crossmux
 # If submodules were not initialized:
 git submodule update --init --recursive
 
-# X3/X4 development build
-pio run -e default
+# Waveshare ESP32-S3 ePaper 3.97 (default env)
+pio run
 
-# X3/X4 unified-language stable build
-pio run -e gh_release
-
-# Build and flash that image to a connected X3/X4
-pio run -e gh_release -t upload
+# Build and flash to a connected board
+pio run -t upload
 ```
 
-The application binary is `.pio/build/gh_release/firmware.bin`. For other boards, use the matching environment in [build-system.md](./docs/engineering/build-system.md).
-
-For Metalio E-Ink 4:
-
-```bash
-pio run -e metalio_eink4
-CROSSPOINT_RC_HASH=$(git rev-parse --short=7 HEAD) pio run -e metalio_eink4_nightly
-```
-
-The development application is `.pio/build/metalio_eink4/firmware.bin`; first installation also requires the matching bootloader and partition layout described in the [Metalio guide](./docs/engineering/metalio-eink4.md).
+The application binary is `.pio/build/waveshare_epaper_397/firmware.bin`. See [build-system.md](./docs/engineering/build-system.md) and [waveshare-epaper-397.md](./docs/engineering/waveshare-epaper-397.md).
 
 ### Desktop simulator
 
 Install SDL2 and curl (plus OpenSSL development headers on Linux), place EPUBs in `fs_/books/`, then run:
 
 ```bash
-pio run -e simulator -t run_simulator           # X4
-pio run -e simulator_x3 -t run_simulator        # X3
-pio run -e simulator_eego_a4 -t run_simulator   # eego A4
-pio run -e simulator_murphy_m4 -t run_simulator # Murphy M4
+pio run -e simulator -t run_simulator
 ```
 
 The [CrossMux simulator fork](https://github.com/0x1abin/crosspoint-simulator) is pinned in `platformio.ini`. It previews UI and input flows; it does not validate display waveforms, power consumption, or physical hardware timing.

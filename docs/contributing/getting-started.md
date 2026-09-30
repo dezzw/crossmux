@@ -80,8 +80,8 @@ pio run --target upload
 ```
 
 The repository pins the pioarduino platform in `platformio.ini`. `pio run` builds
-the X3/X4 development firmware; `pio run -e gh_release` builds its unified-language
-stable profile. Use the matching environment for other devices; see
+the Waveshare ESP32-S3 ePaper 3.97 firmware (default env). Use
+`pio run -e simulator -t run_simulator` for the desktop simulator; see
 [build environments and simulator setup](../engineering/build-system.md).
 
 Documentation-only changes need local link, command, and whitespace checks,
