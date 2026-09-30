@@ -44,7 +44,7 @@ UI-size file still leaves Chinese UI usable. C3 must load no extra UI sizes.
 
 **Flash budget** (default `partitions.csv`, dual A/B app slot = 6.25 MB):
 
-| `gh_release` measurement (2026-09-17) | Image bytes | Slot headroom | Static RAM |
+| `waveshare_epaper_397` measurement (2026-09-17) | Image bytes | Slot headroom | Static RAM |
 |---|---:|---:|---:|
 | Before font storage changes | 6,371,040 B | 182,560 B | 65,444 B |
 | Plus shared CJK intervals | 6,190,080 B | 363,520 B | 65,444 B |
@@ -211,10 +211,7 @@ PYTHON=/tmp/cn_font_venv/bin/python3 \
 PYTHON=/tmp/cn_font_venv/bin/python3 \
   bash lib/EpdFont/scripts/build-cn-builtin-fonts.sh
 
-# 5. Build the unified C3 firmware
-pio run -e waveshare_epaper_397
-
-# Build all six unified ESP32-S3 device binaries
+# 5. Build the Waveshare 3.97 unified firmware
 pio run -e waveshare_epaper_397
 ```
 

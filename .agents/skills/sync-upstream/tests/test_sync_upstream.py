@@ -323,7 +323,7 @@ class BuildValidationTest(unittest.TestCase):
             [invocation.args[0] for invocation in run.call_args_list],
             [
                 ["pio", "run"],
-                ["pio", "run", "-e", "gh_release"],
+                ["pio", "run", "-e", "waveshare_epaper_397_nightly"],
                 ["pio", "run", "-e", "extra"],
             ],
         )
