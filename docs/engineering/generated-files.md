@@ -70,35 +70,15 @@ a new check. Card filesystem corruption and removal of the whole `.crosspoint`
 directory are not distinguishable from first use. FAT writes/renames are not a
 power-loss transaction; test interruption recovery on real cards.
 
-Hardware acceptance: on X3/X4, start with a backed-up fresh SD card, select each
-language and inspect ordinary, carousel and INX homes, then open all chapters.
-Repeat after deletion, reset and OTA. Test a full/read-only card and interrupt
-power during copy, recent-save and marker-save stages. The `GUIDE` log reports
-attempt duration and before/after free heap and largest block. Use the existing
-`MEM` serial log for the minimum-ever heap; also measure the subsequent cover
-load, which is not included in the installation timing. Record measurements
-separately from simulator results and compare firmware size with every target's
-OTA slot before publishing.
-
-### Calculator display fonts
-
-`CalculatorFont.h` uses generated `calculator_18_regular.h` and
-`calculator_18_bold.h`, not the full reader faces. Rebuild them with:
-
-```bash
-PYTHON=/path/to/font-venv/bin/python bash lib/EpdFont/scripts/build-calculator-fonts.sh
-/path/to/font-venv/bin/python scripts/tests/test_builtin_font_shrink.py --regenerate
-```
-
-Use the dependencies in `lib/EpdFont/scripts/requirements.txt`. The build script
-owns the whitelist: digits, space, `+-×÷.%=e` and U+FFFD. It retains the original
-18pt, 2-bit, proportional-number, compressed Regular/Bold rendering; localized
-errors continue to use the UI font. `fontconvert.py --characters` overrides the
-default/additional intervals only when explicitly supplied. The normal font
-conversion script also regenerates these subsets. Commit the generated font
-headers together with their generator changes. The Python check compares
-decompressed glyph pixels and metrics against the full fonts; the existing
-`CalculatorFontTest` checks metrics and every supported kerning pair.
+Hardware acceptance: on Waveshare ESP32-S3 ePaper 3.97, start with a backed-up
+fresh SD card, select each language and inspect ordinary, carousel and INX homes,
+then open all chapters. Repeat after deletion, reset and OTA. Test a full/read-only
+card and interrupt power during copy, recent-save and marker-save stages. The
+`GUIDE` log reports attempt duration and before/after free heap and largest
+block. Use the existing `MEM` serial log for the minimum-ever heap; also measure
+the subsequent cover load, which is not included in the installation timing.
+Record measurements separately from simulator results and compare firmware size
+with the Waveshare OTA slot before publishing.
 
 The CJK generator's shared Unicode indices are described in
 [chinese-build.md](chinese-build.md#regenerating-the-cjk-fonts).

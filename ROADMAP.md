@@ -28,7 +28,7 @@ is not a valid argument for accepting a PR.
 ## Phase 1 - Consolidation, Footprint, and Multi-Device Support — **IN PROGRESS**
 
 **Goal:** Reduce memory and flash usage, clean up the codebase, and land the SDK / HAL generalization work so
-CrossPoint runs cleanly on ESP32-based e-reader hardware beyond Xteink (X3 / X4), including ESP32-S3 class devices.
+CrossMux runs cleanly on Waveshare ESP32-S3 ePaper 3.97 and the desktop simulator.
 
 **Focus areas:**
 
@@ -36,8 +36,8 @@ CrossPoint runs cleanly on ESP32-based e-reader hardware beyond Xteink (X3 / X4)
 * Flash footprint reduction (dead code, redundant strings, oversized tables).
 * Refactors that tighten the HAL / SDK boundary.
 * ~~Pluggable per-device SDK layers (display, input, storage, battery) and per-device build configuration without
-  forking the reader core.~~ **Done.** CrossPoint now builds for and runs on multiple device targets beyond the
-  Xteink X3 / X4, including ESP32-S3 class hardware (X4 Pro, PaperMono, Seeed Sticky).
+  forking the reader core.~~ **Done for CrossMux.** Waveshare ESP32-S3 ePaper 3.97 and the simulator share the
+  reader core behind the HAL/SDK boundary.
 * Adding support for a new device is done in the [FreeInk SDK](https://freeink.org) first (display, input,
   storage, battery drivers), followed by a commit to this repo adding board support (build environment and
   device configuration).
