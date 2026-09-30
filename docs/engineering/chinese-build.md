@@ -15,7 +15,7 @@ The startup guide and later UI-language changes apply the same rule.
 | Reader fonts | Only the 12pt CJK subset is an offline fallback. Complete families and other sizes use the existing `.cpfont` download/SD loader, one reader size resident at a time, plus optional S3 UI sizes. |
 | EPUB/TXT | Unicode CJK parsing, line breaking and missing-glyph detection are always compiled and trigger from text content. |
 | Apps | App visibility is independent of language and content profile. WeRead is visible by default in every language; Chinese Chess is hidden by default. Language changes preserve app visibility choices. |
-| Services | China uses `crossmux.cn`, OTA variant `cn`, and China NTP servers; Global uses `crossmux.com`, variant `global`, and international NTP servers. Initial onboarding alone sets the default UTC offset. |
+| Services | OTA, font/dictionary manifests, and NTP always use the global endpoints (`crossmux.com`, OTA variant `global`, international NTP). `ContentProfile` still tracks regional apps and `langSku` metadata. Initial onboarding alone sets the default UTC offset. |
 
 **S3 UI fallback residency**
 
@@ -317,7 +317,7 @@ least 512 KiB, so broad pool expansion must be measured in the built image.
 The unified firmware chooses the catalog host from the language-selected content profile:
 
 ```text
-https://crossmux.cn/api/assets/fonts/m<manifest>-b<binary>/fonts.json
+https://crossmux.com/api/assets/fonts/m<manifest>-b<binary>/fonts.json
 https://crossmux.com/api/assets/fonts/m<manifest>-b<binary>/fonts.json
 ```
 

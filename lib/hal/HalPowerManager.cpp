@@ -102,7 +102,8 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
 }
 
 bool HalPowerManager::canStandbyLightSleep(const HalGPIO& gpio) const {
-  return gpio.isXteinkDevice() && BoardConfig::ACTIVE.input.power >= 0 && standbyRetention().pin >= 0;
+  (void)gpio;
+  return false;
 }
 
 HalPowerManager::LightSleepWakeReason HalPowerManager::lightSleepFor(const uint32_t seconds) const {

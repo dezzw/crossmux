@@ -71,13 +71,13 @@ class NimblePsramMiddlewareTest(unittest.TestCase):
         self.assertEqual(
             env.object_flags, ["-Os", "-include", str(root / "src/platform/NimblePsramConfig.h")]
         )
-        env["custom_nimble_config"] = "src/platform/NimbleC3Config.h"
+        env["custom_nimble_config"] = "src/platform/NimblePsramConfig.h"
         runpy.run_path(
             str(root / "scripts/configure_nimble_psram.py"),
             init_globals={"env": env, "Import": lambda _: None},
         )
         self.assertIs(env.callback(env, node), node)
-        self.assertEqual(env.dependency, (node, str(root / "src/platform/NimbleC3Config.h")))
+        self.assertEqual(env.dependency, (node, str(root / "src/platform/NimblePsramConfig.h")))
 
 
 if __name__ == "__main__":

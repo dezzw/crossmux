@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a complete regional rolling firmware index."""
+"""Build a complete rolling firmware index."""
 
 import argparse
 import json
@@ -40,14 +40,11 @@ def valid_manifest(manifest, target_id, flavor, channel):
     )
 
 
-def manifest_url(base_url, region, target_id, flavor):
-    name = manifest_name(target_id, flavor)
-    if region == 'global':
-        return urljoin(base_url, name)
-    return urljoin(base_url, f'{target_id}/{name}')
+def manifest_url(base_url, target_id, flavor):
+    return urljoin(base_url, manifest_name(target_id, flavor))
 
 
-def build_index(manifest_root, region, base_url, updated_at, build_id, channel, release_notes=None):
+def build_index(manifest_root, base_url, updated_at, build_id, channel, release_notes=None):
     targets = {}
     crossmux_revisions = set()
     sdk_revisions = set()
@@ -85,7 +82,7 @@ def build_index(manifest_root, region, base_url, updated_at, build_id, channel, 
                     'crossmuxSha': manifest['crossmuxSha'],
                     'sdkSha': manifest['sdkSha'],
                     'publishedAt': updated_at,
-                    'manifestUrl': manifest_url(base_url, region, target_id, flavor),
+                    'manifestUrl': manifest_url(base_url, target_id, flavor),
                 }
                 for flavor, manifest in manifests.items()
             },
@@ -115,7 +112,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--manifests', type=Path, required=True)
     parser.add_argument('--channel', choices=CHANNELS, required=True)
-    parser.add_argument('--region', choices=('global', 'cn'), required=True)
     parser.add_argument('--base-url', required=True)
     parser.add_argument('--updated-at', required=True)
     parser.add_argument('--build-id', required=True)
@@ -126,7 +122,6 @@ def main():
     release_notes = extract_notes(args.release_notes.read_text()) if args.release_notes else None
     index = build_index(
         args.manifests,
-        args.region,
         args.base_url.rstrip('/') + '/',
         args.updated_at,
         args.build_id,

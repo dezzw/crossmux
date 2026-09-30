@@ -44,7 +44,6 @@ bool usbHostSofActive() {
 }  // namespace
 
 void HalGPIO::begin() {
-  _deviceType = DeviceType::X4;
 #if FREEINK_DEVICE_WAVESHARE_EPAPER_397
   InputManager::setButtonHook(wavesharePowerButtonHook);
 #endif
@@ -128,8 +127,6 @@ void HalGPIO::setSharedConfirmPowerShortPressEmitsPower(const bool enabled) {
 }
 
 bool HalGPIO::hasEdgeSideButtons() const { return false; }
-
-bool HalGPIO::isXteinkDevice() const { return false; }
 
 bool HalGPIO::verifyPowerButtonWakeup() {
   if (BoardConfig::ACTIVE.input.power < 0) {

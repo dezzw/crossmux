@@ -89,7 +89,7 @@ The built-in 12pt reader subset remains an offline fallback.
 The current list of pre-built fonts is maintained in the
 [crosspoint-fonts repository](https://github.com/crosspoint-reader/crosspoint-fonts).
 
-Unified firmware loads the manifest through `crossmux.cn` for China profiles
+Unified firmware loads font manifests through `crossmux.com`
 and `crossmux.com` for Global profiles; it does not select GitHub or Gitee
 directly. Both catalogs publish manifest v1 with a valid
 `baseUrl`, family/file names, non-zero file sizes, and CRC32 values. Every

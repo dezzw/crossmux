@@ -96,9 +96,6 @@ void LanguageSelectActivity::activateIndex(const int index) {
     I18N.setLanguage(language);
   }
 
-#ifndef SIMULATOR
-  halClock.setUseChinaServers(SETTINGS.contentProfile == CrossPointSettings::ContentProfile::China);
-#endif
   if (isOnboarding()) {
     onGoHome();
   } else {
