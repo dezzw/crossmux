@@ -151,22 +151,7 @@ void applyLegacyFrontButtonLayout(CrossPointSettings& settings) {
   }
 }
 
-bool isSettingAvailableForPersistence(const SettingInfo& setting) {
-#if !defined(SIMULATOR)
-  // Settings load before Frontlight.begin(), so persistence must use the board profile, not the runtime probe.
-  if (setting.valuePtr == &CrossPointSettings::frontlightBrightness ||
-      setting.valuePtr == &CrossPointSettings::frontlightOn ||
-      setting.valuePtr == &CrossPointSettings::frontlightRestoreOnWake) {
-    return BoardConfig::hasPwmFrontlight() || BoardConfig::hasI2cFrontlight();
-  }
-#if FREEINK_CAP_WARMLIGHT
-  if (setting.valuePtr == &CrossPointSettings::frontlightWarmth) {
-    return BoardConfig::hasColorTemperatureFrontlight();
-  }
-#endif
-#endif
-  return isSettingAvailableOnBoard(setting);
-}
+bool isSettingAvailableForPersistence(const SettingInfo& setting) { return isSettingAvailableOnBoard(setting); }
 
 }  // namespace
 

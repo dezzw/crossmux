@@ -540,11 +540,8 @@ void KOReaderSyncActivity::buildResultScreen(UiScreen& screen) {
     // of FreeInkUI's touch-target-sized default (see
     // UiListActivity::syncListViewport); actionsBand must use the same value
     // or the band and the rows it contains fall out of sync.
-    int16_t actionRowHeight = screen.theme().rowHeight;
-    if (!mappedInput.hasTouch()) {
-      actionRowHeight = static_cast<int16_t>(UITheme::getInstance().getMetrics().listRowHeight);
-      actionProps.rowHeight = actionRowHeight;
-    }
+    int16_t actionRowHeight = static_cast<int16_t>(UITheme::getInstance().getMetrics().listRowHeight);
+    actionProps.rowHeight = actionRowHeight;
     // Keep the theme's row inset + side padding so the selected-row highlight has
     // the same padding around its icon/label as every other list in the UI; the
     // labels above are indented to match this content-left.
@@ -577,11 +574,8 @@ void KOReaderSyncActivity::buildResultScreen(UiScreen& screen) {
     actionProps.scrollIndicator = false;
     // See the equivalent override above; keeps actionsBand in sync with the
     // row height actually used on non-touch hardware (X3/X4).
-    int16_t actionRowHeight = screen.theme().rowHeight;
-    if (!mappedInput.hasTouch()) {
-      actionRowHeight = static_cast<int16_t>(UITheme::getInstance().getMetrics().listRowHeight);
-      actionProps.rowHeight = actionRowHeight;
-    }
+    int16_t actionRowHeight = static_cast<int16_t>(UITheme::getInstance().getMetrics().listRowHeight);
+    actionProps.rowHeight = actionRowHeight;
     const auto actionsBand = static_cast<int16_t>(actionRowHeight + screen.theme().spaceMd);
     screen.list(actionProps, actionsBand, fui::LayoutAnchor::Bottom);
   }

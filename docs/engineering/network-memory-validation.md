@@ -100,7 +100,7 @@ Earlier MiSans X3 candidate SHA256:
 - A hot X3 reader previously failed the unchanged BLE startup gates at
   81,992 free / 32,756 largest bytes. A subsequent cold boot connected and turned
   pages. That does not prove the hot-run fragmentation issue is fixed; keep the
-  [BLE acceptance limits](c3-bluetooth.md#validation-and-known-limits) open.
+  BLE acceptance limits on Waveshare remain open; see [device-variants.md](device-variants.md).
 - CSS low-memory fallback was observed on X3 and on X4 after the OTA-exit
   reboot. No parser or BLE threshold was
   relaxed to hide it. No repeated baseline failure was captured on X4.
@@ -114,7 +114,7 @@ entry, all font restart routes and unchanged non-C3 behavior. For a focused run:
 
 ```sh
 python3 scripts/tests/test_download_memory_lifecycle.py
-pio run -e gh_release
+pio run -e waveshare_epaper_397
 ```
 
 On **each** X3 and X4 with the final production image:

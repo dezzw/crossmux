@@ -6,34 +6,26 @@ import unittest
 
 
 class NimblePsramMiddlewareTest(unittest.TestCase):
-    def test_all_s3_ble_targets_share_psram_without_changing_sticky_core(self):
+    def test_waveshare_inherits_s3_ble_psram_profile(self):
         config = configparser.ConfigParser(interpolation=None)
         config.read(Path(__file__).resolve().parents[2] / "platformio.ini")
-        devices = ("sticky", "x4pro", "x4c", "papermono", "eego_a4", "murphy_m4", "waveshare_epaper_397", "metalio_eink4")
-        for device in devices:
-            hardware = f"{device}_hardware"
-            for option in ("lib_deps", "extra_scripts", "build_flags"):
-                self.assertIn(f"${{s3_ble_psram.{option}}}", config[hardware][option])
-            for name in config.sections():
-                if name.startswith("env:") and config[name].get("extends") == hardware:
-                    with self.subTest(target=name):
-                        self.assertIn(f"${{{hardware}.build_flags}}", config[name]["build_flags"])
-                        self.assertNotIn("lib_deps", config[name])
-                        self.assertNotIn("extra_scripts", config[name])
-        self.assertEqual(
-            config["sticky_hardware"]["custom_sdkconfig"].split(),
-            ["${firmware_tuned.custom_sdkconfig}", "${s3_ble_controller.custom_sdkconfig}"],
-        )
-        self.assertNotIn("BOARD_HAS_PSRAM", config["sticky_hardware"]["build_flags"])
-        self.assertIn("CONFIG_ARDUINO_LOOP_STACK_SIZE=16384", config["eego_a4_hardware"]["custom_sdkconfig"])
+        hardware = "waveshare_epaper_397_hardware"
+        for option in ("lib_deps", "extra_scripts", "build_flags"):
+            self.assertIn(f"${{s3_ble_psram.{option}}}", config[hardware][option])
+        for name in config.sections():
+            if name.startswith("env:") and config[name].get("extends") == hardware:
+                with self.subTest(target=name):
+                    self.assertIn(f"${{{hardware}.build_flags}}", config[name]["build_flags"])
+                    self.assertNotIn("lib_deps", config[name])
+                    self.assertNotIn("extra_scripts", config[name])
+        self.assertIn("BOARD_HAS_PSRAM", config[hardware]["build_flags"])
         self.assertIn("CONFIG_BT_CONTROLLER_ONLY=y", config["s3_ble_controller"]["custom_sdkconfig"])
         self.assertIn("CONFIG_BT_NIMBLE_ENABLED=n", config["s3_ble_controller"]["custom_sdkconfig"])
 
-    def test_generic_base_and_simulators_do_not_inherit_radio_configuration(self):
+    def test_generic_base_and_simulator_do_not_inherit_radio_configuration(self):
         config = configparser.ConfigParser(interpolation=None)
         config.read(Path(__file__).resolve().parents[2] / "platformio.ini")
-        for name in ("base", "firmware_tuned", "env:simulator", "env:simulator_x3",
-                     "env:simulator_eego_a4", "env:simulator_murphy_m4"):
+        for name in ("base", "env:simulator"):
             with self.subTest(profile=name):
                 for value in config[name].values():
                     self.assertNotIn("s3_ble", value)
@@ -67,7 +59,9 @@ class NimblePsramMiddlewareTest(unittest.TestCase):
             str(root / "scripts/configure_nimble_psram.py"),
             init_globals={"env": env, "Import": lambda _: None},
         )
-        self.assertTrue(fnmatch.fnmatch(".pio/libdeps/eego/NimBLE-Arduino/src/nimble/mem.c", env.pattern))
+        self.assertTrue(
+            fnmatch.fnmatch(".pio/libdeps/waveshare/NimBLE-Arduino/src/nimble/mem.c", env.pattern)
+        )
         self.assertFalse(fnmatch.fnmatch("src/BleInput.cpp", env.pattern))
         self.assertFalse(fnmatch.fnmatch("framework/cores/esp32/esp32-hal-bt.c", env.pattern))
         node = object()

@@ -170,9 +170,7 @@ void ButtonRemapActivity::buildScreen(UiScreen& screen) {
   props.selectedIndex = currentStep;
   props.inputMask = fui::InputNone;
   props.scrollIndicator = false;
-  if (!mappedInput.hasTouch()) {
-    props.rowHeight = static_cast<int16_t>(metrics.listRowHeight);
-  }
+  props.rowHeight = static_cast<int16_t>(metrics.listRowHeight);
   screen.list(props);
 }
 

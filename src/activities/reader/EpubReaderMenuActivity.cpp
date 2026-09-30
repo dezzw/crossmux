@@ -1,7 +1,6 @@
 #include "EpubReaderMenuActivity.h"
 
 #include <GfxRenderer.h>
-#include <HalFrontlight.h>
 #include <I18n.h>
 
 #include <algorithm>
@@ -80,9 +79,6 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, bool h
   items.push_back({MenuAction::TEXT_SETTINGS, StrId::STR_TEXT_SETTINGS});
   items.push_back({MenuAction::IMAGE_SCALING, StrId::STR_IMAGE_SCALING});
   items.push_back({MenuAction::NIGHT_MODE, StrId::STR_NIGHT_MODE});
-  if (Frontlight.present()) {
-    items.push_back({MenuAction::FRONTLIGHT, StrId::STR_FRONTLIGHT});
-  }
   items.push_back({MenuAction::DICTIONARY, StrId::STR_LOOKUP});
   items.push_back({MenuAction::ROTATE_SCREEN, StrId::STR_ORIENTATION});
   items.push_back({MenuAction::AUTO_PAGE_TURN, StrId::STR_AUTO_TURN_PAGES_PER_MIN});
@@ -182,15 +178,6 @@ void EpubReaderMenuActivity::activateIndex(const int index) {
     return;
   }
 
-  if (selectedAction == MenuAction::FRONTLIGHT) {
-    const bool lightOn = !Frontlight.isOn();
-    Frontlight.setOn(lightOn);
-    SETTINGS.frontlightOn = lightOn ? 1 : 0;
-    SETTINGS.saveToFile();
-    requestUpdate();
-    return;
-  }
-
   setResult(MenuResult{static_cast<int>(selectedAction), pendingOrientation,
                        pageTurnRateForOption(selectedPageTurnOption, customPageTurnRate)});
   finish();
@@ -256,8 +243,6 @@ void EpubReaderMenuActivity::buildScreen(UiScreen& screen) {
       // past the label list.
       const size_t mode = SETTINGS.imageScaling < imageScalingLabels.size() ? SETTINGS.imageScaling : 0;
       menuRowItems[i].value = I18N.get(imageScalingLabels[mode]);
-    } else if (action == MenuAction::FRONTLIGHT) {
-      menuRowItems[i].value = I18N.get(Frontlight.isOn() ? StrId::STR_STATE_ON : StrId::STR_STATE_OFF);
     }
   }
 
@@ -296,10 +281,5 @@ void EpubReaderMenuActivity::render(RenderLock&&) {
   renderUi();
 
   drawFooter();
-#if FREEINK_DEVICE_EEGO_A4
-  renderer.displayBuffer(firstRender ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH);
-  firstRender = false;
-#else
   renderer.displayBuffer();
-#endif
 }

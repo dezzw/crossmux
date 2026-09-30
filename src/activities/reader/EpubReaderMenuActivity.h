@@ -18,7 +18,6 @@ class EpubReaderMenuActivity final : public UiListActivity {
     TEXT_SETTINGS,
     IMAGE_SCALING,
     NIGHT_MODE,
-    FRONTLIGHT,
     GO_TO_PERCENT,
     AUTO_PAGE_TURN,
     ROTATE_SCREEN,
@@ -46,9 +45,6 @@ class EpubReaderMenuActivity final : public UiListActivity {
 
   void render(RenderLock&&) override;
   bool handleHomeGesture() override;
-#if FREEINK_DEVICE_EEGO_A4
-  bool skipLoopDelay() override { return true; }  // Keep CPU at full speed for responsive touch
-#endif
 
  private:
   // Row storage: buildMenuItems() must not exceed this, so a fixed-capacity
@@ -91,7 +87,4 @@ class EpubReaderMenuActivity final : public UiListActivity {
   int currentPage = 0;
   int totalPages = 0;
   int bookProgressPercent = 0;
-#if FREEINK_DEVICE_EEGO_A4
-  bool firstRender = true;
-#endif
 };

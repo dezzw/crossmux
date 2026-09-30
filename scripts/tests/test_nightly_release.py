@@ -34,52 +34,54 @@ class NightlyTargetTest(unittest.TestCase):
             )
         self.assertEqual(urlopen.call_count, 2)
 
-    def test_matrix_has_c3_and_seven_s3_targets(self):
+    def test_matrix_has_single_waveshare_nightly_target(self):
         matrix = package_nightly_target.matrix('nightly')['include']
-        self.assertEqual(len(matrix), 8)
+        self.assertEqual(len(matrix), 1)
         self.assertEqual(
             {entry['targetId'] for entry in matrix},
             set(nightly_targets.TARGETS),
         )
-        environments = {entry['environment'] for entry in matrix}
-        self.assertEqual(len(environments), 8)
         self.assertEqual(
-            package_nightly_target.matrix('stable')['include'],
-            [
-                {'targetId': 'xteink_x4', 'deviceSlug': 'xteink', 'environment': 'gh_release'},
-                {'targetId': 'sticky', 'deviceSlug': 'sticky', 'environment': 'sticky-gh_release'},
-            ],
+            matrix[0],
+            {
+                'targetId': 'waveshare_epaper_397',
+                'deviceSlug': 'waveshare-epaper-397',
+                'environment': 'waveshare_epaper_397_nightly',
+            },
         )
+        self.assertEqual(package_nightly_target.matrix('stable')['include'], [])
 
     def test_runtime_models_and_board_tags_are_explicit(self):
         targets = nightly_targets.TARGETS
-        self.assertEqual(targets['xteink_x4']['models'], ['xteink_x3', 'xteink_x4'])
-        self.assertEqual(targets['xteink_x4_pro']['boardTag'], 'x4pro')
-        self.assertEqual(targets['m5stack_paper_mono']['boardTag'], 'papermono')
-        self.assertEqual(targets['eego_a4']['environments']['nightly'], 'eego_a4_nightly')
-        self.assertEqual(targets['metalio_eink4']['models'], ['metalio_eink4'])
-        self.assertEqual(targets['metalio_eink4']['boardTag'], 'metalio_eink4')
-        self.assertEqual(targets['metalio_eink4']['deviceSlug'], 'metalio-eink4')
-        self.assertTrue(targets['metalio_eink4']['fullInstall'])
-        self.assertEqual(nightly_targets.environment_for('metalio_eink4', 'nightly', 'global'),
-                         nightly_targets.environment_for('metalio_eink4', 'nightly', 'zh-CN'))
+        target = targets['waveshare_epaper_397']
+        self.assertEqual(target['models'], ['waveshare_epaper_397'])
+        self.assertEqual(target['boardTag'], 'waveshare_epaper_397')
+        self.assertEqual(target['deviceSlug'], 'waveshare-epaper-397')
+        self.assertEqual(target['environments']['nightly'], 'waveshare_epaper_397_nightly')
+        self.assertTrue(target['fullInstall'])
+        self.assertEqual(
+            nightly_targets.environment_for('waveshare_epaper_397', 'nightly', 'global'),
+            nightly_targets.environment_for('waveshare_epaper_397', 'nightly', 'zh-CN'),
+        )
 
     def test_versions_are_nightly_release_candidates(self):
         self.assertEqual(
-            nightly_targets.version_for('1.5.7', 'sticky', 'nightly', 'global', '12345678'),
-            '1.5.7-sticky-rc+1234567',
+            nightly_targets.version_for(
+                '1.5.7', 'waveshare_epaper_397', 'nightly', 'global', '12345678'
+            ),
+            '1.5.7-waveshare-epaper-397-rc+1234567',
         )
         self.assertEqual(
-            nightly_targets.version_for('1.5.7', 'sticky', 'nightly', 'zh-CN', '12345678'),
-            '1.5.7-sticky-rc+1234567',
+            nightly_targets.version_for(
+                '1.5.7', 'waveshare_epaper_397', 'nightly', 'zh-CN', '12345678'
+            ),
+            '1.5.7-waveshare-epaper-397-rc+1234567',
         )
         self.assertNotIn(
             'beta',
-            nightly_targets.version_for('1.5.7', 'sticky', 'nightly', 'global', '1234567'),
-        )
-        self.assertEqual(
-            nightly_targets.version_for('1.5.8', 'xteink_x4', 'stable', 'global', '1234567'),
-            '1.5.8',
+            nightly_targets.version_for(
+                '1.5.7', 'waveshare_epaper_397', 'nightly', 'global', '1234567'
+            ),
         )
 
     def test_workflow_packages_one_binary_set(self):
@@ -94,12 +96,14 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertNotIn('for flavor in global cn', workflow)
         self.assertIn('pattern: firmware-stable-*', workflow)
         self.assertIn('merge-multiple: true', workflow)
-        self.assertIn('assets=(firmware.bin firmware-cn.bin bootloader.bin partitions.bin artifacts/*)', workflow)
-        self.assertIn('cp artifacts/xteink-firmware.bin firmware.bin', workflow)
-        self.assertIn('cp artifacts/xteink-firmware.bin firmware-cn.bin', workflow)
+        self.assertIn('assets=(artifacts/*)', workflow)
+        self.assertIn('Stable firmware releases are not configured', workflow)
         self.assertIn('gh release delete-asset "$CHANNEL" firmware-cn.bin', workflow)
         self.assertNotIn('--flavor', hardware_workflow)
-        self.assertIn('(cd "dist/nightly/$target" && sha256sum --check *-SHA256SUMS)', hardware_workflow)
+        self.assertIn(
+            '(cd "dist/nightly/waveshare_epaper_397" && sha256sum --check *-SHA256SUMS)',
+            hardware_workflow,
+        )
 
     def test_workflow_fails_closed_and_verifies_both_regions(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
@@ -114,7 +118,8 @@ class NightlyTargetTest(unittest.TestCase):
         rolling = workflow.split('- name: Publish rolling global index last', 1)[1].split(
             '  publish_cn:', 1
         )[0]
-        self.assertGreater(rolling.index('legacy_assets='), rolling.index('xteink-firmware.bin'))
+        self.assertIn('legacy_assets=', rolling)
+        self.assertNotIn('xteink-firmware.bin', rolling)
         verify = workflow.split('  verify_publish:', 1)[1]
         self.assertIn('needs: [prepare, publish_github, publish_cn]', verify)
         self.assertEqual(verify.count('python3 scripts/verify_nightly_release.py'), 2)
@@ -134,85 +139,57 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertIn('2>&1', versioning)
 
     def test_package_contains_one_binary_set_and_two_compatible_manifests(self):
-        for channel in ('stable', 'nightly'):
-            with tempfile.TemporaryDirectory() as temp:
-                root = Path(temp)
-                build = root / '.pio/build' / nightly_targets.environment_for('sticky', channel, 'global')
-                build.mkdir(parents=True)
-                (build / 'bootloader.bin').write_bytes(b'bootloader')
-                (build / 'partitions.bin').write_bytes(b'partitions')
-                (build / 'firmware.bin').write_bytes(self.write_image(board='sticky').read_bytes())
-                boot_app0 = root / 'boot_app0.bin'
-                boot_app0.write_bytes(b'boot_app0')
-                (root / 'platformio.ini').write_text('[crosspoint]\nversion = 1.6.0\n')
-                output = root / 'dist/sticky'
-
-                def git_value(_root, *args):
-                    return 'a' * (7 if '--short=7' in args else 40)
-
-                with (
-                    mock.patch.object(package_nightly_target, 'verify_partition_csv'),
-                    mock.patch.object(package_nightly_target, 'find_boot_app0', return_value=boot_app0),
-                    mock.patch.object(package_nightly_target, 'git_value', side_effect=git_value),
-                ):
-                    package_nightly_target.package_target(root, 'sticky', channel, output)
-
-                self.assertEqual(
-                    {path.name for path in output.iterdir()},
-                    {
-                        'sticky-bootloader.bin',
-                        'sticky-partitions.bin',
-                        'sticky-boot_app0.bin',
-                        'sticky-firmware.bin',
-                        'sticky-global-manifest.json',
-                        'sticky-cn-manifest.json',
-                        'sticky-SHA256SUMS',
-                    },
-                )
-                manifests = [
-                    json.loads((output / nightly_targets.manifest_name('sticky', flavor)).read_text())
-                    for flavor in nightly_targets.FLAVOR_TOKENS
-                ]
-                self.assertEqual(manifests[0]['assets'], manifests[1]['assets'])
-                self.assertEqual(
-                    {key: value for key, value in manifests[0].items() if key != 'flavor'},
-                    {key: value for key, value in manifests[1].items() if key != 'flavor'},
-                )
-
-                self.assertEqual(manifests[0]['channel'], channel)
-                self.assertEqual(manifests[0]['version'], '1.6.0' if channel == 'stable' else '1.6.0-sticky-rc+aaaaaaa')
-                self.assertEqual(manifests[0]['supportedChannels'], ['stable', 'nightly'])
-
-    def test_stable_package_has_release_version_and_legacy_migration_roles(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            build = root / '.pio/build/gh_release'
+            build = root / '.pio/build/waveshare_epaper_397_nightly'
             build.mkdir(parents=True)
             (build / 'bootloader.bin').write_bytes(b'bootloader')
             (build / 'partitions.bin').write_bytes(b'partitions')
             (build / 'firmware.bin').write_bytes(
-                self.write_image(chip_id=0x0005, board='x4').read_bytes()
+                self.write_image(board='waveshare_epaper_397').read_bytes()
             )
-            (root / 'platformio.ini').write_text('[crosspoint]\nversion = 1.5.8\n')
-            output = root / 'dist/xteink_x4'
+            boot_app0 = root / 'boot_app0.bin'
+            boot_app0.write_bytes(b'boot_app0')
+            (root / 'platformio.ini').write_text('[crosspoint]\nversion = 1.6.0\n')
+            output = root / 'dist/waveshare_epaper_397'
 
             def git_value(_root, *args):
                 return 'a' * (7 if '--short=7' in args else 40)
 
             with (
                 mock.patch.object(package_nightly_target, 'verify_partition_csv'),
+                mock.patch.object(package_nightly_target, 'find_boot_app0', return_value=boot_app0),
                 mock.patch.object(package_nightly_target, 'git_value', side_effect=git_value),
             ):
-                package_nightly_target.package_target(root, 'xteink_x4', 'stable', output)
+                package_nightly_target.package_target(root, 'waveshare_epaper_397', 'nightly', output)
 
-            manifest = json.loads((output / 'xteink-global-manifest.json').read_text())
-            self.assertEqual(manifest['channel'], 'stable')
-            self.assertEqual(manifest['version'], '1.5.8')
-            self.assertEqual(manifest['environment'], 'gh_release')
             self.assertEqual(
-                [asset['role'] for asset in manifest['assets']],
-                ['bootloader', 'partitions', 'firmware'],
+                {path.name for path in output.iterdir()},
+                {
+                    'waveshare-epaper-397-bootloader.bin',
+                    'waveshare-epaper-397-partitions.bin',
+                    'waveshare-epaper-397-boot_app0.bin',
+                    'waveshare-epaper-397-firmware.bin',
+                    'waveshare-epaper-397-global-manifest.json',
+                    'waveshare-epaper-397-cn-manifest.json',
+                    'waveshare-epaper-397-SHA256SUMS',
+                },
             )
+            manifests = [
+                json.loads(
+                    (output / nightly_targets.manifest_name('waveshare_epaper_397', flavor)).read_text()
+                )
+                for flavor in nightly_targets.FLAVOR_TOKENS
+            ]
+            self.assertEqual(manifests[0]['assets'], manifests[1]['assets'])
+            self.assertEqual(
+                {key: value for key, value in manifests[0].items() if key != 'flavor'},
+                {key: value for key, value in manifests[1].items() if key != 'flavor'},
+            )
+
+            self.assertEqual(manifests[0]['channel'], 'nightly')
+            self.assertEqual(manifests[0]['version'], '1.6.0-waveshare-epaper-397-rc+aaaaaaa')
+            self.assertEqual(manifests[0]['supportedChannels'], ['nightly'])
 
     def test_publish_jobs_keep_credentials_scoped(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
@@ -263,7 +240,7 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertIn('cos:GetBucket', listing)
         self.assertIn('2>&1', listing)
 
-    def write_image(self, chip_id=0x0009, board='eego_a4'):
+    def write_image(self, chip_id=0x0009, board='waveshare_epaper_397'):
         image = bytearray(24)
         image[0] = 0xE9
         image[12:14] = chip_id.to_bytes(2, 'little')
@@ -274,18 +251,25 @@ class NightlyTargetTest(unittest.TestCase):
         self.addCleanup(Path(temp.name).unlink)
         return Path(temp.name)
 
-    def test_metalio_image_rejects_other_boards(self):
-        package_nightly_target.verify_firmware(self.write_image(board='metalio_eink4'), 0x0009, 'metalio_eink4')
+    def test_waveshare_image_rejects_other_boards(self):
+        package_nightly_target.verify_firmware(
+            self.write_image(board='waveshare_epaper_397'), 0x0009, 'waveshare_epaper_397'
+        )
         with self.assertRaises(SystemExit):
-            package_nightly_target.verify_firmware(self.write_image(board='waveshare_epaper_397'),
-                                                  0x0009, 'metalio_eink4')
+            package_nightly_target.verify_firmware(
+                self.write_image(board='metalio_eink4'), 0x0009, 'waveshare_epaper_397'
+            )
 
     def test_rejects_wrong_chip_or_board(self):
-        package_nightly_target.verify_firmware(self.write_image(), 0x0009, 'eego_a4')
+        package_nightly_target.verify_firmware(self.write_image(), 0x0009, 'waveshare_epaper_397')
         with self.assertRaises(SystemExit):
-            package_nightly_target.verify_firmware(self.write_image(chip_id=5), 0x0009, 'eego_a4')
+            package_nightly_target.verify_firmware(
+                self.write_image(chip_id=5), 0x0009, 'waveshare_epaper_397'
+            )
         with self.assertRaises(SystemExit):
-            package_nightly_target.verify_firmware(self.write_image(board='murphy_m4'), 0x0009, 'eego_a4')
+            package_nightly_target.verify_firmware(
+                self.write_image(board='murphy_m4'), 0x0009, 'waveshare_epaper_397'
+            )
 
 
 class NightlyIndexTest(unittest.TestCase):
@@ -337,8 +321,8 @@ class NightlyIndexTest(unittest.TestCase):
         )
         self.assertEqual(set(index['targets']), set(nightly_targets.TARGETS))
         self.assertEqual(
-            index['targets']['sticky']['variants']['zh-CN']['manifestUrl'],
-            'https://example.com/nightly/sticky-cn-manifest.json',
+            index['targets']['waveshare_epaper_397']['variants']['zh-CN']['manifestUrl'],
+            'https://example.com/nightly/waveshare-epaper-397-cn-manifest.json',
         )
 
     def test_china_variants_share_one_target_directory_and_binary(self):
@@ -346,45 +330,34 @@ class NightlyIndexTest(unittest.TestCase):
         index = build_nightly_index.build_index(
             self.root, 'cn', 'https://assets.example/firmware/builds/test/', 'now', 'test', 'nightly'
         )
-        variants = index['targets']['sticky']['variants']
+        variants = index['targets']['waveshare_epaper_397']['variants']
         self.assertEqual(
             variants['global']['manifestUrl'],
-            'https://assets.example/firmware/builds/test/sticky/sticky-global-manifest.json',
+            'https://assets.example/firmware/builds/test/waveshare_epaper_397/waveshare-epaper-397-global-manifest.json',
         )
         self.assertEqual(
             variants['zh-CN']['manifestUrl'],
-            'https://assets.example/firmware/builds/test/sticky/sticky-cn-manifest.json',
+            'https://assets.example/firmware/builds/test/waveshare_epaper_397/waveshare-epaper-397-cn-manifest.json',
         )
         manifests = [
-            json.loads((self.root / nightly_targets.manifest_name('sticky', flavor)).read_text())
+            json.loads(
+                (self.root / nightly_targets.manifest_name('waveshare_epaper_397', flavor)).read_text()
+            )
             for flavor in nightly_targets.FLAVOR_TOKENS
         ]
         self.assertEqual(manifests[0]['assets'], manifests[1]['assets'])
 
-    def test_stable_index_requires_notes_and_contains_x3_x4_and_sticky(self):
-        self.write_all_pairs(channel='stable')
-        with self.assertRaisesRegex(ValueError, 'Stable release notes are required'):
-            build_nightly_index.build_index(
-                self.root, 'global', 'https://example.com/', 'now', 'test', 'stable'
-            )
-        notes = {'en': ['One', 'Two'], 'zh': ['一', '二']}
-        index = build_nightly_index.build_index(
-            self.root, 'global', 'https://example.com/', 'now', 'test', 'stable', notes
-        )
-        self.assertEqual(set(index['targets']), {'xteink_x4', 'sticky'})
-        self.assertEqual(index['releaseNotes'], {'global': notes['en'], 'zh-CN': notes['zh']})
-
     def test_rejects_incomplete_target_set(self):
         self.write_all_pairs()
-        (self.root / nightly_targets.manifest_name('sticky', 'zh-CN')).unlink()
-        with self.assertRaisesRegex(ValueError, 'expected one sticky/zh-CN manifest'):
+        (self.root / nightly_targets.manifest_name('waveshare_epaper_397', 'zh-CN')).unlink()
+        with self.assertRaisesRegex(ValueError, 'expected one waveshare_epaper_397/zh-CN manifest'):
             build_nightly_index.build_index(
                 self.root, 'cn', 'https://assets.example/firmware/builds/test/', 'now', 'test', 'nightly'
             )
 
     def test_rejects_mismatched_sdk_pair(self):
         self.write_all_pairs()
-        chinese = self.root / nightly_targets.manifest_name('sticky', 'zh-CN')
+        chinese = self.root / nightly_targets.manifest_name('waveshare_epaper_397', 'zh-CN')
         manifest = json.loads(chinese.read_text())
         manifest['sdkSha'] = 'c' * 40
         chinese.write_text(json.dumps(manifest))
@@ -395,7 +368,7 @@ class NightlyIndexTest(unittest.TestCase):
 
     def test_rejects_mismatched_asset_pair(self):
         self.write_all_pairs()
-        chinese = self.root / nightly_targets.manifest_name('sticky', 'zh-CN')
+        chinese = self.root / nightly_targets.manifest_name('waveshare_epaper_397', 'zh-CN')
         manifest = json.loads(chinese.read_text())
         manifest['assets'][0]['sha256'] = 'e' * 64
         chinese.write_text(json.dumps(manifest))
@@ -406,8 +379,11 @@ class NightlyIndexTest(unittest.TestCase):
 
     def test_rejects_mixed_target_revisions(self):
         self.write_all_pairs()
-        self.write_pair('sticky', revision='c' * 40)
-        with self.assertRaisesRegex(ValueError, 'target CrossMux revisions do not match'):
+        chinese = self.root / nightly_targets.manifest_name('waveshare_epaper_397', 'zh-CN')
+        manifest = json.loads(chinese.read_text())
+        manifest['crossmuxSha'] = 'c' * 40
+        chinese.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, 'flavor revisions do not match'):
             build_nightly_index.build_index(
                 self.root, 'global', 'https://example.com/', 'now', 'test', 'nightly'
             )
@@ -446,7 +422,7 @@ class NightlyRetentionTest(unittest.TestCase):
                 self.previous_index('github', previous, previous_fallback),
                 candidates,
             ),
-            [obsolete],
+            sorted([previous, obsolete]),
         )
 
     def test_cos_extracts_build_directories_from_listing(self):
@@ -465,17 +441,17 @@ class NightlyRetentionTest(unittest.TestCase):
                 self.previous_index('cos', previous, previous_fallback),
                 candidates,
             ),
-            [obsolete],
+            sorted([previous, obsolete]),
         )
 
     def test_rejects_unexpected_previous_url_and_incomplete_listing(self):
         current = f'nightly-build-{"a" * 40}-10-1'
         previous = f'nightly-build-{"b" * 40}-9-1'
         index = self.previous_index('github', previous, previous)
-        index['targets']['sticky']['variants']['global']['manifestUrl'] = (
+        index['targets']['waveshare_epaper_397']['variants']['global']['manifestUrl'] = (
             'https://example.com/firmware.bin'
         )
-        with self.assertRaisesRegex(ValueError, 'unexpected previous sticky/global'):
+        with self.assertRaisesRegex(ValueError, 'unexpected previous waveshare_epaper_397/global'):
             nightly_retention.obsolete_builds('github', current, index, current)
         with self.assertRaisesRegex(ValueError, 'missing from the candidate list'):
             nightly_retention.obsolete_builds(
@@ -572,7 +548,7 @@ class PublishedNightlyTest(unittest.TestCase):
                 self.assertEqual(self.fetches[url], 1)
 
     def test_rejects_target_from_previous_revision(self):
-        target_id = 'xteink_x4'
+        target_id = 'waveshare_epaper_397'
         for flavor in nightly_targets.FLAVOR_TOKENS:
             url = self.release_url + nightly_targets.manifest_name(target_id, flavor)
             manifest = json.loads(self.store[url])
@@ -584,13 +560,13 @@ class PublishedNightlyTest(unittest.TestCase):
             verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
 
     def test_rejects_missing_target(self):
-        self.index['targets'].pop('sticky')
+        self.index['targets'].pop('waveshare_epaper_397')
         self.write_index()
         with self.assertRaisesRegex(ValueError, 'canonical target set'):
             verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
 
     def test_rejects_manifest_difference(self):
-        url = self.release_url + nightly_targets.manifest_name('sticky', 'zh-CN')
+        url = self.release_url + nightly_targets.manifest_name('waveshare_epaper_397', 'zh-CN')
         manifest = json.loads(self.store[url])
         manifest['unexpected'] = True
         self.store[url] = json.dumps(manifest).encode()
@@ -598,7 +574,7 @@ class PublishedNightlyTest(unittest.TestCase):
             verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
 
     def test_rejects_corrupt_asset(self):
-        url = self.release_url + nightly_targets.asset_name('sticky', 'firmware.bin')
+        url = self.release_url + nightly_targets.asset_name('waveshare_epaper_397', 'firmware.bin')
         self.store[url] += b'corrupt'
         with self.assertRaisesRegex(ValueError, 'size or SHA-256'):
             verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)

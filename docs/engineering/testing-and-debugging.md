@@ -16,14 +16,11 @@ pio run
 # Build and upload to device
 pio run -t upload
 
-# Build specific environment
-pio run -e gh_release
+# Waveshare Nightly packaging env (CI)
+pio run -e waveshare_epaper_397_nightly
 
-# Build and run a native device simulator
+# Build and run the native device simulator
 pio run -e simulator -t run_simulator
-pio run -e simulator_x3 -t run_simulator
-pio run -e simulator_eego_a4 -t run_simulator
-pio run -e simulator_murphy_m4 -t run_simulator
 
 # Clean build artifacts
 pio run -t clean
@@ -139,7 +136,7 @@ lightweight collaborators for no-PSRAM and PSRAM policies. It covers allocation
 failure before a Section exists, one CSS retry, target preservation and repeated
 failures; it is not a full Activity or device-lifecycle integration test.
 Build firmware with
-`pio run -e default -e simulator_x3 -e murphy_m4`.
+`pio run -e waveshare_epaper_397 -e simulator`.
 
 Hardware acceptance still requires **both X3 and X4**: open the reported EPUB
 with a cold section cache using LXGW WenKai size 18, turn across chapters, and
@@ -196,9 +193,8 @@ local artifacts and are not committed to the repository.
 
 ### C3 Bluetooth page-turner development validation
 
-See [C3 Bluetooth](c3-bluetooth.md) for the shared hardware build profiles,
-lifecycle and font-memory ownership, reproducible checks, X4 evidence and
-remaining acceptance limits. Hardware builds include BLE; the runtime switch
+See [build-system.md](build-system.md) and [device-variants.md](device-variants.md)
+for Waveshare BLE host settings. Hardware builds include BLE; the runtime switch
 defaults off. Distinguish host/build success, application hash verification
 and physical-device acceptance.
 
@@ -255,8 +251,8 @@ and physical-device acceptance.
 
 | Workflow | File | Purpose |
 |----------|------|---------|
-| Core Build Check | `.github/workflows/ci.yml` | Builds `default` (shared X3/X4) and `x4pro` |
-| Hardware CI | `.github/workflows/hardware-ci.yml` | Builds all simulators and global S3 targets for hardware-sensitive changes or manual runs |
+| Core Build Check | `.github/workflows/ci.yml` | `waveshare_epaper_397_nightly`, cppcheck, clang-format, host unit tests |
+| Hardware CI | `.github/workflows/hardware-ci.yml` | Builds `simulator` and `waveshare_epaper_397_nightly` for hardware-sensitive changes or manual runs |
 | Format Check | `.github/workflows/pr-formatting-check.yml` | Validates clang-format |
 | Firmware Release | `.github/workflows/nightly.yml` | Stable releases from SemVer tags and scheduled/manual Nightly releases |
 

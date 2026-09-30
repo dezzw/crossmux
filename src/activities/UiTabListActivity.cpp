@@ -9,10 +9,6 @@
 
 namespace fui = freeink::ui;
 
-namespace {
-constexpr int16_t TOUCH_TAB_BAR_HEIGHT = 50;
-}
-
 UiTabListActivity::UiTabListActivity(const char* name, GfxRenderer& renderer, MappedInputManager& mappedInput)
     : UiListActivity(name, renderer, mappedInput) {}
 
@@ -78,14 +74,9 @@ void UiTabListActivity::syncTabListViewport(UiScreen& screen, fui::ListProps& pr
   const int count = listCount();
   auto& n = activeNav();
   int16_t rowHeight = screen.theme().rowHeight;
-  if (!mappedInput.hasTouch()) {
-    // Non-touch hardware (X3/X4) keeps the original, denser per-theme row
-    // height instead of FreeInkUI's touch-target-sized default (see
-    // UiListActivity::syncListViewport, the non-tab counterpart of this).
+  {
     const auto& metrics = UITheme::getInstance().getMetrics();
     rowHeight = static_cast<int16_t>(hasSubtitle ? metrics.listWithSubtitleRowHeight : metrics.listRowHeight);
-    // Wrapped (maxLines > 1) labels grow only their own row: list() sizes
-    // wrapped items per-row, so the dense height stays for the rest.
     props.rowHeight = rowHeight;
   }
   const uint16_t rows = fui::listVisibleRows(screen.body(), rowHeight, screen.theme().listRowGap);
@@ -165,8 +156,7 @@ void UiTabListActivity::buildTabBar(UiScreen& screen, const bool boldLabels) {
   }
   if (boldLabels) tabProps.text.bold = true;
   const int16_t tabLineHeight = screen.target().lineHeight(tabProps.text.font);
-  const int16_t preferredTabHeight =
-      mappedInput.hasTouch() ? TOUCH_TAB_BAR_HEIGHT : static_cast<int16_t>(metrics.tabBarHeight);
+  const int16_t preferredTabHeight = static_cast<int16_t>(metrics.tabBarHeight);
   const int16_t tabBand = preferredTabHeight > tabLineHeight + 10 ? preferredTabHeight : tabLineHeight + 10;
   if (classicTabs) {
     const int16_t extraHeight = tabsFocused ? 4 : 6;

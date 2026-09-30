@@ -660,26 +660,7 @@ void DictionaryDownloadActivity::stateScreen(UiScreen& screen, void* user) {
   static_cast<DictionaryDownloadActivity*>(user)->buildStateScreen(screen);
 }
 
-void DictionaryDownloadActivity::buildStateScreen(UiScreen& screen) {
-  if (!mappedInput.hasTouch()) return;
-  fui::FooterAction actions[2];
-  uint8_t count = 0;
-  switch (state_) {
-    case State::Downloading:
-      actions[count++] = {tr(STR_CANCEL), ACTION_CANCEL_DOWNLOAD};
-      break;
-    case State::Complete:
-      actions[count++] = {tr(STR_BACK), ACTION_RETURN_TO_LIST};
-      break;
-    case State::Error:
-      actions[count++] = {tr(STR_BACK), ACTION_RETURN_TO_LIST};
-      actions[count++] = {tr(STR_RETRY), ACTION_RETRY_DOWNLOAD};
-      break;
-    default:
-      break;
-  }
-  if (count > 0) screen.footer(actions, count);
-}
+void DictionaryDownloadActivity::buildStateScreen(UiScreen& /*screen*/) {}
 
 void DictionaryDownloadActivity::onCancelDownload(const fui::ActionEvent&, void* user) {
   auto* self = static_cast<DictionaryDownloadActivity*>(user);

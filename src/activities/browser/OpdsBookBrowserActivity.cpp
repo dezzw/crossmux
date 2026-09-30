@@ -266,15 +266,8 @@ void OpdsBookBrowserActivity::buildBrowsingScreen(UiScreen& screen) {
   props.inputMask = fui::InputTouch;  // physical buttons stay in loop()
   props.valueInset = 8;               // air between the nav chevron and the row edge
   listNav.selected = selectorIndex;
-  int16_t rowHeight = screen.theme().rowHeight;
-  if (!mappedInput.hasTouch()) {
-    // Non-touch hardware (X3/X4) keeps the original, denser row height
-    // instead of FreeInkUI's touch-target-sized default (see
-    // UiListActivity::syncListViewport; this screen predates that base and
-    // syncs its own viewport directly). Book rows carry an author subtitle.
-    rowHeight = static_cast<int16_t>(UITheme::getInstance().getMetrics().listWithSubtitleRowHeight);
-    props.rowHeight = rowHeight;
-  }
+  int16_t rowHeight = static_cast<int16_t>(UITheme::getInstance().getMetrics().listWithSubtitleRowHeight);
+  props.rowHeight = rowHeight;
   listNav.syncToProps(screen.body(), rowHeight, screen.theme().listRowGap, static_cast<int>(entries.size()), props);
   screen.list(props);
 }
@@ -323,13 +316,11 @@ void OpdsBookBrowserActivity::buildStatusScreen(UiScreen& screen) {
   if (state == BrowserState::ERROR) {
     const int16_t lh = screen.target().lineHeight(centered.font);
     const int16_t gap = screen.theme().spaceMd;
-    const bool showTapHint = mappedInput.hasTouch();
-    const int16_t blockH = static_cast<int16_t>(lh * (showTapHint ? 3 : 2) + gap * (showTapHint ? 2 : 1));
+    const int16_t blockH = static_cast<int16_t>(lh * 2 + gap);
     const fui::Rect body = screen.body();
     if (body.height > blockH) screen.spacer(static_cast<int16_t>((body.height - blockH) / 2));
     screen.target().text(screen.takeTop(lh, gap), tr(STR_ERROR_MSG), centered);
     screen.target().text(screen.takeTop(lh, gap), errorMessage.c_str(), centered);
-    if (showTapHint) screen.target().text(screen.takeTop(lh), tr(STR_TAP_TO_RETRY), centered);
     return;
   }
   // CHECK_WIFI / LOADING (and the brief child-activity handoff states).

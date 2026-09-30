@@ -138,9 +138,6 @@ void ImageViewerActivity::onEnter() {
 
       // Draw UI hints on the base layer
       GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
-      if (mappedInput.hasTouch()) {
-        GUI.drawActionButton(renderer, sleepCoverActionRect(renderer), tr(STR_SET_SLEEP_COVER));
-      }
       // Single pass for non-grayscale images
 
       renderer.displayBuffer(HalDisplay::FAST_REFRESH);
@@ -293,15 +290,6 @@ void ImageViewerActivity::loop() {
   if (swipe == MappedInputManager::SwipeDir::Right) {
     openSibling(-1);
     return;
-  }
-
-  if (mappedInput.hasTouch()) {
-    const Rect sleepCoverAction = sleepCoverActionRect(renderer);
-    if (mappedInput.wasTapInRect(sleepCoverAction.x, sleepCoverAction.y, sleepCoverAction.width,
-                                 sleepCoverAction.height)) {
-      showSleepCoverOptions();
-      return;
-    }
   }
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {

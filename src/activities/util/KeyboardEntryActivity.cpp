@@ -445,10 +445,7 @@ bool KeyboardEntryActivity::cursorPositionFromPoint(const int x, const int y, si
   const int lineHeight = renderer.getLineHeight(UI_12_FONT_ID);
   const int inputY = inputStartY();
 
-  int availableWidth = pageWidth;
-  if (gpio.deviceIsX3()) {
-    availableWidth -= 2 * metrics.sideButtonHintsWidth;
-  }
+  const int availableWidth = pageWidth;
   const int effectiveMargin = (pageWidth - availableWidth * metrics.keyboardTextFieldWidthPercent / 100) / 2;
   const int toggleGap = inputType == InputType::Password ? 4 : 0;
   const int toggleReserve = inputType == InputType::Password ? std::max(renderer.getTextWidth(UI_12_FONT_ID, "[abc]"),
@@ -771,10 +768,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
   std::string displayText = displayTextForCurrentState();
 
   const bool isPassword = (inputType == InputType::Password);
-  int availableWidth = pageWidth;
-  if (gpio.deviceIsX3()) {
-    availableWidth -= 2 * metrics.sideButtonHintsWidth;
-  }
+  const int availableWidth = pageWidth;
   const int effectiveMargin = (pageWidth - availableWidth * metrics.keyboardTextFieldWidthPercent / 100) / 2;
   const int toggleGap = isPassword ? 4 : 0;
   const int toggleReserve = isPassword ? std::max(renderer.getTextWidth(UI_12_FONT_ID, "[abc]"),
@@ -909,7 +903,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
     }
   }
 
-  if (!mappedInput.hasTouch() && hintVisible && !text.empty()) {
+  if (hintVisible && !text.empty()) {
     const int hintLh = renderer.getLineHeight(SMALL_FONT_ID);
     const int underlineY = inputY + inputHeight + lineHeight + metrics.verticalSpacing;
     const int hintY = underlineY + 4;
@@ -951,7 +945,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
     tipCount = 1 + (inputType == InputType::Url ? 1 : 0) + (!text.empty() ? 1 : 0);
   }
 
-  if (!mappedInput.hasTouch() && tipCount > 0) {
+  if (tipCount > 0) {
     int y = (underlineBottom + kbRect.y) / 2 - (tipCount + 1) * tipsLh / 2;
     drawTip(tr(STR_KB_TIPS), y);
     y += tipsLh;

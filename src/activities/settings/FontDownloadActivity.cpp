@@ -1093,24 +1093,6 @@ void FontDownloadActivity::buildScreen(UiScreen& screen) {
   screen.spacer(static_cast<int16_t>(metrics.verticalSpacing));
 
   if (state_ != FAMILY_LIST) {
-    if (!mappedInput.hasTouch()) return;
-    fui::FooterAction actions[2];
-    uint8_t count = 0;
-    switch (state_) {
-      case DOWNLOADING:
-        actions[count++] = {tr(STR_CANCEL), ACTION_CANCEL_DOWNLOAD};
-        break;
-      case COMPLETE:
-        actions[count++] = {tr(STR_BACK), ACTION_RETURN_TO_LIST};
-        break;
-      case ERROR:
-        actions[count++] = {tr(STR_BACK), ACTION_RETURN_TO_LIST};
-        actions[count++] = {tr(STR_RETRY), ACTION_RETRY_DOWNLOAD};
-        break;
-      default:
-        break;
-    }
-    if (count > 0) screen.footer(actions, count);
     return;
   }
 

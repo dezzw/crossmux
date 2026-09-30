@@ -276,7 +276,7 @@ void OtaUpdateActivity::rebuildReleaseNotePages(const Rect& safeArea, const int 
 
 void OtaUpdateActivity::renderUpdateAvailable(const Rect& safeArea) {
   const auto& metrics = UITheme::getInstance().getMetrics();
-  const int bottomInset = mappedInput.hasTouch() ? app.theme().footerHeight : 0;
+  const int bottomInset = 0;
   rebuildReleaseNotePages(safeArea, bottomInset);
 
   GUI.drawHeader(renderer, Rect{safeArea.x, safeArea.y + metrics.topPadding, safeArea.width, metrics.headerHeight},
@@ -343,15 +343,7 @@ void OtaUpdateActivity::updateScreen(UiScreen& screen, void* user) {
   static_cast<OtaUpdateActivity*>(user)->buildUpdateScreen(screen);
 }
 
-void OtaUpdateActivity::buildUpdateScreen(UiScreen& screen) {
-  if (!mappedInput.hasTouch() || (state != State::UpdateAvailable && state != State::ConfirmingUpdate)) return;
-  const fui::FooterAction actions[] = {
-      {tr(STR_PREV_PAGE), ACTION_RELEASE_PAGE, -1, fui::StateNormal, releaseNotePage > 0},
-      {tr(STR_UPDATE), ACTION_INSTALL_UPDATE},
-      {tr(STR_NEXT_PAGE), ACTION_RELEASE_PAGE, 1, fui::StateNormal, releaseNotePage + 1 < releaseNotePageCount},
-  };
-  screen.footer(actions, 3);
-}
+void OtaUpdateActivity::buildUpdateScreen(UiScreen& /*screen*/) {}
 
 void OtaUpdateActivity::onReleasePage(const fui::ActionEvent& event, void* user) {
   auto* self = static_cast<OtaUpdateActivity*>(user);

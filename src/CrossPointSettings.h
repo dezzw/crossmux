@@ -117,14 +117,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
 
   enum class ContentProfile : uint8_t { Global = 0, China = 1 };
 
-  enum HAPTIC_FEEDBACK_LEVEL {
-    HAPTIC_FEEDBACK_OFF = 0,
-    HAPTIC_FEEDBACK_LOW,
-    HAPTIC_FEEDBACK_MEDIUM,
-    HAPTIC_FEEDBACK_HIGH,
-    HAPTIC_FEEDBACK_LEVEL_COUNT
-  };
-
   enum SOUND_FEEDBACK_LEVEL {
     SOUND_FEEDBACK_OFF = 0,
     SOUND_FEEDBACK_LOW = 1,
@@ -244,14 +236,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   enum READER_MENU_STYLE { READER_MENU_LIST = 0, READER_MENU_TOOLBAR = 1, READER_MENU_STYLE_COUNT };
 
   enum TILT_PAGE_TURN { TILT_OFF = 0, TILT_NORMAL = 1, TILT_NVERTED = 2, TILT_PAGE_TURN_COUNT };
-
-  enum TOUCH_READER_CONTROLS {
-    TOUCH_READER_OFF = 0,
-    TOUCH_READER_ON = 1,
-    TOUCH_READER_SWIPE = 2,
-    TOUCH_READER_INVERTED_TAP = 3,
-    TOUCH_READER_CONTROLS_COUNT
-  };
 
   // How the reader menu opens on touch boards. Persisted under the legacy
   // "tapForReaderMenu" key: 0/1 keep their old Off/Tap meaning.
@@ -410,9 +394,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
 #else
   uint8_t soundFeedbackLevel = SOUND_FEEDBACK_OFF;
 #endif
-#if FREEINK_CAP_HAPTIC
-  uint8_t hapticFeedbackLevel = HAPTIC_FEEDBACK_MEDIUM;
-#endif
   // Remove a book from the Recent Books list when its End-of-Book screen is reached (0 = off, 1 = on)
   uint8_t removeReadBooksFromRecents = 0;
   // Move epub to /Read/ folder on SD card when finished (0 = disabled, 1 = enabled)
@@ -428,18 +409,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t imageRendering = IMAGES_DISPLAY;
   // Tilt-based page turning (X3 only — requires QMI8658 IMU)
   uint8_t tiltPageTurn = TILT_OFF;
-  // Touch screen reader zones/gestures on boards with a touch controller.
-  uint8_t touchReaderControls = TOUCH_READER_ON;
   // Reader menu open gesture (SHOW_READER_MENU: off / center tap / bottom-edge
   // up-swipe). Only surfaced on home-key boards, where Home is the capacitive
   // key and the bottom edge is free; elsewhere it stays at the Tap default.
   uint8_t showReaderMenu = READER_MENU_TAP;
-  // Frontlight quick-panel state. Brightness and warmth remain persisted even
-  // when restore-on-wake is disabled.
-  uint8_t frontlightBrightness = 60;
-  uint8_t frontlightWarmth = 50;
-  uint8_t frontlightOn = 0;
-  uint8_t frontlightRestoreOnWake = 1;
   // Language setting (Language enum index). Fresh devices start in English and
   // choose their UI language and matching content profile in the startup guide.
   // Resolved out-of-line in CrossPointSettings.cpp so the generated

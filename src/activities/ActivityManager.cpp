@@ -32,7 +32,6 @@
 #include "reader/ReaderActivity.h"
 #include "settings/OpdsServerListActivity.h"
 #include "settings/SettingsActivity.h"
-#include "util/FrontlightPanelActivity.h"
 #include "util/FullScreenMessageActivity.h"
 #include "util/ImageViewerActivity.h"
 #include "util/UserGuide.h"
@@ -47,13 +46,7 @@ void ActivityManager::begin() {
 #else
   constexpr BaseType_t renderTaskCore = 0;
 #endif
-  // A4 prewarms fonts, decodes covers and runs Bidi in this task; keep its
-  // measured stack allowance local to that experimental target.
-#if FREEINK_DEVICE_EEGO_A4
-  constexpr uint32_t kRenderTaskStackBytes = 16384;
-#else
   constexpr uint32_t kRenderTaskStackBytes = 8192;
-#endif
   xTaskCreatePinnedToCore(&renderTaskTrampoline, "ActivityManagerRender",
                           kRenderTaskStackBytes,  // Stack size (see above)
                           this,                   // Parameters
@@ -119,25 +112,6 @@ void ActivityManager::loop() {
         return;
       }
       goHome();
-      return;
-    }
-
-    // Touch users can also open the global control center from the status bar.
-    bool statusBarTap = false;
-    if (mappedInput.hasTouch() &&
-        (currentActivity->name == "Home" || currentActivity->name == "FileBrowser" ||
-         currentActivity->name == "Settings" || currentActivity->name == "NetworkModeSelection")) {
-      int tx = 0;
-      int ty = 0;
-      statusBarTap = mappedInput.wasScreenTapped(tx, ty) && ty < 44;
-    }
-    if (currentActivity->name != "FrontlightPanel" && (statusBarTap || mappedInput.wasLightPanelGesture())) {
-      auto panel = makeUniqueNoThrow<FrontlightPanelActivity>(renderer, mappedInput);
-      if (!panel) {
-        LOG_ERR("ACT", "OOM: frontlight panel (%u bytes)", static_cast<unsigned>(sizeof(FrontlightPanelActivity)));
-        return;
-      }
-      pushActivity(std::move(panel));
       return;
     }
 

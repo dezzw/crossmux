@@ -35,22 +35,6 @@ TEST_F(BleOverlayTest, ReleaseDoesNotInheritPhysicalHeldTime) {
   EXPECT_EQ(input.getHeldTime(), 5000U);
 }
 
-TEST_F(BleOverlayTest, ReleaseDoesNotInheritTouchHeldTime) {
-  gpio.touchTap = true;
-  gpio.touchHeldTime = 3000;
-  int x, y;
-  ASSERT_TRUE(input.wasScreenTapped(x, y));
-  gpio.touchTap = false;
-  key();
-  input.update();
-  EXPECT_EQ(input.getHeldTime(), 0U);
-  input.update();
-  EXPECT_TRUE(input.wasReleased(Button::PageForward));
-  EXPECT_EQ(input.getHeldTime(), 0U);
-  input.update();
-  EXPECT_EQ(input.getHeldTime(), 3000U);
-}
-
 TEST_F(BleOverlayTest, RepeatedKeysRemainSeparateShortPresses) {
   gpio.heldTime = 5000;
   key();

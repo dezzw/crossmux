@@ -80,17 +80,14 @@ def inject_version(env):
     pioenv = env['PIOENV']
     # Only applies to development environments; release envs set the
     # version via build_flags in platformio.ini and are unaffected.
-    if pioenv not in ('default', 'sticky', 'eego_a4', 'murphy_m4', 'waveshare_epaper_397', 'metalio_eink4'):
+    if pioenv != 'waveshare_epaper_397':
         return
 
     project_dir = env['PROJECT_DIR']
     base_version = get_base_version(project_dir)
     short_sha = get_git_short_sha(project_dir)
-    if pioenv in ('default', 'sticky'):
-        version_string = f'{base_version}-dev-{get_git_branch(project_dir)}-{short_sha}'
-    else:
-        device = pioenv.replace('_', '-')
-        version_string = f'{base_version}-{device}-rc+{short_sha}'
+    device = pioenv.replace('_', '-')
+    version_string = f'{base_version}-{device}-rc+{short_sha}'
 
     env.Append(CPPDEFINES=[('CROSSPOINT_VERSION', f'\\"{version_string}\\"')])
     print(f'CrossPoint build version: {version_string}')
@@ -107,4 +104,4 @@ except NameError:
         def Append(self, **_): pass
 
     _project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    inject_version(_Env({'PIOENV': 'default', 'PROJECT_DIR': _project_dir}))
+    inject_version(_Env({'PIOENV': 'waveshare_epaper_397', 'PROJECT_DIR': _project_dir}))

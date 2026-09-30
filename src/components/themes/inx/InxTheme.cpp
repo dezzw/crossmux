@@ -177,8 +177,8 @@ void InxTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const ch
   const int pageHeight = renderer.getScreenHeight();
   constexpr int buttonHeight = InxMetrics::values.buttonHintsHeight;
   const int pageWidth = renderer.getScreenWidth();
-  const int margin = gpio.deviceIsX3() ? 65 : 58;
-  const int gap = gpio.deviceIsX3() ? 12 : 8;
+  const int margin = 58;
+  const int gap = 8;
   const int positions[] = {margin, margin + kHintWidth + gap, pageWidth - margin - kHintWidth * 2 - gap,
                            pageWidth - margin - kHintWidth};
   const char* labels[] = {btn1, btn2, btn3, btn4};
@@ -196,14 +196,13 @@ void InxTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const ch
 }
 
 void InxTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const {
-  if (gpio.hasTouch()) return;
   constexpr int width = InxMetrics::values.sideButtonHintsWidth;
   constexpr int height = 78;
   const int screenWidth = renderer.getScreenWidth();
   const char* labels[] = {topBtn, bottomBtn};
-  const int xs[] = {gpio.deviceIsX3() ? 0 : screenWidth - width, screenWidth - width};
-  const int firstY = gpio.deviceIsX3() ? kX3SideHintY : kSideHintY;
-  const int ys[] = {firstY, gpio.deviceIsX3() ? firstY : firstY + height + 5};
+  const int xs[] = {screenWidth - width, screenWidth - width};
+  const int firstY = kSideHintY;
+  const int ys[] = {firstY, firstY + height + 5};
 
   for (int i = 0; i < 2; ++i) {
     if (!labels[i] || !*labels[i]) continue;

@@ -2,7 +2,6 @@
 
 #include <ArduinoJson.h>
 #include <FsHelpers.h>
-#include <HalFrontlight.h>
 #include <HalGPIO.h>
 #include <HalStorage.h>
 #include <Logging.h>
@@ -1484,8 +1483,6 @@ void CrossPointWebServer::handlePostSettings() {
   });
 
   SETTINGS.saveToFile();
-  Frontlight.setWarmth(SETTINGS.frontlightWarmth);
-  Frontlight.setBrightness(SETTINGS.frontlightBrightness);
 
   LOG_DBG("WEB", "Applied %d setting(s)", applied);
   server->send(200, "text/plain", String("Applied ") + String(applied) + " setting(s)");
