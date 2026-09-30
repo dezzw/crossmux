@@ -14,10 +14,6 @@
 #include "components/SelectionCursorPolicy.h"
 #include "components/themes/BaseTheme.h"
 #include "components/themes/inx/InxTheme.h"
-#include "components/themes/lyra/Lyra3CoversTheme.h"
-#include "components/themes/lyra/LyraCarouselTheme.h"
-#include "components/themes/lyra/LyraTheme.h"
-#include "components/themes/roundedraff/RoundedRaffTheme.h"
 
 UITheme UITheme::instance;
 
@@ -33,46 +29,19 @@ void UITheme::reload() {
 
 void UITheme::setTheme(CrossPointSettings::UI_THEME type) {
   std::unique_ptr<BaseTheme> nextTheme;
-  const ThemeMetrics* nextMetrics = &BaseMetrics::values;
-  switch (type) {
-    case CrossPointSettings::UI_THEME::CLASSIC:
-      LOG_DBG("UI", "Using Classic theme");
-      nextTheme = makeUniqueNoThrow<BaseTheme>();
-      break;
-    case CrossPointSettings::UI_THEME::LYRA:
-      LOG_DBG("UI", "Using Lyra theme");
-      nextTheme = makeUniqueNoThrow<LyraTheme>();
-      nextMetrics = &LyraMetrics::values;
-      break;
-    case CrossPointSettings::UI_THEME::ROUNDEDRAFF:
-      LOG_DBG("UI", "Using RoundedRaff theme");
-      nextTheme = makeUniqueNoThrow<RoundedRaffTheme>();
-      nextMetrics = &RoundedRaffMetrics::values;
-      break;
-    case CrossPointSettings::UI_THEME::LYRA_3_COVERS:
-      LOG_DBG("UI", "Using Lyra 3 Covers theme");
-      nextTheme = makeUniqueNoThrow<Lyra3CoversTheme>();
-      nextMetrics = &Lyra3CoversMetrics::values;
-      break;
-    case CrossPointSettings::UI_THEME::LYRA_CAROUSEL:
-      LOG_DBG("UI", "Using Lyra Carousel theme");
-      nextTheme = makeUniqueNoThrow<LyraCarouselTheme>();
-      nextMetrics = &LyraCarouselMetrics::values;
-      break;
-    case CrossPointSettings::UI_THEME::INX:
-      LOG_DBG("UI", "Using INX theme");
-      nextTheme = makeUniqueNoThrow<InxTheme>();
-      nextMetrics = &InxMetrics::values;
-      break;
-    default:
-      LOG_ERR("UI", "Unknown theme %d, falling back to Classic", static_cast<int>(type));
-      nextTheme = makeUniqueNoThrow<BaseTheme>();
-      type = CrossPointSettings::UI_THEME::CLASSIC;
-      break;
+  const ThemeMetrics* nextMetrics = &InxMetrics::values;
+  CrossPointSettings::UI_THEME resolved = CrossPointSettings::UI_THEME::INX;
+
+  if (type != CrossPointSettings::UI_THEME::INX) {
+    LOG_DBG("UI", "Legacy theme %d remapped to INX", static_cast<int>(type));
+  } else {
+    LOG_DBG("UI", "Using INX theme");
   }
 
+  nextTheme = makeUniqueNoThrow<InxTheme>();
+
   if (!nextTheme) {
-    LOG_ERR("UI", "OOM creating theme %d; using static Classic fallback", static_cast<int>(type));
+    LOG_ERR("UI", "OOM creating INX theme; using static Classic fallback");
     ownedTheme.reset();
     currentTheme = &fallbackTheme;
     currentMetrics = &BaseMetrics::values;
@@ -81,7 +50,7 @@ void UITheme::setTheme(CrossPointSettings::UI_THEME type) {
     ownedTheme = std::move(nextTheme);
     currentTheme = ownedTheme.get();
     currentMetrics = nextMetrics;
-    currentType = type;
+    currentType = resolved;
   }
   metricsValid = false;
 }

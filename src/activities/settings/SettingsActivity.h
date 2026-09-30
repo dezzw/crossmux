@@ -233,7 +233,6 @@ class SettingsActivity final : public UiTabListActivity {
 
   static std::string settingValueText(const SettingInfo& setting);
   void selectCategory(int categoryIndex);
-  void applyUiSettingChange(uint8_t CrossPointSettings::* valuePtr);
 
   void toggleCurrentSetting();
   void toggleAccordionSetting(int categoryIndex, int settingIndex);

@@ -233,14 +233,6 @@ The Settings screen allows you to configure the device's behavior. There are a f
 
 - **Refresh Frequency**: Set how often the screen does a full refresh while reading to reduce ghosting; options are every 1, 5, 10, 15, or 30 pages.
 
-- **UI Theme**: Set which UI theme to use:
-  
-  - "Classic" - The original Crosspoint theme
-  - "Lyra" - The new theme for Crosspoint featuring rounded elements and menu icons
-  - "Lyra Extended" - Lyra, but displays 3 books instead of 1 on the **[Home Screen](#31-home-screen)**
-  - "RoundedRaff" - A rounded theme with additional visual styling
-  - "Inx" - A five-tab e-ink interface with a Recent home screen, icon/list Library and Apps layouts, and expandable Settings categories
-
 - **Inx Home Layout**: Choose Flow, Grid, List, Icons, or Cover for the Inx home screen. The default is Flow.
 - **Inx Library Layout**: Choose Icons or List for the Inx Library. The default is Icons.
 - **Inx Apps Layout**: Choose Icons or List for the Inx Apps hub. The default is Icons.

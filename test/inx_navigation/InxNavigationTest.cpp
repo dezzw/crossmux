@@ -13,7 +13,6 @@
 #include "components/icons/inx_apps.h"
 #include "components/themes/BaseTheme.h"
 #include "components/themes/inx/InxTheme.h"
-#include "components/themes/roundedraff/RoundedRaffTheme.h"
 
 namespace {
 using DrawListMethod = void (BaseTheme::*)(const GfxRenderer&, Rect, int, int, const std::function<std::string(int)>&,
@@ -27,8 +26,8 @@ using DrawButtonMenuMethod = void (BaseTheme::*)(GfxRenderer&, Rect, int, int, c
 static_assert(std::is_same_v<decltype(&BaseTheme::drawList), DrawListMethod>);
 static_assert(std::is_same_v<decltype(&BaseTheme::drawButtonMenu), DrawButtonMenuMethod>);
 static_assert(!BaseMetrics::values.homeShowRecentBookTitle);
-static_assert(RoundedRaffMetrics::values.homeShowRecentBookTitle);
-static_assert(RoundedRaffMetrics::values.topPadding == 0);
+static_assert(InxMetrics::values.topPadding == 0);
+static_assert(!InxMetrics::values.homeShowRecentBookTitle);
 
 constexpr uint32_t iconHash(const InxAppIcons::Icon& icon) {
   uint32_t hash = 2166136261u;
