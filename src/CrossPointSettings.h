@@ -420,7 +420,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Short press Back goes to file browser instead of home (0 = disabled, 1 = enabled)
   uint8_t backShortToFileBrowser = 0;
   // Apps menu visibility. Set bits hide stable app IDs.
-  static constexpr uint8_t APPS_CATALOG_VERSION = 1;
+  static constexpr uint8_t APPS_CATALOG_VERSION = 2;
   uint32_t hiddenAppsMask = appVisibility::DEFAULT_HIDDEN_APPS_MASK;
   uint8_t appsCatalogVersion = APPS_CATALOG_VERSION;
   uint8_t buddyClaimed = 0;

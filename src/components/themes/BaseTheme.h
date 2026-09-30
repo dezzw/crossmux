@@ -155,27 +155,15 @@ enum UIIcon {
   Hotspot,
   Bookmark,
   Apps,
-  Sudoku,
-  Sokoban,
-  Gomoku,
 #ifdef ENABLE_CHINESE_VERSION
-  ChineseChess,
   WeRead,
 #endif
-  Minesweeper,
-  Avatar,
-  Standby,
-  Game2048,
-  Buddy,
-  PixelSwitch,
   Opds,
   ReadingStats,
-  AirPage,
+  Standby,
   ReadingHeatmap,
   ReadingProfile,
   Achievements,
-  Calculator,
-  Woodfish,
   Usb
 };
 
