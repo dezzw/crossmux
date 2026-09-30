@@ -6,7 +6,6 @@
 #include <FontCacheManager.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
-#include <HalFrontlight.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
@@ -1095,9 +1094,6 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
     case EpubReaderMenuActivity::MenuAction::NIGHT_MODE:
       // Handled in-place by EpubReaderMenuActivity so its On/Off value updates
       // without closing the menu.
-      break;
-    case EpubReaderMenuActivity::MenuAction::FRONTLIGHT:
-      // Handled in-place by EpubReaderMenuActivity using the live frontlight HAL.
       break;
     case EpubReaderMenuActivity::MenuAction::AUTO_PAGE_TURN:
     case EpubReaderMenuActivity::MenuAction::ROTATE_SCREEN:
@@ -3005,8 +3001,6 @@ std::string EpubReaderActivity::moreRowValue(int row) const {
                  : std::to_string(PAGE_TURN_RATES[autoTurnOption]);
     case MA::NIGHT_MODE:
       return SETTINGS.screenInverted ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
-    case MA::FRONTLIGHT:
-      return Frontlight.isOn() ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
     case MA::IMAGE_SCALING: {
       // Same labels the reader menu's option popup offers, so the row's value
       // and the popup's highlighted entry always agree.
@@ -3083,18 +3077,6 @@ void EpubReaderActivity::activateMoreRow(int row) {
       discardOverlayPage();
       requestUpdate();
       return;
-    case MA::FRONTLIGHT: {
-      const bool lightOn = !Frontlight.isOn();
-      Frontlight.setOn(lightOn);
-      SETTINGS.frontlightOn = lightOn ? 1 : 0;
-      SETTINGS.saveToFile();
-      {
-        RenderLock lock;  // the render task shares the framebuffer
-        renderOverlay();
-        renderer.displayBuffer(HalDisplay::FAST_REFRESH);
-      }
-      return;
-    }
     default:
       break;
   }

@@ -32,7 +32,6 @@
 #include "reader/ReaderActivity.h"
 #include "settings/OpdsServerListActivity.h"
 #include "settings/SettingsActivity.h"
-#include "util/FrontlightPanelActivity.h"
 #include "util/FullScreenMessageActivity.h"
 #include "util/ImageViewerActivity.h"
 #include "util/UserGuide.h"
@@ -119,25 +118,6 @@ void ActivityManager::loop() {
         return;
       }
       goHome();
-      return;
-    }
-
-    // Touch users can also open the global control center from the status bar.
-    bool statusBarTap = false;
-    if (mappedInput.hasTouch() &&
-        (currentActivity->name == "Home" || currentActivity->name == "FileBrowser" ||
-         currentActivity->name == "Settings" || currentActivity->name == "NetworkModeSelection")) {
-      int tx = 0;
-      int ty = 0;
-      statusBarTap = mappedInput.wasScreenTapped(tx, ty) && ty < 44;
-    }
-    if (currentActivity->name != "FrontlightPanel" && (statusBarTap || mappedInput.wasLightPanelGesture())) {
-      auto panel = makeUniqueNoThrow<FrontlightPanelActivity>(renderer, mappedInput);
-      if (!panel) {
-        LOG_ERR("ACT", "OOM: frontlight panel (%u bytes)", static_cast<unsigned>(sizeof(FrontlightPanelActivity)));
-        return;
-      }
-      pushActivity(std::move(panel));
       return;
     }
 

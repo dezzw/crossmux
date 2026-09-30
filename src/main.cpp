@@ -6,7 +6,6 @@
 #include <GfxRenderer.h>
 #include <HalClock.h>
 #include <HalDisplay.h>
-#include <HalFrontlight.h>
 #include <HalGPIO.h>
 #include <HalOtaSlot.h>
 #include <HalPowerManager.h>
@@ -18,12 +17,6 @@
 #include <Memory.h>
 #include <SPI.h>
 #include <WiFi.h>
-#if FREEINK_CAP_TOUCH
-#include <esp_sntp.h>
-#endif
-#if FREEINK_DEVICE_X4PRO
-#include <XteinkDetect.h>
-#endif
 #include <builtinFonts/all.h>
 
 #include <cstring>
@@ -67,11 +60,8 @@ SdCardFontSystem sdFontSystem;
 FontCacheManager fontCacheManager(renderer.getFontMap(), renderer.getSdCardFonts());
 static unsigned long allowSleepAt = 0;
 constexpr unsigned long READING_STATS_CHECKPOINT_IDLE_MS = 15UL * 1000UL;
-static unsigned long lastX4ProPowerClickAt = 0;
 
 namespace {
-constexpr unsigned long X4PRO_POWER_DOUBLE_CLICK_MS = 500;
-constexpr unsigned long X4PRO_POWER_CLICK_MAX_HOLD_MS = 300;
 #if CROSSPOINT_CAP_SOUND_FEEDBACK
 static_assert(CrossPointSettings::SOUND_FEEDBACK_OFF == static_cast<uint8_t>(SoundFeedback::Level::Off));
 static_assert(CrossPointSettings::SOUND_FEEDBACK_LOW == static_cast<uint8_t>(SoundFeedback::Level::Low));
@@ -184,22 +174,8 @@ enum class BootResume : uint8_t {
 // startDeepSleep() does not return, so a set latch only ends at the wakeup reset.
 static bool deepSleepInProgress = false;
 
-#if FREEINK_CAP_TOUCH
-static bool finishWifiSessionWithoutRestart() {
-  if (!BoardConfig::hasTouch()) return false;
-  if (esp_sntp_enabled()) esp_sntp_stop();
-  WiFi.mode(WIFI_OFF);
-  delay(100);
-  LOG_DBG("MAIN", "WiFi stopped without restart on touch device");
-  return true;
-}
-#endif
-
 void silentRestart() {
   if (deepSleepInProgress) return;  // sleeping supersedes the heap-defrag reboot
-#if FREEINK_CAP_TOUCH
-  if (finishWifiSessionWithoutRestart()) return;
-#endif
   silentRebootTarget = static_cast<uint32_t>(SilentRebootTarget::Home);
   silentRebootFontPointSize = 0;
   silentRebootMagic = SILENT_REBOOT_MAGIC;
@@ -246,30 +222,6 @@ void restartToHomeAfterStorageHandoff() {
   delay(50);
   handoffUsbOtgToSerialJtag();
   ESP.restart();
-}
-
-bool handleX4ProFrontlightDoubleClick() {
-  if (!BoardConfig::isX4Pro() || !gpio.wasReleased(HalGPIO::BTN_POWER)) {
-    return false;
-  }
-
-  const unsigned long now = millis();
-  if (gpio.getPowerButtonHeldTime() > X4PRO_POWER_CLICK_MAX_HOLD_MS) {
-    lastX4ProPowerClickAt = 0;
-    return false;
-  }
-  if (lastX4ProPowerClickAt == 0 || now - lastX4ProPowerClickAt > X4PRO_POWER_DOUBLE_CLICK_MS) {
-    lastX4ProPowerClickAt = now;
-    return false;
-  }
-
-  lastX4ProPowerClickAt = 0;
-  const bool lightOn = !Frontlight.isOn();
-  Frontlight.setOn(lightOn);
-  SETTINGS.frontlightOn = lightOn ? 1 : 0;
-  SETTINGS.saveToFile();
-  LOG_INF("LIGHT", "Frontlight toggled %s by power-button double-click", lightOn ? "on" : "off");
-  return true;
 }
 
 void waitForPowerRelease() {
@@ -345,40 +297,19 @@ void enterDeepSleep(bool fromTimeout = false) {
     WiFi.mode(WIFI_OFF);
   }
 
-#if FREEINK_CAP_HAPTIC
-  gpio.stopHapticFeedback();
-#endif
   halTiltSensor.deepSleep();
-  Frontlight.setOn(false);
 #if CROSSPOINT_CAP_SOUND_FEEDBACK
   SoundFeedback::shutdown();
 #endif
   display.deepSleep();
-#if !FREEINK_DEVICE_EEGO_A4
   Storage.prepareForDeepSleep();
-#endif
   LOG_DBG("MAIN", "Entering deep sleep");
 
   powerManager.startDeepSleep(gpio);
 }
 
 bool setupDisplayAndFonts(bool seamless = false, bool logSdFontLoadHeap = false) {
-#if FREEINK_DEVICE_X4PRO
-  // X4 Pro batches use SSD1677 or UC81xx. Resolve the controller before
-  // display.begin(); C3 X3/X4 already do this once in HalGPIO::begin().
-  static bool controllerResolved = false;
-  if (!controllerResolved) {
-    controllerResolved = true;
-    freeink::applyXteinkDisplayController();
-  }
-#endif
-
   display.begin(seamless);
-#if FREEINK_DEVICE_MURPHY_M4
-  if (!gpio.restoreTouchAfterDisplayReset()) {
-    LOG_ERR("MAIN", "Failed to restore Murphy M4 touch after display reset");
-  }
-#endif
   renderer.begin();
   activityManager.begin();
   LOG_DBG("MAIN", "Display initialized");
@@ -536,13 +467,7 @@ void setup() {
   powerManager.begin();
 
   const auto wakeupReason = gpio.getWakeupReason();
-  // Sample the wake hold now — a click wake is released within milliseconds of
-  // boot — but defer the sleep-or-boot decision until SETTINGS is loaded below:
-  // click-to-wake is a setting, and an X4 battery power-off cuts all power, so
-  // only SD state survives to the next boot.
-#if !FREEINK_DEVICE_EEGO_A4
   const bool wakeHoldVerified = wakeupReason != HalGPIO::WakeupReason::PowerButton || gpio.verifyPowerButtonWakeup();
-#endif
 
   halTiltSensor.begin();
   halClock.begin();
@@ -550,22 +475,17 @@ void setup() {
   LOG_INF("MAIN", "Hardware detect: %s", BoardConfig::ACTIVE.name);
 
   bool recoveryFirmwareMode = false;
-#if !FREEINK_DEVICE_PAPERMONO
   if (wakeupReason == HalGPIO::WakeupReason::PowerButton) {
     const unsigned long settleStart = millis();
     while (millis() - settleStart < 500) {
       gpio.update();
       delay(10);
     }
-    const uint8_t recoveryButton =
-        (BoardConfig::isX4Pro() || FREEINK_DEVICE_X4CLASSIC) ? HalGPIO::BTN_DOWN : HalGPIO::BTN_UP;
-    recoveryFirmwareMode = gpio.isPressed(recoveryButton);
+    recoveryFirmwareMode = gpio.isPressed(HalGPIO::BTN_UP);
     if (recoveryFirmwareMode) {
-      LOG_INF("MAIN", "Recovery firmware mode (%s + POWER held at boot)",
-              (BoardConfig::isX4Pro() || FREEINK_DEVICE_X4CLASSIC) ? "DOWN" : "UP");
+      LOG_INF("MAIN", "Recovery firmware mode (UP + POWER held at boot)");
     }
   }
-#endif
 
   // SD Card Initialization
   // We need 6 open files concurrently when parsing a new chapter
@@ -586,7 +506,6 @@ void setup() {
 
   HalSystem::checkPanic();
 
-  if (gpio.hasTouch()) SETTINGS.readerMenuStyle = CrossPointSettings::READER_MENU_TOOLBAR;
   const bool settingsLoaded = SETTINGS.loadFromFile();
   const auto onboardingMode =
       settingsLoaded ? LanguageSelectActivity::Mode::Upgrade : LanguageSelectActivity::Mode::Initial;
@@ -609,48 +528,20 @@ void setup() {
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
 
-  const bool restoreLightOn = SETTINGS.frontlightOn != 0 && (SETTINGS.frontlightRestoreOnWake != 0 || isSilentReboot);
-  Frontlight.begin(SETTINGS.frontlightBrightness, SETTINGS.frontlightWarmth, restoreLightOn);
-
   switch (wakeupReason) {
     case HalGPIO::WakeupReason::PowerButton:
-#if FREEINK_DEVICE_EEGO_A4
-      LOG_DBG("MAIN", "Verifying power button press duration");
-      if (!gpio.verifyPowerButtonWakeup(SETTINGS.getPowerButtonDuration(),
-                                        SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP)) {
-        powerManager.startDeepSleep(gpio);
-      }
-#else
-      // With Short Power Button Press = Sleep, a single click wakes on any
-      // device; otherwise the button must still be held (ghost-wake debounce).
       if (!wakeHoldVerified && SETTINGS.shortPwrBtn != CrossPointSettings::SHORT_PWRBTN::SLEEP) {
         LOG_DBG("MAIN", "Power-button wake not held through verification, sleeping");
         Storage.prepareForDeepSleep();
         powerManager.startDeepSleep(gpio);
       }
-#endif
       wakePowerReleasePending = true;
       break;
     case HalGPIO::WakeupReason::AfterUSBPower:
-      // Most devices return to sleep after a USB-powered cold boot.
+      // Waveshare: side key is behind the AXP2101 and native USB reads as
+      // POWERON — stay awake so USB Serial/JTAG and MSC handoff remain usable.
       LOG_DBG("MAIN", "Wakeup reason: After USB Power");
-#if FREEINK_DEVICE_X4PRO || FREEINK_DEVICE_X4CLASSIC || FREEINK_DEVICE_PAPERMONO || FREEINK_DEVICE_EEGO_A4 || \
-    FREEINK_DEVICE_WAVESHARE_EPAPER_397 || FREEINK_DEVICE_METALIO_EINK4
-      // X4 Pro must stay awake so USB Serial/JTAG remains available after leaving
-      // USB Drive and reconnecting the cable. Paper Mono has no armable GPIO wake
-      // (its button is behind the PMIC). EEGO A4's post-flash reset reads as
-      // POWERON (native-USB), so a flash would otherwise be misclassified as a
-      // USB-power cold boot and sleep. Waveshare 3.97 hits both: its side key is
-      // behind the AXP2101 (input.power == PIN_UNASSIGNED) and it is a native-USB
-      // S3, so startDeepSleep() there is a PMIC shutdown on every cabled boot.
-      // Sleeping any of these here would strand the device in a USB-replug boot
-      // loop (or sleep right after a flash).
       break;
-#else
-      Storage.prepareForDeepSleep();
-      powerManager.startDeepSleep(gpio);
-      break;
-#endif
     case HalGPIO::WakeupReason::AfterFlash:
       // After flashing, just proceed to boot
     case HalGPIO::WakeupReason::Other:
@@ -800,9 +691,6 @@ void loop() {
 
   gpio.setSharedConfirmPowerShortPressEmitsPower(SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP);
   mappedInputManager.update();
-#if FREEINK_CAP_HAPTIC
-  gpio.updateHapticFeedback(SETTINGS.hapticFeedbackLevel);
-#endif
   updateBluetoothLifecycle();
 
   static bool bluetoothWasConnected = false;
@@ -862,10 +750,8 @@ void loop() {
     }
   }
 
-  // Check for any real user activity (button, touch, or tilt).
   static unsigned long lastActivityTime = millis();
-  if (mappedInputManager.wasAnyPressed() || mappedInputManager.wasAnyReleased() || gpio.wasTouchActivity() ||
-      halTiltSensor.hadActivity()) {
+  if (mappedInputManager.wasAnyPressed() || mappedInputManager.wasAnyReleased() || halTiltSensor.hadActivity()) {
     lastActivityTime = millis();         // Reset inactivity timer
     powerManager.setPowerSaving(false);  // Restore normal CPU frequency on user activity
   }
@@ -903,17 +789,6 @@ void loop() {
     screenshotComboActive = false;
   }
 
-  if (handleX4ProFrontlightDoubleClick()) return;
-
-#if FREEINK_CAP_TOUCH
-  mappedInputManager.setPowerConfirmClickFrame(false);
-  if (SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::PWR_CONFIRM && BoardConfig::isX4Pro() &&
-      lastX4ProPowerClickAt != 0 && millis() - lastX4ProPowerClickAt > X4PRO_POWER_DOUBLE_CLICK_MS) {
-    lastX4ProPowerClickAt = 0;
-    mappedInputManager.setPowerConfirmClickFrame(true);
-  }
-#endif
-
   const unsigned long sleepTimeoutMs = SETTINGS.getSleepTimeoutMs();
   if (sleepTimeoutMs > 0 && !activityManager.preventAutoSleep() && millis() - lastActivityTime >= sleepTimeoutMs) {
     LOG_DBG("SLP", "Auto-sleep triggered after %lu ms of inactivity", sleepTimeoutMs);
@@ -934,18 +809,6 @@ void loop() {
     return;
   }
 
-#if FREEINK_DEVICE_PAPERMONO
-  // Paper Mono reports the PMIC power button as a one-tick click, so the held
-  // path above cannot fire. With the default Ignore action, retain the normal
-  // power-button meaning and shut down; explicit alternate bindings still win.
-  if ((SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP ||
-       SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::IGNORE) &&
-      millis() >= allowSleepAt && mappedInputManager.wasReleased(MappedInputManager::Button::Power)) {
-    enterDeepSleep();
-    return;
-  }
-#endif
-
   // Refresh screen when power button is short-pressed with FORCE_REFRESH setting.
   if (SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::FORCE_REFRESH &&
       mappedInputManager.wasReleased(MappedInputManager::Button::Power)) {
@@ -956,21 +819,9 @@ void loop() {
     }
   }
 
-  // Refresh the battery icon when USB is plugged or unplugged.
-  // Placed after sleep guards so we never queue a render that won't be processed.
-  // Not while reading: there a repaint is a full page re-render (visible
-  // flash, the AA pass re-running, and a frontlight dip under the refresh
-  // load); the reader's status bar picks the charging state up on the next
-  // page turn instead.
   if (gpio.wasUsbStateChanged() && !activityManager.isReaderActivity()) {
     activityManager.requestUpdate();
   }
-#ifndef CROSSPOINT_EMULATED
-  if (gpio.wasInputModalityChanged() && gpio.hasTouch() && UITheme::getInstance().hasMainTabs() &&
-      !activityManager.isReaderActivity()) {
-    activityManager.requestUpdate();
-  }
-#endif
 
   const unsigned long activityStartTime = millis();
   const bool readerWasActive = activityManager.isReaderActivity();

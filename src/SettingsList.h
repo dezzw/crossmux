@@ -1,7 +1,6 @@
 #pragma once
 
 #include <BoardConfig.h>
-#include <HalFrontlight.h>
 #include <HalTiltSensor.h>
 #include <I18n.h>
 #include <SdCardFontRegistry.h>
@@ -524,14 +523,7 @@ inline bool isSettingAvailableOnBoard(const SettingInfo& setting) {
                                  || setting.valuePtr == &CrossPointSettings::frontlightWarmth
 #endif
       ;
-#if defined(SIMULATOR)
   if (frontlightSetting) return false;
-#else
-  if (frontlightSetting && !Frontlight.present()) return false;
-#if FREEINK_CAP_WARMLIGHT
-  if (setting.valuePtr == &CrossPointSettings::frontlightWarmth && !Frontlight.hasColorTemperature()) return false;
-#endif
-#endif
   if (!BoardConfig::hasTouch()) return true;
   return setting.nameId != StrId::STR_FRONT_BTN_FOLLOW_ORIENTATION &&
          setting.nameId != StrId::STR_SUNLIGHT_FADING_FIX && setting.nameId != StrId::STR_SHOW_BUTTON_HINTS &&
