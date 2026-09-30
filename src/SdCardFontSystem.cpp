@@ -8,6 +8,7 @@
 #include <iterator>
 
 #include "CrossPointSettings.h"
+#include "I18nKeys.h"
 #include "ReaderFontSizes.h"
 #include "fontIds.h"
 
@@ -145,7 +146,7 @@ void SdCardFontSystem::releaseLoadedFont(GfxRenderer& renderer) { manager_.unloa
 
 bool SdCardFontSystem::adoptCompleteChineseNotoSans() {
 #ifdef ENABLE_CHINESE_VERSION
-  if (SETTINGS.contentProfile != CrossPointSettings::ContentProfile::China || SETTINGS.sdFontFamilyName[0] != '\0' ||
+  if (static_cast<Language>(SETTINGS.language) != Language::ZH_CN || SETTINGS.sdFontFamilyName[0] != '\0' ||
       !registry_.findFamily(COMPLETE_CHINESE_NOTO_SANS_FAMILY))
     return false;
 
