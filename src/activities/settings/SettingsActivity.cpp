@@ -533,22 +533,6 @@ void SettingsActivity::onExit() {
   UITheme::getInstance().reload();  // Re-apply theme in case it was changed
 }
 
-void SettingsActivity::applyUiSettingChange(uint8_t CrossPointSettings::* valuePtr) {
-  // Theme changes take effect immediately, on this screen — reload the theme
-  // and re-derive the app's tokens so the very next repaint is in the new look.
-  if (valuePtr != &CrossPointSettings::uiTheme) {
-    return;
-  }
-  RenderLock lock(*this);
-  UITheme::getInstance().reload();
-  expandedCategories = 0;
-  nav.reset();
-  rebuildSettingsLists();
-  // Re-derive the shared tokens for the new look; the gate stays closed until
-  // the repaint that rebuilds the interaction table in the new layout.
-  resetUi();
-}
-
 bool SettingsActivity::handleCustomInput() {
   return optionPopup.handleInput(mappedInput, [this] { requestUpdate(); });
 }
@@ -708,10 +692,7 @@ void SettingsActivity::toggleCurrentSetting() {
 #endif
             syncQuickResumeTimeoutForSleepScreen(sleepScreenChanged, quickResumeTimeoutChanged);
             SETTINGS.saveToFile();
-            if (valuePtr == &CrossPointSettings::uiTheme)
-              applyUiSettingChange(valuePtr);
-            else
-              rebuildSettingsLists();
+            rebuildSettingsLists();
           });
       requestUpdate();
       return;
@@ -859,12 +840,8 @@ void SettingsActivity::toggleCurrentSetting() {
 
   syncQuickResumeTimeoutForSleepScreen(sleepScreenChanged, quickResumeTimeoutChanged);
   SETTINGS.saveToFile();
-  if (changedValuePtr == &CrossPointSettings::uiTheme) {
-    applyUiSettingChange(changedValuePtr);
-  } else {
-    rebuildSettingsLists();
-    activeNav().selected = std::min(ringPos(), settingsCount);
-  }
+  rebuildSettingsLists();
+  activeNav().selected = std::min(ringPos(), settingsCount);
 }
 
 void SettingsActivity::confirmRestoreSystemSettings() {
