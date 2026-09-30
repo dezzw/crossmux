@@ -112,7 +112,7 @@ unless `--skip-builds` was explicitly authorized:
 - Simulator: its host compatibility self-test, all four CrossMux simulator
   environments, and the CrossMux CMake/CTest host suite.
 - CrossMux: index/conflict-marker checks, `git diff --check`, `pio run`,
-  `pio run -e gh_release`, and extra build environments.
+  `pio run -e waveshare_epaper_397_nightly`, and extra build environments.
 
 SDK integration builds export the reviewed Git index into a real directory.
 This includes staged, uncommitted resolutions while excluding Git metadata and
