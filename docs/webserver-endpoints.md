@@ -43,7 +43,7 @@ Response:
   "rssi": -45,
   "freeHeap": 123456,
   "uptime": 3600,
-  "device": "X4"
+  "device": "waveshare_epaper_397"
 }
 ```
 
@@ -55,7 +55,7 @@ Response:
 | `rssi` | number | Wi-Fi RSSI in dBm; `0` in AP mode |
 | `freeHeap` | number | Free heap in bytes |
 | `uptime` | number | Seconds since boot |
-| `device` | string | `"X3"` or `"X4"` hardware detection |
+| `device` | string | Board identifier (`waveshare_epaper_397` on this fork) |
 
 ## File Management
 

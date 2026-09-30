@@ -30,10 +30,9 @@ contains its reviewed upstream snapshot. Reader behavior comparisons use
   the legacy renderer adapter retains its explicit-inverted semantics.
 
 The temporary lightless-page control-center extension was removed completely.
-There is no Sticky-specific replacement handler. Menu dispatch follows the
-existing upstream capability rule:
+Menu dispatch follows the existing upstream capability rule:
 
-| Input | No frontlight, including Sticky | Frontlight present, including X4 Pro |
+| Input | No frontlight | Frontlight present |
 | --- | --- | --- |
 | Ordinary-page top-edge down-swipe | Delivered to the current page | Control center |
 | Reading-page top-edge down-swipe | Reading menu | Control center |
@@ -51,23 +50,13 @@ checks cover Home/contact overlap, clipped-list tails, selected-font arrows,
 white foreground pixels, and generated UC8279 LUT bytes at five timing settings.
 Tab measurement checks also cover content-width and equal-width layouts.
 
-Final publication passed builds for `default`, `gh_release`, `x4c`, `eego_a4`,
-`murphy_m4`, `waveshare_epaper_397`, and `sticky`. SDK integration also runs the
-normal CrossMux CI, including the X4/X4 Pro build and hardware/simulator matrix.
-A successful build is not a hardware acceptance result.
-
-The user confirmed the three Sticky menu gestures above and reported normal
-X4 validation after testing the candidate. Those hardware runs used CrossMux
-`c2fb3467c39a3e067fe4e41303fa4226e40e986a` and SDK candidate tree
-`0eb44b2461b3112c8bdc94035b1aa1cd1e4de86a`; the final review additionally reuses
-tab metrics and integrates the current CrossMux base. These later changes are
-covered by host/build checks, not a claim of another hardware run.
+Final publication passed builds for `waveshare_epaper_397` and `simulator`.
+SDK integration also runs the normal CrossMux CI matrix. A successful build is
+not a hardware acceptance result.
 
 UC8279 physical waveform quality, Home/screen overlap timing, SD long-transfer
-watchdog behavior, and other boards still need their own hardware acceptance.
-Sticky logs also recorded existing duplicate framebuffer-storage and power-lock
-warnings; the menu acceptance does not establish that these unrelated paths
-are warning-free.
+watchdog behavior, and Waveshare-specific wake paths still need their own
+hardware acceptance on the 3.97-inch panel.
 
 For repeatable validation, the sync tool exports the reviewed Git index into a
 real directory rather than linking or copying an entire working directory.

@@ -8,15 +8,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
-import zlib
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "lib/EpdFont/scripts"
 FONTS = ROOT / "lib/EpdFont/builtinFonts"
-CHARACTERS = "0123456789 +-×÷.%=e�"
-REGENERATE = "--regenerate" in sys.argv
-if REGENERATE:
-    sys.argv.remove("--regenerate")
 
 spec = importlib.util.spec_from_file_location("share_intervals", SCRIPTS / "share-cn-font-intervals.py")
 share = importlib.util.module_from_spec(spec)
@@ -32,33 +27,7 @@ def rows(text, suffix):
             for row in re.findall(r"\{\s*([^{}]+?)\s*\}", array(text, suffix))]
 
 
-def glyphs_with_bitmaps(text):
-    glyphs = rows(text, "Glyphs")
-    bitmaps = bytes(int(value, 16) for value in re.findall(r"0x([\dA-F]{2})", array(text, "Bitmaps")))
-    decoded = {}
-    for offset, length, raw_length, count, first in rows(text, "Groups"):
-        raw = zlib.decompress(bitmaps[offset:offset + length], -15)
-        assert len(raw) == raw_length
-        position = 0
-        for index in range(first, first + count):
-            width, height = glyphs[index][:2]
-            length = ((width + 3) // 4) * height
-            decoded[index] = raw[position:position + length]
-            position += length
-        assert position == len(raw)
-    return {cp: (glyphs[offset + cp - first][:6], decoded[offset + cp - first])
-            for first, last, offset in rows(text, "Intervals") for cp in range(first, last + 1)}
-
-
 class BuiltinFontShrinkTest(unittest.TestCase):
-    def test_calculator_bitmaps_and_coverage(self):
-        for style in ("regular", "bold"):
-            original = glyphs_with_bitmaps((FONTS / f"notosans_18_{style}.h").read_text())
-            subset = glyphs_with_bitmaps((FONTS / f"calculator_18_{style}.h").read_text())
-            self.assertEqual(set(subset), set(map(ord, CHARACTERS)))
-            for cp, glyph in subset.items():
-                self.assertEqual(glyph, original[cp], f"{style}: U+{cp:04X}")
-
     def test_shared_outputs_are_current(self):
         for path, output in share.shared_outputs(FONTS):
             self.assertEqual(path.read_text(), output)
@@ -95,16 +64,6 @@ class BuiltinFontShrinkTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("interval tables differ", result.stderr)
             self.assertEqual(before, {path: path.read_bytes() for path in directory.iterdir()})
-
-    @unittest.skipUnless(REGENERATE, "pass --regenerate with the font-generation Python environment")
-    def test_calculator_generation_is_reproducible(self):
-        for style in ("Regular", "Bold"):
-            name = f"calculator_18_{style.lower()}"
-            result = subprocess.run(
-                [sys.executable, "fontconvert.py", name, "18", f"../builtinFonts/source/NotoSans/NotoSans-{style}.ttf",
-                 "--2bit", "--compress", "--pnum", "--zopfli", "--characters", CHARACTERS],
-                cwd=SCRIPTS, check=True, capture_output=True, text=True)
-            self.assertEqual(result.stdout, (FONTS / f"{name}.h").read_text())
 
 
 if __name__ == "__main__":

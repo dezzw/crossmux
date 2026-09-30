@@ -138,7 +138,7 @@ failures; it is not a full Activity or device-lifecycle integration test.
 Build firmware with
 `pio run -e waveshare_epaper_397 -e simulator`.
 
-Hardware acceptance still requires **both X3 and X4**: open the reported EPUB
+Hardware acceptance on Waveshare ESP32-S3 ePaper 3.97: open the reported EPUB
 with a cold section cache using LXGW WenKai size 18, turn across chapters, and
 reopen it. Check text against the source for missing or reordered words/lines.
 Capture `SCT` cache-reclaim, `SDCF` prewarm-budget, `EHP` failure-stage and
@@ -147,49 +147,6 @@ Capture `SCT` cache-reclaim, `SDCF` prewarm-budget, `EHP` failure-stage and
 is acceptable; a restart or silently incomplete text is not. Exit and reopen to
 confirm the next session attempts the user's embedded-style setting again.
 Compilation and simulator checks do not establish hardware acceptance.
-
-### September 6, 2026: reader memory hardening checkpoint
-
-This checkpoint is **not full hardware acceptance**. The preceding X4 candidate
-application had SHA256
-`7b030e735aa636b96360ce5c7b34d0152526f00edbde601496a9a8800c4b23fa`.
-Application readback matched that candidate and the then-current build byte for
-byte; the indexing failure was not an older firmware image.
-
-With the reported Jobs biography, LXGW WenKai size 18 and Flash font reads:
-
-| Observation | Result |
-| --- | --- |
-| Ordinary reopen at spine 41, saved page 2 | CSS retry occurred; basic layout failed after page 6 |
-| Failing line-break workspace | 334 tokens, 2,672 bytes requested; maxAlloc 2,036 bytes |
-| Free heap after CSS-retry cleanup in failing session | 36,756 bytes |
-| Same candidate after a commanded reset | Spine 41 completed all 11 pages; restored offset 390/page 2 and continued into spine 42 |
-| Free heap after CSS-retry cleanup following reset | 55,808 bytes |
-
-The 19,052-byte difference identifies a session-dependent memory baseline, not
-its owner. Standby clock synchronization/network lifetime is a hypothesis for
-follow-up, not a confirmed leak or a fix included in this checkpoint. A reset
-that permits reading does not resolve the ordinary-reopen failure.
-
-The phase-closing candidate application has SHA256
-`e64b85aa5c8b0f297526a75cdcf66c143211ad7a753ee9ba0bf0b0d9b9cd3da3`
-and is 5,905,008 bytes. Its production source is recorded in commit `ef006bf0`;
-use the binary hash to identify it, since the build began before that commit.
-All 63 targeted host checks, clang-format checks, and the `default`,
-`simulator_x3`, and `murphy_m4` builds passed. The hardware builds reported an
-existing WebSockets dependency warning about deprecated `NetworkClient::flush()`.
-X4 application flashing and hash verification succeeded; a separate capture
-started for this candidate. Reading/visual acceptance remains incomplete and
-must not inherit the preceding candidate's results.
-
-Keep X3 acceptance, SD-direct font mode, and physical text completeness separate.
-For subsequent candidates, record the new application hash and repeat cold-cache
-opening, spine 5 and 41, cross-chapter turns, TOC navigation, exit/reopen, and
-standby/clock-sync followed by reading. An index error during ordinary use fails
-acceptance; safe error handling is acceptable only in additional-pressure tests.
-Do not infer hardware acceptance from host serialization stubs or successful
-firmware builds. Binary images, original books and device-specific raw logs are
-local artifacts and are not committed to the repository.
 
 ### C3 Bluetooth page-turner development validation
 
@@ -292,62 +249,9 @@ publish and verify jobs run on GitHub-hosted runners.
 
 **Port Detection**: Windows: `mode` | Linux: `ls /dev/ttyUSB* /dev/ttyACM*` or `dmesg | grep tty`
 
-### Standby power-button wake on X3/X4
-
-Test on battery power: USB prevents standby light sleep. Disconnect USB, enter
-standby, and leave it untouched for at least 45 seconds (the idle threshold is
-35 seconds). The title disappearing only indicates immersive display mode.
-During light sleep, other buttons should have no effect; a short power-button
-press and release should restore the title and hints without also confirming,
-turning a page, or entering sleep again.
-
-If the clock updates but power-button wake stalls, distinguish GPIO wake from
-the work after wake. Capture the GPIO level, sleep return value, wake reason,
-cleanup result, and entry/exit of CPU frequency restoration with task names.
-In the X4 regression, GPIO3 woke successfully, but `ActivityManager` and
-`loopTask` both entered frequency restoration and neither completed. Timer
-updates waited for rendering, so they did not expose the same concurrency.
-See the [clock serialization invariant](architecture-and-patterns.md).
-
-When collecting the existing RTC log ring (`lib/Logging/Logging.cpp`), avoid
-serial monitors that toggle DTR/RTS: a reset followed by normal startup clears
-the retained log. For a temporary diagnostic build with a log export command,
-open pyserial without changing those lines:
-
-```python
-import serial
-
-class NoResetSerial(serial.Serial):
-    def _update_dtr_state(self):
-        pass
-
-    def _update_rts_state(self):
-        pass
-
-with NoResetSerial("/dev/cu.usbmodem101", 115200, timeout=0.2) as port:
-    # Send the temporary build's log export command here, then read its reply.
-    pass
-```
-
-Reconnect promptly after the wake attempt; frequent draw logs can overwrite
-the small RTC ring. If the app is deadlocked, read RTC memory through the ROM
-loader without booting the app afterward, using symbol addresses from that
-exact ELF. Remove temporary diagnostics before the final build.
-
 Run `python3 -m unittest discover -v -s scripts/tests` for the compiled-production
 power regression in `test_ble_c3_config.py`. It covers BLE/Wi-Fi guards,
 concurrent restoration, repeated requests, failed transitions, and retries.
-Host tests do not prove physical sleep or Bluetooth page turning. Record each
-device and firmware hash separately, including:
-
-- BLE off: ten consecutive power-button wakes and at least ten minutes of clock updates.
-- BLE connected: five cycles of reading/page turning, standby, power-button wake, and resumed Bluetooth page turning.
-- No extra action from the wake gesture; normal buttons, display, and SD reading after leaving standby.
-- Whether the final build without diagnostics was flashed and retested. Report X3 and X4 results independently.
-
-## X3/X4 font downloads and OTA memory
-
-See [download memory](network-memory-validation.md) for the BLE/static-heap
-findings, foreground statistics lifetime, diagnostic review and hardware
-regression procedure. The production lifecycle check runs as
-`DownloadMemoryLifecycle` in the host suite.
+Host tests do not prove physical sleep or Bluetooth page turning on Waveshare
+hardware. Record each firmware hash separately when validating standby wake and
+BLE page turning on device.

@@ -57,8 +57,8 @@ class OtaUpdater {
     static constexpr const char* MOCK_NOTES[] = {
         "OTA更新页采用连续文档布局并支持完整日志翻页",    "更新日志按条目整页排版并保持单条内容完整显示",
         "默认字体下载新增20号与22号字号并补充伪粗体说明", "优化中文TXT分页扫描与缓存重建提升首次打开速度",
-        "提升AirPage图片格式兼容性并保留旧BMP接口回退",   "修复微信读书浏览页退出卡死以及详情菜单行高异常",
-        "改善多款游戏宽屏居中显示并减少象棋AI循环走子",   "提升夜间版发布与双固件下载流程的稳定性和可恢复性",
+        "修复微信读书浏览页退出卡死以及详情菜单行高异常", "提升夜间版发布与固件下载流程的稳定性和可恢复性",
+        "改进 Waveshare 3.97 显示刷新与待机唤醒可靠性",   "优化 SD 卡字体缓存与阅读内存回收策略",
     };
     static_assert(std::size(MOCK_NOTES) <= ReleaseJsonParser::RELEASE_NOTE_COUNT_MAX);
     releaseNoteCount = std::size(MOCK_NOTES);

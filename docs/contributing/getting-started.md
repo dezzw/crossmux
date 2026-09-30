@@ -9,7 +9,7 @@ This guide helps you build and run CrossMux locally.
 - CMake and Ninja for host tests
 - `clang-format` 21+ in your `PATH` (CI uses clang-format 21)
 - USB-C cable
-- A matching device for hardware testing; the default build targets Xteink X3/X4
+- Waveshare ESP32-S3 ePaper 3.97 for hardware testing; the default build targets that board
 
 If `./bin/clang-format-fix` fails with either of these errors, install clang-format 21:
 
