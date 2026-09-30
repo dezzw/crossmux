@@ -1,224 +1,57 @@
 #include <BoardConfig.h>
-#if FREEINK_DEVICE_METALIO_EINK4
-#include <MetalioEink4Board.h>
-#endif
 #include <BatteryMonitor.h>
 #include <HalGPIO.h>
-#include <HapticFeedback.h>
 #include <Logging.h>
 #include <PowerManager.h>
-#include <Preferences.h>
-#include <SPI.h>
-#include <Wire.h>
-#include <XteinkDetect.h>
 #include <driver/gpio.h>
 #include <esp_sleep.h>
 
 #include "Waveshare397Power.h"
 
-#if FREEINK_DEVICE_MURPHY_M4
-#include "MurphyM4BatchPreference.h"
-#endif
-
-#if FREEINK_DEVICE_WAVESHARE_EPAPER_397 || FREEINK_DEVICE_METALIO_EINK4
+#if FREEINK_DEVICE_WAVESHARE_EPAPER_397
 #include <soc/usb_serial_jtag_reg.h>
 #endif
 
-// Global HalGPIO instance
 HalGPIO gpio;
 
-namespace X3GPIO {
-
-bool readI2CReg16LE(uint8_t addr, uint8_t reg, uint16_t* outValue) {
-  Wire.beginTransmission(addr);
-  Wire.write(reg);
-  if (Wire.endTransmission(false) != 0) {
-    return false;
-  }
-  if (Wire.requestFrom(addr, static_cast<uint8_t>(2), static_cast<uint8_t>(true)) < 2) {
-    while (Wire.available()) {
-      Wire.read();
-    }
-    return false;
-  }
-  const uint8_t lo = Wire.read();
-  const uint8_t hi = Wire.read();
-  *outValue = (static_cast<uint16_t>(hi) << 8) | lo;
-  return true;
-}
-
-bool readBQ27220CurrentMA(int16_t* outCurrent) {
-  uint16_t raw = 0;
-  if (!readI2CReg16LE(I2C_ADDR_BQ27220, BQ27220_CUR_REG, &raw)) {
-    return false;
-  }
-  *outCurrent = static_cast<int16_t>(raw);
-  return true;
-}
-
-}  // namespace X3GPIO
-
 namespace {
-constexpr char HW_NAMESPACE[] = "cphw";
-constexpr char NVS_KEY_DEV_OVERRIDE[] = "dev_ovr";  // 0=auto, 1=x4, 2=x3
-constexpr char NVS_KEY_DEV_CACHED[] = "dev_det";    // 0=unknown, 1=x4, 2=x3
-#if FREEINK_DEVICE_MURPHY_M4
-constexpr char NVS_KEY_M4_BATCH[] = "m4_batch_v3";
-#endif
 
 #if FREEINK_DEVICE_WAVESHARE_EPAPER_397
 uint8_t wavesharePowerButtonHook() {
   return Waveshare397Power::powerButtonPressed() ? static_cast<uint8_t>(1u << HalGPIO::BTN_POWER) : 0;
 }
-#endif
 
-enum class NvsDeviceValue : uint8_t { Unknown = 0, X4 = 1, X3 = 2 };
-
-uint8_t readNvsUChar(const char* key, const uint8_t defaultValue) {
-  Preferences prefs;
-  if (!prefs.begin(HW_NAMESPACE, true)) return defaultValue;
-  const uint8_t value = prefs.getUChar(key, defaultValue);
-  prefs.end();
-  return value;
-}
-
-bool writeNvsUChar(const char* key, const uint8_t value) {
-  Preferences prefs;
-  if (!prefs.begin(HW_NAMESPACE, false)) return false;
-  const bool written = prefs.putUChar(key, value) == sizeof(value);
-  prefs.end();
-  return written;
-}
-
-NvsDeviceValue readNvsDeviceValue(const char* key, NvsDeviceValue defaultValue) {
-  const uint8_t raw = readNvsUChar(key, static_cast<uint8_t>(defaultValue));
-  if (raw > static_cast<uint8_t>(NvsDeviceValue::X3)) {
-    return defaultValue;
+// Keep the last positive USB Serial/JTAG SOF result across nearby polls.
+bool usbHostSofActive() {
+  static uint32_t lastFrame = 0;
+  static unsigned long lastAdvanceMs = 0;
+  static bool seeded = false;
+  if (!seeded) {
+    seeded = true;
+    lastFrame = REG_READ(USB_SERIAL_JTAG_FRAM_NUM_REG);
+    delay(3);  // A connected host advances the 1 kHz SOF counter within this window.
   }
-  return static_cast<NvsDeviceValue>(raw);
-}
-
-void writeNvsDeviceValue(const char* key, NvsDeviceValue value) { writeNvsUChar(key, static_cast<uint8_t>(value)); }
-
-HalGPIO::DeviceType nvsToDeviceType(NvsDeviceValue value) {
-  return value == NvsDeviceValue::X3 ? HalGPIO::DeviceType::X3 : HalGPIO::DeviceType::X4;
-}
-
-HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
-  // Explicit override for recovery/support:
-  // 0 = auto, 1 = force X4, 2 = force X3
-  const NvsDeviceValue overrideValue = readNvsDeviceValue(NVS_KEY_DEV_OVERRIDE, NvsDeviceValue::Unknown);
-  if (overrideValue == NvsDeviceValue::X3 || overrideValue == NvsDeviceValue::X4) {
-    LOG_INF("HW", "Device override active: %s", overrideValue == NvsDeviceValue::X3 ? "X3" : "X4");
-    return nvsToDeviceType(overrideValue);
+  const uint32_t frame = REG_READ(USB_SERIAL_JTAG_FRAM_NUM_REG);
+  if (frame != lastFrame) {
+    lastFrame = frame;
+    lastAdvanceMs = millis();
+    return true;
   }
-
-  const NvsDeviceValue cachedValue = readNvsDeviceValue(NVS_KEY_DEV_CACHED, NvsDeviceValue::Unknown);
-  if (cachedValue == NvsDeviceValue::X3 || cachedValue == NvsDeviceValue::X4) {
-    LOG_INF("HW", "Using cached device type: %s", cachedValue == NvsDeviceValue::X3 ? "X3" : "X4");
-    return nvsToDeviceType(cachedValue);
-  }
-
-  // No cache yet: use FreeInk's canonical two-pass X3 fingerprint and persist
-  // only confirmed results. Inconclusive probes deliberately remain uncached.
-  uint8_t score1 = 0;
-  uint8_t score2 = 0;
-  const freeink::XteinkVerdict verdict = freeink::detectXteinkVerdict(&score1, &score2);
-  LOG_INF("HW", "Xteink probe scores: pass1=%u pass2=%u verdict=%u", score1, score2, static_cast<unsigned>(verdict));
-
-  if (verdict == freeink::XteinkVerdict::X3Confirmed) {
-    writeNvsDeviceValue(NVS_KEY_DEV_CACHED, NvsDeviceValue::X3);
-    return HalGPIO::DeviceType::X3;
-  }
-
-  if (verdict == freeink::XteinkVerdict::X4Confirmed) {
-    writeNvsDeviceValue(NVS_KEY_DEV_CACHED, NvsDeviceValue::X4);
-    return HalGPIO::DeviceType::X4;
-  }
-
-  // Conservative fallback for first boot with inconclusive probes.
-  return HalGPIO::DeviceType::X4;
-}
-
-#if FREEINK_DEVICE_MURPHY_M4
-freeink::MurphyM4Batch loadMurphyM4Batch() {
-  const uint8_t stored =
-      readNvsUChar(NVS_KEY_M4_BATCH, MurphyM4BatchPreference::encode(freeink::MurphyM4Batch::Second));
-  return MurphyM4BatchPreference::decode(stored);
+  return lastAdvanceMs != 0 && millis() - lastAdvanceMs < 1500;
 }
 #endif
 
 }  // namespace
 
 void HalGPIO::begin() {
-#if FREEINK_MCU_C3
-  _deviceType = detectDeviceTypeWithFingerprint();
-  BoardConfig::selectDevice(deviceIsX3() ? BoardConfig::Board::XteinkX3 : BoardConfig::Board::XteinkX4);
-
-  // Resolve the per-batch controller before SPI owns the display pins. FreeInk
-  // checks the OEM hw_calib/screenType value first, then falls back to its
-  // two-pass display-bus probe. X3's facade keys panel selection off the sibling
-  // board profile, so preserve a detected UC8279 through setDisplayX3().
-  freeink::applyXteinkDisplayController();
-  if (deviceIsX3() && BoardConfig::ACTIVE.displayController == BoardConfig::DisplayController::UC8279) {
-    BoardConfig::selectDevice(BoardConfig::Board::XteinkX3Uc8279);
-  }
-
-  SPI.begin(EPD_SCLK, SPI_MISO, EPD_MOSI, EPD_CS);
-
-  if (deviceIsX4()) {
-    pinMode(BAT_GPIO0, INPUT);
-    pinMode(UART0_RXD, INPUT);
-  }
-#else
   _deviceType = DeviceType::X4;
-#endif
 #if FREEINK_DEVICE_WAVESHARE_EPAPER_397
   InputManager::setButtonHook(wavesharePowerButtonHook);
 #endif
-#if FREEINK_DEVICE_MURPHY_M4
-  _murphyM4Batch = loadMurphyM4Batch();
-  LOG_INF("HW", "Murphy M4 batch %u selected", _murphyM4Batch == freeink::MurphyM4Batch::First ? 1U : 2U);
-  inputMgr.setMurphyM4Batch(_murphyM4Batch);
-#endif
-#if FREEINK_DEVICE_METALIO_EINK4
-  if (!freeink::metalio::begin()) {
-    LOG_ERR("HW", "Metalio power/expander initialization failed");
-  } else {
-    constexpr freeink::metalio::ChargerConfig charger{4350, 240, 60, 480, 480};  // 500 mA request -> 480 mA.
-    uint8_t partInfo = 0;
-    switch (freeink::metalio::configureCharger(charger, partInfo)) {
-      case freeink::metalio::ChargerConfigResult::Configured:
-        LOG_INF("PWR", "CX25601N 0x%02X ready: VREG=4350mV ICHG=480mA IINDPM=480mA", partInfo);
-        break;
-      case freeink::metalio::ChargerConfigResult::ProbeFailed:
-        LOG_INF("PWR", "CX25601N not detected at 0x%02X; using hardware defaults", freeink::metalio::CHARGER);
-        break;
-      case freeink::metalio::ChargerConfigResult::BusNotReady:
-        LOG_ERR("PWR", "CX25601N configuration skipped: Metalio I2C bus not ready");
-        break;
-      case freeink::metalio::ChargerConfigResult::InvalidConfig:
-        LOG_ERR("PWR", "CX25601N configuration rejected: invalid charge parameters");
-        break;
-      case freeink::metalio::ChargerConfigResult::IoError:
-        LOG_ERR("PWR", "CX25601N configuration failed at 0x%02X", freeink::metalio::CHARGER);
-        break;
-    }
-  }
-#endif
-#if FREEINK_CAP_HAPTIC
-  if (!freeink::haptic::begin()) LOG_ERR("HW", "Haptic initialization failed; feedback disabled");
-#endif
+#if CROSSPOINT_EMULATED == 0
   inputMgr.begin();
-}
-
-#if FREEINK_DEVICE_MURPHY_M4
-bool HalGPIO::saveMurphyM4Batch(const freeink::MurphyM4Batch batch) {
-  if (writeNvsUChar(NVS_KEY_M4_BATCH, MurphyM4BatchPreference::encode(batch))) return true;
-  LOG_ERR("HW", "Failed to save Murphy M4 batch");
-  return false;
-}
 #endif
+}
 
 void HalGPIO::update() {
   inputMgr.update();
@@ -241,18 +74,6 @@ bool HalGPIO::isPressed(uint8_t buttonIndex) const { return inputMgr.isPressed(b
 bool HalGPIO::wasPressed(uint8_t buttonIndex) const { return inputMgr.wasPressed(buttonIndex); }
 
 uint8_t HalGPIO::physicalPressedMask() const { return inputMgr.physicalPressedMask(); }
-
-#if FREEINK_CAP_HAPTIC
-bool HalGPIO::wasTouchContactPressed() const { return inputMgr.wasTouchContactPressed(); }
-void HalGPIO::updateHapticFeedback(uint8_t level) {
-  const uint16_t duration = freeink::haptic::pulseDuration(level);
-  if (duration == 0)
-    stopHapticFeedback();
-  else if (wasTouchContactPressed())
-    freeink::haptic::pulse(duration);
-}
-void HalGPIO::stopHapticFeedback() { freeink::haptic::stop(); }
-#endif
 
 bool HalGPIO::wasAnyPressed() const { return inputMgr.wasAnyPressed(); }
 
@@ -298,12 +119,7 @@ bool HalGPIO::wasTouchActivity() const { return inputMgr.wasTouchActivity(); }
 
 void HalGPIO::clearTouchTapEvent() { inputMgr.clearTouchTapEvent(); }
 
-void HalGPIO::prepareForDeepSleep() {
-#if FREEINK_CAP_HAPTIC
-  freeink::haptic::prepareForSleep();
-#endif
-  inputMgr.prepareForDeepSleep();
-}
+void HalGPIO::prepareForDeepSleep() { inputMgr.prepareForDeepSleep(); }
 
 bool HalGPIO::restoreTouchAfterDisplayReset() { return inputMgr.reinitializeTouchAfterSharedReset(); }
 
@@ -311,25 +127,12 @@ void HalGPIO::setSharedConfirmPowerShortPressEmitsPower(const bool enabled) {
   InputManager::setSharedConfirmPowerShortPressEmitsPower(enabled);
 }
 
-bool HalGPIO::hasEdgeSideButtons() const {
-  return BoardConfig::ACTIVE.board == BoardConfig::Board::XteinkX3 ||
-         BoardConfig::ACTIVE.board == BoardConfig::Board::XteinkX3Uc8279 ||
-         BoardConfig::ACTIVE.board == BoardConfig::Board::XteinkX4Pro ||
-         BoardConfig::ACTIVE.board == BoardConfig::Board::XteinkX4Classic;
-}
+bool HalGPIO::hasEdgeSideButtons() const { return false; }
 
-bool HalGPIO::isXteinkDevice() const {
-  return BoardConfig::ACTIVE.board == BoardConfig::Board::XteinkX3 ||
-         BoardConfig::ACTIVE.board == BoardConfig::Board::XteinkX3Uc8279 ||
-         BoardConfig::ACTIVE.board == BoardConfig::Board::XteinkX4;
-}
+bool HalGPIO::isXteinkDevice() const { return false; }
 
 bool HalGPIO::verifyPowerButtonWakeup() {
-  // M5Paper v1.1: the classic ESP32's reset-to-setup() latency exceeds a normal
-  // wheel click, so a click wake is always released before this samples and
-  // verification would re-sleep on every wake. Its wheel has hard external
-  // pull-ups, so the ghost-wake debounce this implements is not needed.
-  if (BoardConfig::isPaperMono() || BoardConfig::isM5PaperV11() || BoardConfig::ACTIVE.input.power < 0) {
+  if (BoardConfig::ACTIVE.input.power < 0) {
     return true;
   }
 
@@ -345,8 +148,7 @@ bool HalGPIO::verifyPowerButtonWakeup() {
 }
 
 bool HalGPIO::verifyPowerButtonWakeup(const uint16_t requiredDurationMs, const bool shortPressAllowed) {
-  if (BoardConfig::isX4Pro() || FREEINK_DEVICE_X4CLASSIC || BoardConfig::isPaperMono() || BoardConfig::isM5PaperV11() ||
-      BoardConfig::ACTIVE.input.power < 0 || shortPressAllowed) {
+  if (BoardConfig::ACTIVE.input.power < 0 || shortPressAllowed) {
     return true;
   }
 
@@ -367,72 +169,24 @@ bool HalGPIO::verifyPowerButtonWakeup(const uint16_t requiredDurationMs, const b
   return inputMgr.getPowerButtonHeldTime() >= calibratedDuration;
 }
 
-#if FREEINK_DEVICE_WAVESHARE_EPAPER_397 || FREEINK_DEVICE_METALIO_EINK4
-// Keep the last positive USB Serial/JTAG SOF result across nearby polls.
-static bool usbHostSofActive() {
-  static uint32_t lastFrame = 0;
-  static unsigned long lastAdvanceMs = 0;
-  static bool seeded = false;
-  if (!seeded) {
-    seeded = true;
-    lastFrame = REG_READ(USB_SERIAL_JTAG_FRAM_NUM_REG);
-    delay(3);  // A connected host advances the 1 kHz SOF counter within this window.
-  }
-  const uint32_t frame = REG_READ(USB_SERIAL_JTAG_FRAM_NUM_REG);
-  if (frame != lastFrame) {
-    lastFrame = frame;
-    lastAdvanceMs = millis();
-    return true;
-  }
-  return lastAdvanceMs != 0 && millis() - lastAdvanceMs < 1500;
-}
-#endif
-
 bool HalGPIO::isUsbConnected() const {
-  if (deviceIsX3()) {
-    // X3: infer USB/charging via BQ27220 Current() register (0x0C, signed mA).
-    // Positive current means charging.
-    for (uint8_t attempt = 0; attempt < 2; ++attempt) {
-      int16_t currentMa = 0;
-      if (X3GPIO::readBQ27220CurrentMA(&currentMa)) {
-        return currentMa > 0;
-      }
-      delay(2);
-    }
-    return false;
-  }
 #if FREEINK_DEVICE_WAVESHARE_EPAPER_397
   bool connected = false;
   if (Waveshare397Power::externalPowerConnected(connected)) return connected;
   return usbHostSofActive();
-#endif
-#if FREEINK_DEVICE_METALIO_EINK4
-  bool connected = false;
-  if (freeink::metalio::externalPowerConnected(connected)) return connected;
-  if (usbHostSofActive()) return true;
-#endif
+#else
   if (BoardConfig::ACTIVE.usbDetect >= 0) {
     return digitalRead(BoardConfig::ACTIVE.usbDetect) == HIGH;
   }
-  // No digital USB-detect line (e.g. Sticky, whose PWR_IN_VOLT is an analog
-  // divider): infer external power from charging state instead. BatteryMonitor
-  // picks the board's best source — charger IC status, gauge Current() sign, or
-  // a /STAT pin — and reports false on boards with no battery telemetry at all.
-  // Caveat: charge termination at 100% reads as "not connected".
   static const BatteryMonitor battery;
   return battery.isCharging();
+#endif
 }
 
 bool HalGPIO::coldBootImpliesPowerButton() const {
-  // Xteink-style power topology: the power button energizes the rail until
-  // firmware latches it, so a no-USB POWERON can only be a still-held button
-  // boot, and plugging USB into an off device should charge-sleep, not boot.
-  // Everything else boots on any cold boot: boards with no USB detection at
-  // all (M5Paper v1.1, PaperColor, Murphy, de-link) would misread USB and
-  // post-flash boots as battery button boots, and STAT-only boards like the
-  // EEGO A4 misread them the same way once the charger terminates at 100%
-  // (STAT inactive reads as "no USB").
-  return isXteinkDevice() || BoardConfig::isPaperMono() || BoardConfig::isSticky();
+  // Waveshare reports USB/charging through the AXP2101; do not infer a held power
+  // button from a no-USB cold boot.
+  return false;
 }
 
 HalGPIO::WakeupReason HalGPIO::getWakeupReason() const {
