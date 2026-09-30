@@ -358,11 +358,8 @@ TEST(InxNavigation, PaginatesButtonMenusAndKeepsIconIdsStable) {
 
 TEST(InxNavigation, KeepsAppIconAssetsValidAndDistinct) {
   constexpr std::array<const InxAppIcons::Icon*, 5> icons = {
-      &InxAppIcons::Transfer,
-      &InxAppIcons::Opds,
-      &InxAppIcons::WeRead,
-      &InxAppIcons::ReadingStats,
-      &InxAppIcons::Standby,
+      &InxAppIcons::Transfer,     &InxAppIcons::Opds,    &InxAppIcons::WeRead,
+      &InxAppIcons::ReadingStats, &InxAppIcons::Standby,
   };
 
   for (size_t index = 0; index < icons.size(); ++index) {
