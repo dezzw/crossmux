@@ -10,8 +10,8 @@ and on-demand services are also part of this fork.
 - **Reading and library workflows:** EPUB/TXT rendering, typography, fonts,
   dictionaries, bookmarks, progress, local book management, and accessibility.
 - **Reading analytics:** statistics, heatmaps, profiles, and achievements.
-- **Lightweight apps and customization:** games, small tools, AirPage image
-  delivery, themes, clocks, and almanac faces suited to e-ink interaction.
+- **Lightweight apps and customization:** connectivity and reading-adjacent
+  tools, themes, clocks, and almanac faces suited to e-ink interaction.
 - **On-demand connectivity:** file transfer, OPDS, Calibre, progress sync,
   WeRead, content downloads, and OTA. Existing foreground live modes are
   supported; their connection lifetime and idle-sleep behavior must be explicit.

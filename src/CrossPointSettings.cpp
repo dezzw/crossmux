@@ -398,13 +398,6 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   }
   hiddenAppsMask =
       doc["hiddenAppsMask"].isNull() ? appVisibility::DEFAULT_HIDDEN_APPS_MASK : doc["hiddenAppsMask"].as<uint32_t>();
-  const uint8_t storedAppsCatalogVersion = doc["appsCatalogVersion"] | static_cast<uint8_t>(0);
-  // Buddy was added at catalog version 1. Hide it exactly once during the
-  // upgrade, then preserve the user's visibility choice on later boots.
-  if (storedAppsCatalogVersion < APPS_CATALOG_VERSION) {
-    hiddenAppsMask |= appVisibility::appBit(appVisibility::AppId::Buddy);
-    needsResave = true;
-  }
   appsCatalogVersion = APPS_CATALOG_VERSION;
   buddyClaimed = clamp(doc["buddyClaimed"] | static_cast<uint8_t>(0), static_cast<uint8_t>(2), static_cast<uint8_t>(0));
 

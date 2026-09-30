@@ -55,15 +55,11 @@ add_subdirectory(minibidi_arabic)
 add_subdirectory(combining_marks)
 add_subdirectory(time_utils)
 add_subdirectory(weread_webapi)
-add_subdirectory(airpage)
-add_subdirectory(chinese_chess)
+
 add_subdirectory(sd_card_font_cache_format)
-add_subdirectory(pixel_switch)
 add_subdirectory(inx_navigation)
 add_subdirectory(sloppy_digits)
-add_subdirectory(woodfish_store)
 add_subdirectory(book_cover_loader)
-add_subdirectory(calculator)
 add_subdirectory(txt_page_index)
 add_subdirectory(txt_paragraph)
 add_subdirectory(txt_encoding)
@@ -100,7 +96,7 @@ add_subdirectory(reader_build_failure)
 add_subdirectory(reader_font_preview)
 
 # Font fallback reuses the existing Unicode mark classification.
-foreach(font_test DifferentialRoundingTest LigatureGuardTest CalculatorFontTest SdCardFontMemoryTest SdCardFontPagedTest)
+foreach(font_test DifferentialRoundingTest LigatureGuardTest SdCardFontMemoryTest SdCardFontPagedTest)
   target_sources(${font_test} PRIVATE
     ${REPO_ROOT}/lib/MiniBidi/minibidi.c
     ${REPO_ROOT}/lib/MiniBidi/BidiUtils.cpp)

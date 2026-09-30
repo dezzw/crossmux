@@ -266,7 +266,7 @@ TEST(InxNavigation, RoutesPopupReleaseAgainstPublishedRotatedHitRects) {
   EXPECT_FALSE(interactions.routePublished(release));
 }
 
-TEST(InxNavigation, RoutesAirPageFooterAndImageTapOnRotatedTouch) {
+TEST(InxNavigation, RoutesFooterAndImageTapOnRotatedTouch) {
   namespace fui = freeink::ui;
   constexpr fui::ActionId footerActions[] = {10, 11, 12, 13};
   constexpr fui::ActionId imageMenu = 14;
@@ -350,20 +350,19 @@ TEST(InxNavigation, PaginatesButtonMenusAndKeepsIconIdsStable) {
   EXPECT_EQ(InxMenuGeometry::pageStart(2, 5, 132), 2);
   EXPECT_EQ(InxMenuGeometry::pageStart(9, 5, 132), 4);
 
-  EXPECT_EQ(static_cast<int>(UIIcon::ReadingHeatmap), static_cast<int>(UIIcon::AirPage) + 1);
+  EXPECT_EQ(static_cast<int>(UIIcon::ReadingHeatmap), static_cast<int>(UIIcon::Standby) + 1);
   EXPECT_EQ(static_cast<int>(UIIcon::ReadingProfile), static_cast<int>(UIIcon::ReadingHeatmap) + 1);
   EXPECT_EQ(static_cast<int>(UIIcon::Achievements), static_cast<int>(UIIcon::ReadingProfile) + 1);
-  EXPECT_EQ(static_cast<int>(UIIcon::Calculator), static_cast<int>(UIIcon::Achievements) + 1);
-  EXPECT_EQ(static_cast<int>(UIIcon::Woodfish), static_cast<int>(UIIcon::Calculator) + 1);
+  EXPECT_EQ(static_cast<int>(UIIcon::Usb), static_cast<int>(UIIcon::Achievements) + 1);
 }
 
 TEST(InxNavigation, KeepsAppIconAssetsValidAndDistinct) {
-  constexpr std::array<const InxAppIcons::Icon*, 17> icons = {
-      &InxAppIcons::Transfer,    &InxAppIcons::Opds,        &InxAppIcons::WeRead,     &InxAppIcons::ReadingStats,
-      &InxAppIcons::Sudoku,      &InxAppIcons::Gomoku,      &InxAppIcons::Sokoban,    &InxAppIcons::ChineseChess,
-      &InxAppIcons::Minesweeper, &InxAppIcons::Game2048,    &InxAppIcons::Avatar,     &InxAppIcons::AirPage,
-      &InxAppIcons::Buddy,       &InxAppIcons::PixelSwitch, &InxAppIcons::Calculator, &InxAppIcons::Standby,
-      &InxAppIcons::Woodfish,
+  constexpr std::array<const InxAppIcons::Icon*, 5> icons = {
+      &InxAppIcons::Transfer,
+      &InxAppIcons::Opds,
+      &InxAppIcons::WeRead,
+      &InxAppIcons::ReadingStats,
+      &InxAppIcons::Standby,
   };
 
   for (size_t index = 0; index < icons.size(); ++index) {
@@ -378,22 +377,13 @@ TEST(InxNavigation, KeepsAppIconAssetsValidAndDistinct) {
   EXPECT_EQ(InxAppIcons::get(UIIcon::Transfer), InxAppIcons::Transfer.data());
   EXPECT_EQ(InxAppIcons::get(UIIcon::Opds), InxAppIcons::Opds.data());
   EXPECT_EQ(InxAppIcons::get(UIIcon::ReadingStats), InxAppIcons::ReadingStats.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::Sudoku), InxAppIcons::Sudoku.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::Gomoku), InxAppIcons::Gomoku.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::Sokoban), InxAppIcons::Sokoban.data());
 #ifdef ENABLE_CHINESE_VERSION
-  EXPECT_EQ(InxAppIcons::get(UIIcon::ChineseChess), InxAppIcons::ChineseChess.data());
   EXPECT_EQ(InxAppIcons::get(UIIcon::WeRead), InxAppIcons::WeRead.data());
 #endif
-  EXPECT_EQ(InxAppIcons::get(UIIcon::Minesweeper), InxAppIcons::Minesweeper.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::Avatar), InxAppIcons::Avatar.data());
   EXPECT_EQ(InxAppIcons::get(UIIcon::Standby), InxAppIcons::Standby.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::Game2048), InxAppIcons::Game2048.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::Buddy), InxAppIcons::Buddy.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::PixelSwitch), InxAppIcons::PixelSwitch.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::AirPage), InxAppIcons::AirPage.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::Calculator), InxAppIcons::Calculator.data());
-  EXPECT_EQ(InxAppIcons::get(UIIcon::Woodfish), InxAppIcons::Woodfish.data());
+  EXPECT_EQ(InxAppIcons::get(UIIcon::ReadingHeatmap), InxAppIcons::ReadingHeatmap.data());
+  EXPECT_EQ(InxAppIcons::get(UIIcon::ReadingProfile), InxAppIcons::ReadingProfile.data());
+  EXPECT_EQ(InxAppIcons::get(UIIcon::Achievements), InxAppIcons::Achievements.data());
 }
 
 TEST(InxNavigation, KeepsSubpageContentInsideChrome) {

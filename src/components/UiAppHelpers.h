@@ -105,7 +105,7 @@ inline freeink::ui::BitmapRef listIconFor(const UIIcon icon, const int size = 24
       case UIIcon::Bookmark:
         return freeink::ui::bitmapFromIcon(icon_bookmark_32);
       default:
-        // App-specific icons (Transfer, AirPage, ...) have no Lucide asset;
+        // App-specific icons (Transfer, OPDS, ...) have no Lucide asset;
         // reuse the Inx grid artwork instead. It is the same 32x32 MSB-first
         // 0-is-ink layout freeink::Icon expects, so wrap it directly.
         if (const uint8_t* bits = InxAppIcons::get(icon)) {

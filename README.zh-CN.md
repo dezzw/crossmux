@@ -12,8 +12,7 @@
 
 - **阅读与书库**：EPUB、TXT、XTC/XTCH 和图片，章节导航、书签、词典、自定义字体、阅读背景，以及 KOReader 进度同步。
 - **无线功能**：浏览器传书与设置、Calibre 无线连接、OPDS 下载、WebDAV 和设备 OTA 更新。
-- **Apps 应用中心**：数独、五子棋、中国象棋、扫雷、2048、电子木鱼、Ugly Avatar 等轻量游戏与工具。[应用说明](./src/activities/apps/README.md)。
-- **AirPage**：扫码上传内容，通过手动刷新或前台实时投送显示 BMP/JPEG 图片，也可将图片设为休眠画面。[操作与联网行为](./src/activities/apps/README.md#airpage)。
+- **Apps 应用中心**：文件传输、OPDS 浏览、阅读统计、待机表盘，以及（中国区）微信读书。[应用说明](./src/activities/apps/README.md)。
 - **微信读书**：扫码登录、浏览书架、下载 EPUB 离线阅读和同步进度，在 China 内容区显示。[微信读书说明](./src/activities/apps/weread/README.md)。
 - **阅读分析与待机**：阅读统计、热力图、档案与成就，以及时钟和老黄历表盘。[阅读分析说明](./src/activities/apps/reading-stats/README.md)。
 - **语言与开发**：每个硬件目标使用包含 33 种 UI 语言的统一固件，并提供桌面模拟器辅助开发。

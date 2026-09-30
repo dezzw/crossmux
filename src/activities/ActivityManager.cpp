@@ -12,27 +12,13 @@
 
 #include "CrossPointSettings.h"
 #include "OpdsServerStore.h"
-#include "apps/2048/Game2048Activity.h"
 #include "apps/AppsMenuActivity.h"
-#include "apps/airpage/AirPageActivity.h"
-#include "apps/avatar/UglyAvatarActivity.h"
-#include "apps/buddy/BuddyActivity.h"
-#include "apps/calculator/CalculatorActivity.h"
-#include "apps/sokoban/SokobanGameActivity.h"
-#ifdef ENABLE_CHINESE_VERSION
-#include "apps/chinese-chess/ChineseChessMenuActivity.h"
-#endif
 #ifdef ENABLE_CHINESE_VERSION
 #include "apps/weread/WeReadActivity.h"
 #endif
-#include "apps/gomoku/GomokuMenuActivity.h"
-#include "apps/minesweeper/MinesweeperMenuActivity.h"
-#include "apps/pixel-switch/PixelSwitchActivity.h"
 #include "apps/reading-stats/ReadingStatsActivity.h"
 #include "apps/reading-stats/ReadingStatsMenuActivity.h"
 #include "apps/standby/StandbyActivity.h"
-#include "apps/sudoku/SudokuMenuActivity.h"
-#include "apps/woodfish/WoodfishActivity.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
@@ -395,8 +381,6 @@ void ActivityManager::goToUsbDrive() {
 
 void ActivityManager::goToSettings() { replaceActivityWith<SettingsActivity>(); }
 
-void ActivityManager::goToUglyAvatar() { replaceActivityWith<UglyAvatarActivity>(); }
-
 void ActivityManager::goToFileBrowser(std::string path) { replaceActivityWith<FileBrowserActivity>(std::move(path)); }
 
 void ActivityManager::goToRecentBooks() { replaceActivityWith<RecentBooksActivity>(); }
@@ -499,31 +483,7 @@ void ActivityManager::goToReadingStatsMenu() { replaceActivityWith<ReadingStatsM
 
 void ActivityManager::goToReadingStats() { replaceActivityWith<ReadingStatsActivity>(true); }
 
-void ActivityManager::goToSudoku() { replaceActivityWith<SudokuMenuActivity>(); }
-
-void ActivityManager::goToSokoban() { replaceActivityWith<SokobanGameActivity>(); }
-
-void ActivityManager::goToGomoku() { replaceActivityWith<GomokuMenuActivity>(); }
-
-void ActivityManager::goToMinesweeper() { replaceActivityWith<MinesweeperMenuActivity>(); }
-
-void ActivityManager::goToPixelSwitch() { replaceActivityWith<PixelSwitchActivity>(); }
-
-void ActivityManager::goToCalculator() { replaceActivityWith<CalculatorActivity>(); }
-
-void ActivityManager::goToWoodfish() { replaceActivityWith<WoodfishActivity>(); }
-
-void ActivityManager::goToGame2048() { replaceActivityWith<Game2048Activity>(); }
-
-void ActivityManager::goToAirPage() { replaceActivityWith<AirPageActivity>(); }
-
-void ActivityManager::goToBuddy() { replaceActivityWith<BuddyActivity>(); }
-
 void ActivityManager::goToStandby() { replaceActivityWith<StandbyActivity>(); }
-
-#ifdef ENABLE_CHINESE_VERSION
-void ActivityManager::goToChineseChess() { replaceActivityWith<ChineseChessMenuActivity>(); }
-#endif
 
 #ifdef ENABLE_CHINESE_VERSION
 void ActivityManager::goToWeRead() { replaceActivityWith<WeReadActivity>(); }

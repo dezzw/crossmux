@@ -72,19 +72,15 @@ int main() {
         AppId::Standby, AppId::AirPage, AppId::Buddy, AppId::Sokoban, AppId::PixelSwitch,
         AppId::FileTransfer, AppId::OpdsBrowser, AppId::Calculator, AppId::Woodfish};
     for (unsigned i = 0; i < 17; ++i) assert(static_cast<unsigned>(ids[i]) == i);
-    constexpr uint32_t expected = (1u<<4)|(1u<<5)|(1u<<6)|(1u<<7)|(1u<<10)|(1u<<11)|(1u<<12)|(1u<<16);
+    constexpr uint32_t expected = 0u;
     static_assert(DEFAULT_HIDDEN_APPS_MASK == expected);
     assert(SETTINGS.hiddenAppsMask == expected);
-    SETTINGS.load({{std::nullopt}, {1}});
+    SETTINGS.load({{std::nullopt}, {2}});
     assert(SETTINGS.hiddenAppsMask == expected);
     for (uint32_t mask : {0u, UINT32_MAX, expected, appBit(AppId::WeRead), 0x80000000u}) {
-        SETTINGS.load({{mask}, {1}});
+        SETTINGS.load({{mask}, {2}});
         assert(SETTINGS.hiddenAppsMask == mask);
-        SETTINGS.load({{mask}, {std::nullopt}});
-        assert(SETTINGS.hiddenAppsMask == (mask | appBit(AppId::Buddy)));
-        assert(SETTINGS.needsResave && SETTINGS.appsCatalogVersion == 1);
-        SETTINGS.load({{mask}, {SETTINGS.appsCatalogVersion}});
-        assert(SETTINGS.hiddenAppsMask == mask);
+        assert(SETTINGS.appsCatalogVersion == 2);
     }
     // Exhaust all current app masks, including every visible/hidden combination.
     for (uint32_t mask = 0; mask < (1u << 17); ++mask) {
