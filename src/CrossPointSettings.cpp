@@ -65,6 +65,12 @@ void copyToField(char* dest, const char* src, const size_t maxLen) {
   dest[maxLen - 1] = '\0';
 }
 
+bool migrateUiThemeToInx(CrossPointSettings& settings) {
+  if (settings.uiTheme == static_cast<uint8_t>(CrossPointSettings::INX)) return false;
+  settings.uiTheme = CrossPointSettings::INX;
+  return true;
+}
+
 // Convert the legacy aggregate status-bar mode into the split settings used now.
 void applyLegacyStatusBarSettings(CrossPointSettings& settings) {
   switch (static_cast<CrossPointSettings::STATUS_BAR_MODE>(settings.statusBar)) {
@@ -245,6 +251,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   doc["hiddenAppsMask"] = hiddenAppsMask;
   doc["appsCatalogVersion"] = appsCatalogVersion;
   doc["buddyClaimed"] = buddyClaimed;
+  doc["uiTheme"] = uiTheme;
   // Font family and size — both use dynamic getter/setters in SettingsList (the
   // option lists depend on the SD font registry), so the generic loop skips them.
   doc["fontFamily"] = fontFamily;
@@ -400,6 +407,8 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
       doc["hiddenAppsMask"].isNull() ? appVisibility::DEFAULT_HIDDEN_APPS_MASK : doc["hiddenAppsMask"].as<uint32_t>();
   appsCatalogVersion = APPS_CATALOG_VERSION;
   buddyClaimed = clamp(doc["buddyClaimed"] | static_cast<uint8_t>(0), static_cast<uint8_t>(2), static_cast<uint8_t>(0));
+  uiTheme = doc["uiTheme"] | static_cast<uint8_t>(INX);
+  if (migrateUiThemeToInx(s)) needsResave = true;
 
   // Reader font size — an actual point size since 1.5. Files written by 1.4 and
   // earlier hold the old SMALL/MEDIUM/LARGE/EXTRA_LARGE slot in 0..3; no font is
@@ -598,6 +607,9 @@ bool CrossPointSettings::loadFromBinaryFile() {
   hyphenationEnabled = value(18, hyphenationEnabled);
   sleepScreenCoverFilter = validated(19, sleepScreenCoverFilter, SLEEP_SCREEN_COVER_FILTER_COUNT);
   uiTheme = value(20, uiTheme);
+  if (migrateUiThemeToInx(*this)) {
+    // Caller may resave when migrating legacy binary settings to JSON.
+  }
   frontButtonBack = validated(21, frontButtonBack, FRONT_BUTTON_HARDWARE_COUNT);
   frontButtonConfirm = validated(22, frontButtonConfirm, FRONT_BUTTON_HARDWARE_COUNT);
   frontButtonLeft = validated(23, frontButtonLeft, FRONT_BUTTON_HARDWARE_COUNT);

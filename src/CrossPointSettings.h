@@ -232,7 +232,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     LONG_PRESS_BUTTON_BEHAVIOR_COUNT
   };
 
-  // UI Theme
+  // UI theme: only INX is supported; legacy enum values are migrated on load.
   enum UI_THEME { CLASSIC = 0, LYRA = 1, LYRA_3_COVERS = 2, ROUNDEDRAFF = 3, LYRA_CAROUSEL = 4, INX = 5 };
 
   // Image rendering in EPUB reader
