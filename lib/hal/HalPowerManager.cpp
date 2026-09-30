@@ -24,9 +24,7 @@ struct StandbyRetention {
   int activeLevel;
 };
 
-StandbyRetention standbyRetention() {
-  return {BoardConfig::PIN_UNASSIGNED, LOW};
-}
+StandbyRetention standbyRetention() { return {BoardConfig::PIN_UNASSIGNED, LOW}; }
 }  // namespace
 
 void HalPowerManager::begin() {

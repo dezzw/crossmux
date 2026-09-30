@@ -189,10 +189,8 @@ void ReadingDateSelectionActivity::render(RenderLock&&) {
 
   const int hintTop = contentTop + listHeight + metrics.verticalSpacing;
   const int hintWidth = pageWidth - sidePadding * 2;
-  const std::string hint = renderer.truncatedText(
-      UI_10_FONT_ID,
-      I18n::getInstance().get(StrId::STR_SET_DATE_HINT),
-      hintWidth);
+  const std::string hint =
+      renderer.truncatedText(UI_10_FONT_ID, I18n::getInstance().get(StrId::STR_SET_DATE_HINT), hintWidth);
   renderer.drawText(UI_10_FONT_ID, sidePadding, hintTop, hint.c_str());
 
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_CONFIRM), tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));

@@ -581,6 +581,7 @@ void setup() {
         APP_STATE.showBootScreen = true;
         APP_STATE.saveToFile();
         if (Storage.exists(SLEEP_FRAME_FILE) && loadSleepFrameBuffer()) {
+          const bool useDifferentialRefresh = false;
           const auto pageHeight = renderer.getScreenHeight();
           renderer.drawImage(LoadingIcon, 0, pageHeight - LOADINGICON_HEIGHT, LOADINGICON_WIDTH, LOADINGICON_HEIGHT);
           if (useDifferentialRefresh) {

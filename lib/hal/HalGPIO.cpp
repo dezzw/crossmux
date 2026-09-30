@@ -1,5 +1,5 @@
-#include <BoardConfig.h>
 #include <BatteryMonitor.h>
+#include <BoardConfig.h>
 #include <HalGPIO.h>
 #include <Logging.h>
 #include <PowerManager.h>

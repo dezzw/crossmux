@@ -266,8 +266,7 @@ void OpdsBookBrowserActivity::buildBrowsingScreen(UiScreen& screen) {
   props.inputMask = fui::InputTouch;  // physical buttons stay in loop()
   props.valueInset = 8;               // air between the nav chevron and the row edge
   listNav.selected = selectorIndex;
-  int16_t rowHeight =
-      static_cast<int16_t>(UITheme::getInstance().getMetrics().listWithSubtitleRowHeight);
+  int16_t rowHeight = static_cast<int16_t>(UITheme::getInstance().getMetrics().listWithSubtitleRowHeight);
   props.rowHeight = rowHeight;
   listNav.syncToProps(screen.body(), rowHeight, screen.theme().listRowGap, static_cast<int>(entries.size()), props);
   screen.list(props);

@@ -151,9 +151,7 @@ void applyLegacyFrontButtonLayout(CrossPointSettings& settings) {
   }
 }
 
-bool isSettingAvailableForPersistence(const SettingInfo& setting) {
-  return isSettingAvailableOnBoard(setting);
-}
+bool isSettingAvailableForPersistence(const SettingInfo& setting) { return isSettingAvailableOnBoard(setting); }
 
 }  // namespace
 

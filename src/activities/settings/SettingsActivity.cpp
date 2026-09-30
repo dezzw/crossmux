@@ -653,14 +653,13 @@ void SettingsActivity::toggleCurrentSetting() {
     const uint8_t currentValue = SETTINGS.*(setting.valuePtr);
     if (setting.enumValues.size() > 2) {
       const auto valuePtr = setting.valuePtr;
-      optionPopup.show(
-          setting.nameId, setting.enumValues.data(), static_cast<int>(setting.enumValues.size()), currentValue,
-          [this, valuePtr, sleepScreenChanged, quickResumeTimeoutChanged](int idx) {
-            SETTINGS.*valuePtr = idx;
-            syncQuickResumeTimeoutForSleepScreen(sleepScreenChanged, quickResumeTimeoutChanged);
-            SETTINGS.saveToFile();
-            rebuildSettingsLists();
-          });
+      optionPopup.show(setting.nameId, setting.enumValues.data(), static_cast<int>(setting.enumValues.size()),
+                       currentValue, [this, valuePtr, sleepScreenChanged, quickResumeTimeoutChanged](int idx) {
+                         SETTINGS.*valuePtr = idx;
+                         syncQuickResumeTimeoutForSleepScreen(sleepScreenChanged, quickResumeTimeoutChanged);
+                         SETTINGS.saveToFile();
+                         rebuildSettingsLists();
+                       });
       requestUpdate();
       return;
     }

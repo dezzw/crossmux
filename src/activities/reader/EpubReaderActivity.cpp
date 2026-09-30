@@ -1680,7 +1680,6 @@ void EpubReaderActivity::renderBook() {
   if (showDictionaryMessage) {
     GUI.drawPopup(renderer, tr(STR_DICT_NO_DICT_SET));
   }
-
 }
 
 void EpubReaderActivity::onEndOfBookRendered() {

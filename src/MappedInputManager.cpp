@@ -239,8 +239,8 @@ bool MappedInputManager::wasTapInRect(const int x, const int y, const int width,
   return false;
 }
 
-bool MappedInputManager::wasListItemTapped(int& index, const int itemCount, const int selectedIndex,
-                                           const int listTop, const int listHeight, const bool hasSubtitle) const {
+bool MappedInputManager::wasListItemTapped(int& index, const int itemCount, const int selectedIndex, const int listTop,
+                                           const int listHeight, const bool hasSubtitle) const {
   (void)index;
   (void)itemCount;
   (void)selectedIndex;
