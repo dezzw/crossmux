@@ -1,6 +1,7 @@
 add_executable(WaveshareFunctionButtonTest WaveshareFunctionButtonTest.cpp)
 
 target_include_directories(WaveshareFunctionButtonTest PRIVATE
+  ${REPO_ROOT}/lib/waveshare397_input/include
   ${REPO_ROOT}/freeink-sdk/libs/hardware/InputManager/include
   ${REPO_ROOT}/lib/hal
 )
