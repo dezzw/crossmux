@@ -100,8 +100,8 @@ TEST(WaveshareFunctionButton, FunctionPlusLeftDialEmitsUpNotLeft) {
 TEST(WaveshareFunctionButton, FunctionPlusBothDialsMapSymmetrically) {
   FunctionButtonGesture gesture;
   settle(gesture, FunctionButtonGesture::CONFIRM, 0);
-  auto state = settle(gesture, FunctionButtonGesture::CONFIRM | FunctionButtonGesture::LEFT | FunctionButtonGesture::RIGHT,
-                      20);
+  auto state =
+      settle(gesture, FunctionButtonGesture::CONFIRM | FunctionButtonGesture::LEFT | FunctionButtonGesture::RIGHT, 20);
   EXPECT_EQ(state.pressed, FunctionButtonGesture::UP | FunctionButtonGesture::DOWN);
   EXPECT_EQ(state.down, FunctionButtonGesture::UP | FunctionButtonGesture::DOWN);
 
