@@ -58,13 +58,13 @@ The Waveshare board exposes **four face buttons** and a **Power** key on the sid
 
 | Button | Default role |
 | --- | --- |
-| **Back** | Back / cancel |
+| **Back** (BOOT) | Hold with dial for Up/Down; with Function for Back; short press alone does nothing |
 | **Left** | Move selection up; in the reader, previous page |
 | **Function** (center) | **Confirm** / menu; double-click within ~300 ms acts as **Back** |
 | **Right** | Move selection down; in the reader, next page |
 | **Power** | Hold ~1 s to power on; hold to sleep/shutdown (see **[Controls Settings](#363-controls)**) |
 
-**Long press:** Holding **Left** or **Right** for about 650 ms emits **Up** or **Down** (used for chapter skip while reading and for list page scroll when configured).
+**BOOT + dial:** Hold **Back** (BOOT) and tap **Left** or **Right** for **Up** or **Down** (chapter skip / list scroll). Plain **Left**/**Right** taps move selection or turn pages.
 
 Remap face buttons in **[Controls Settings](#363-controls)**. Optional **BLE HID** remotes use the same logical actions (page turn, Confirm, Back, directions).
 

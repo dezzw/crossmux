@@ -22,10 +22,10 @@ pio device monitor --port /dev/tty.usbmodem101 --baud 115200
 | Audio | ES8311 at `0x18`; MCLK 13, BCLK 14, WS 47, DOUT 48; NS4150B enable 39 |
 | Buttons | Back 0, Left 4, Function 5, Right 6; active-low |
 
-Function short click (no dial edge while held) emits Confirm on release.
-Holding Function for 300 ms without a dial edge holds Confirm from its physical
-press timestamp, so existing business long-press actions work and GPIO5 never
-emits Power. A second Function click is another Confirm, not Back.
+Function short click emits Confirm after the ~300 ms double-click window when no
+second click arrives. Function double-click within that window emits Back.
+Holding Function for 300 ms holds Confirm from its physical press timestamp, so
+existing business long-press actions work and GPIO5 never emits Power.
 
 The side Power key is connected to the AXP2101 rather than a GPIO button. Its
 GPIO38 IRQ is mapped to the standard Power input, including the existing short
@@ -60,9 +60,10 @@ stops playback and powers down the codec, amplifier, and AXP2101 audio rails.
 The wake gesture remains absorbed. A screenshot chord may play the constituent
 physical-key cues, but screenshot recognition adds no cue of its own.
 
-GPIO4/GPIO6 short presses emit Left/Right on release when Function is not
-held. While Function is held, dial up/down sides emit Up/Down on press and
-release; duration alone never maps Left/Right to Up/Down.
+GPIO4/GPIO6 short presses emit Left/Right on release when BOOT (GPIO0) is not
+held. While BOOT is held, dial up/down sides emit Up/Down on press and release;
+duration alone never maps Left/Right or lone BOOT to Up/Down or Back. BOOT plus
+Function emits Back on chord release.
 
 The panel uses the shared SSD1677 driver with a Waveshare-specific configuration.
 FULL, HALF, and FAST select the controller's `0xF7`, `0xD7`, and `0xFF`
@@ -83,7 +84,7 @@ AXP2101 shutdown path then removes system power.
 
 - Confirm boot without panic/OOM and successful PSRAM, AXP2101, SDMMC, and RTC initialization.
 - Visually check full, fast/windowed, half, and four-gray refreshes; repeat sleep/wake three times.
-- Repeat Back, Left, Right, Function click/hold, Function+dial Up/Down chords, and side Power gestures three times;
+- Repeat Left, Right, Function click/hold/double-click, BOOT+dial Up/Down chords, BOOT+Function Back, lone BOOT (no action), and side Power gestures three times;
   one gesture must produce one action.
 - With Sound Feedback at its fresh-install Medium default, confirm physical Left/Right presses play audible `select`
   and Confirm/Back/Power presses play `tap` without waiting for release or gesture classification. Confirm long Power

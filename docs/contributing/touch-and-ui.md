@@ -52,7 +52,7 @@ FreeInkUI controls** driven by buttons or BLE-HID—not finger coordinates.
   is always on—memory-heavy work may tear it down temporarily.
 
 Button timing and chord behavior for this board (Function double-click as
-Back/Confirm, long **Right**/**Left** as Up/Down) are documented in
+Back, BOOT+dial as Up/Down) are documented in
 [waveshare-epaper-397.md](../engineering/waveshare-epaper-397.md).
 
 ## FUI screen rules (short)
