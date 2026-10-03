@@ -65,6 +65,14 @@ held. While BOOT is held, dial up/down sides emit Up/Down on press and release;
 duration alone never maps Left/Right or lone BOOT to Up/Down or Back. BOOT plus
 Function emits Back on chord release.
 
+Build note: the gesture implementation lives in
+`lib/waveshare397_input/include/FunctionButtonGesture.h`. Waveshare PlatformIO
+envs run `scripts/patch_waveshare_function_button_gesture.py`, which copies that
+file over `freeink-sdk/.../InputManager/include/FunctionButtonGesture.h` before
+compile. Quoted `#include "FunctionButtonGesture.h"` from `InputManager.h` always
+prefers the SDK include directory, so a CPPFLAGS `-I` prepend alone does not
+override it.
+
 The panel uses the shared SSD1677 driver with a Waveshare-specific configuration.
 FULL, HALF, and FAST select the controller's `0xF7`, `0xD7`, and `0xFF`
 sequences respectively; HALF writes temperature `0x6A`. The shared asynchronous,
