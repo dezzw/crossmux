@@ -69,9 +69,8 @@ Build note: the gesture implementation lives in
 `lib/waveshare397_input/include/FunctionButtonGesture.h`. Waveshare PlatformIO
 envs run `scripts/patch_waveshare_function_button_gesture.py`, which copies that
 file over `freeink-sdk/.../InputManager/include/FunctionButtonGesture.h` before
-compile. Quoted `#include "FunctionButtonGesture.h"` from `InputManager.h` always
-prefers the SDK include directory, so a CPPFLAGS `-I` prepend alone does not
-override it.
+compile. `InputManager.h` uses a quoted `#include "FunctionButtonGesture.h"`, so
+the compiler always reads the copy beside that header.
 
 The panel uses the shared SSD1677 driver with a Waveshare-specific configuration.
 FULL, HALF, and FAST select the controller's `0xF7`, `0xD7`, and `0xFF`
