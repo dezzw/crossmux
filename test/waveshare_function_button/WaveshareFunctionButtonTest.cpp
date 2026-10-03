@@ -31,20 +31,21 @@ TEST(WaveshareFunctionButton, PhysicalPressEdgesDoNotWaitForGestureClassificatio
   state = settle(gesture, FunctionButtonGesture::CONFIRM, 80);
   EXPECT_EQ(state.physicalPressed, FunctionButtonGesture::CONFIRM);
   EXPECT_EQ(state.pressed, 0);
-  state = settle(gesture, 0, 100);
+  state = gesture.update(FunctionButtonGesture::CONFIRM, 380);
+  EXPECT_EQ(state.physicalPressed, 0);
   EXPECT_EQ(state.pressed, FunctionButtonGesture::CONFIRM);
-  EXPECT_EQ(state.released, FunctionButtonGesture::CONFIRM);
 }
 
-TEST(WaveshareFunctionButton, BackDebouncesAndTracksLevel) {
+TEST(WaveshareFunctionButton, BootAloneShortPressNeverEmitsBack) {
   FunctionButtonGesture gesture;
   auto state = settle(gesture, FunctionButtonGesture::BACK, 10);
   EXPECT_EQ(state.physicalPressed, FunctionButtonGesture::BACK);
-  EXPECT_EQ(state.pressed, FunctionButtonGesture::BACK);
-  EXPECT_EQ(state.down, FunctionButtonGesture::BACK);
+  EXPECT_EQ(state.pressed, 0);
+  EXPECT_EQ(state.down, 0);
 
   state = settle(gesture, 0, 30);
-  EXPECT_EQ(state.released, FunctionButtonGesture::BACK);
+  EXPECT_EQ(state.pressed, 0);
+  EXPECT_EQ(state.released, 0);
   EXPECT_EQ(state.down, 0);
 }
 
@@ -67,7 +68,7 @@ TEST(WaveshareFunctionButton, DirectionShortPressEmitsOnceOnRelease) {
   EXPECT_EQ(state.released, FunctionButtonGesture::RIGHT);
 }
 
-TEST(WaveshareFunctionButton, LongDirectionHoldWithoutFunctionStaysLeftRight) {
+TEST(WaveshareFunctionButton, LongDirectionHoldWithoutBootStaysLeftRight) {
   FunctionButtonGesture gesture;
   settle(gesture, FunctionButtonGesture::LEFT, 0);
   gesture.update(FunctionButtonGesture::LEFT, 654);
@@ -82,31 +83,45 @@ TEST(WaveshareFunctionButton, LongDirectionHoldWithoutFunctionStaysLeftRight) {
   EXPECT_EQ(released.pressed & FunctionButtonGesture::UP, 0);
 }
 
-TEST(WaveshareFunctionButton, FunctionPlusLeftDialEmitsUpNotLeft) {
+TEST(WaveshareFunctionButton, BootPlusLeftDialEmitsUpNotLeft) {
   FunctionButtonGesture gesture;
-  settle(gesture, FunctionButtonGesture::CONFIRM, 0);
-  auto state = settle(gesture, FunctionButtonGesture::CONFIRM | FunctionButtonGesture::LEFT, 50);
+  settle(gesture, FunctionButtonGesture::BACK, 0);
+  auto state = settle(gesture, FunctionButtonGesture::BACK | FunctionButtonGesture::LEFT, 50);
   EXPECT_EQ(state.pressed, FunctionButtonGesture::UP);
   EXPECT_EQ(state.down, FunctionButtonGesture::UP);
   EXPECT_EQ(state.pressed & FunctionButtonGesture::LEFT, 0);
 
-  state = settle(gesture, FunctionButtonGesture::CONFIRM, 80);
+  state = settle(gesture, FunctionButtonGesture::BACK, 80);
   EXPECT_EQ(state.released, FunctionButtonGesture::UP);
   state = settle(gesture, 0, 120);
   EXPECT_EQ(state.pressed, 0);
-  EXPECT_EQ(state.released & FunctionButtonGesture::CONFIRM, 0);
+  EXPECT_EQ(state.released & FunctionButtonGesture::BACK, 0);
 }
 
-TEST(WaveshareFunctionButton, FunctionPlusBothDialsMapSymmetrically) {
+TEST(WaveshareFunctionButton, BootPlusBothDialsMapSymmetrically) {
   FunctionButtonGesture gesture;
-  settle(gesture, FunctionButtonGesture::CONFIRM, 0);
+  settle(gesture, FunctionButtonGesture::BACK, 0);
   auto state =
-      settle(gesture, FunctionButtonGesture::CONFIRM | FunctionButtonGesture::LEFT | FunctionButtonGesture::RIGHT, 20);
+      settle(gesture, FunctionButtonGesture::BACK | FunctionButtonGesture::LEFT | FunctionButtonGesture::RIGHT, 20);
   EXPECT_EQ(state.pressed, FunctionButtonGesture::UP | FunctionButtonGesture::DOWN);
   EXPECT_EQ(state.down, FunctionButtonGesture::UP | FunctionButtonGesture::DOWN);
 
-  state = settle(gesture, FunctionButtonGesture::CONFIRM, 60);
+  state = settle(gesture, FunctionButtonGesture::BACK, 60);
   EXPECT_EQ(state.released, FunctionButtonGesture::UP | FunctionButtonGesture::DOWN);
+}
+
+TEST(WaveshareFunctionButton, LongBootHoldWithoutDialNeverMapsToUp) {
+  FunctionButtonGesture gesture;
+  constexpr uint32_t changedAt = UINT32_MAX - 10;
+  settle(gesture, FunctionButtonGesture::BACK, changedAt);
+
+  const auto held = gesture.update(FunctionButtonGesture::BACK, 644);
+  EXPECT_EQ(held.pressed & FunctionButtonGesture::UP, 0);
+  EXPECT_EQ(held.down & FunctionButtonGesture::UP, 0);
+
+  const auto released = settle(gesture, 0, 700);
+  EXPECT_EQ(released.pressed & FunctionButtonGesture::BACK, 0);
+  EXPECT_EQ(released.released & FunctionButtonGesture::BACK, 0);
 }
 
 TEST(WaveshareFunctionButton, DirectionDebounceRejectsBounce) {
@@ -118,41 +133,52 @@ TEST(WaveshareFunctionButton, DirectionDebounceRejectsBounce) {
   EXPECT_EQ(state.down, 0);
 }
 
-TEST(WaveshareFunctionButton, LongHoldWithoutDialNeverMapsToUp) {
-  FunctionButtonGesture gesture;
-  constexpr uint32_t changedAt = UINT32_MAX - 10;
-  settle(gesture, FunctionButtonGesture::LEFT, changedAt);
-
-  const auto held = gesture.update(FunctionButtonGesture::LEFT, 644);
-  EXPECT_EQ(held.pressed & FunctionButtonGesture::UP, 0);
-  EXPECT_EQ(held.down & FunctionButtonGesture::UP, 0);
-
-  const auto released = settle(gesture, 0, 700);
-  EXPECT_EQ(released.pressed, FunctionButtonGesture::LEFT);
-  EXPECT_EQ(released.released, FunctionButtonGesture::LEFT);
-}
-
-TEST(WaveshareFunctionButton, SingleClickConfirmEmitsOnReleaseWithoutDoubleClickWindow) {
-  FunctionButtonGesture gesture;
-  settle(gesture, FunctionButtonGesture::CONFIRM, 0);
-
-  auto state = gesture.update(0, 50);
-  EXPECT_EQ(state.pressed, 0);
-  state = gesture.update(0, 55);
-  EXPECT_EQ(state.pressed, FunctionButtonGesture::CONFIRM);
-  EXPECT_EQ(state.released, FunctionButtonGesture::CONFIRM);
-}
-
-TEST(WaveshareFunctionButton, DoubleFunctionClickNeverEmitsBack) {
+TEST(WaveshareFunctionButton, SingleClickWaitsBeyondDoubleClickWindow) {
   FunctionButtonGesture gesture;
   settle(gesture, FunctionButtonGesture::CONFIRM, 0);
   settle(gesture, 0, 50);
-  settle(gesture, FunctionButtonGesture::CONFIRM, 100);
-  auto state = settle(gesture, 0, 150);
+
+  auto state = gesture.update(0, 355);
+  EXPECT_EQ(state.pressed, 0);
+  state = gesture.update(0, 356);
+  EXPECT_EQ(state.pressed, FunctionButtonGesture::CONFIRM);
+  EXPECT_EQ(state.released, FunctionButtonGesture::CONFIRM);
+}
+
+TEST(WaveshareFunctionButton, DoubleFunctionClickEmitsBackOnce) {
+  FunctionButtonGesture gesture;
+  settle(gesture, FunctionButtonGesture::CONFIRM, 0);
+  settle(gesture, 0, 50);
+  auto secondPress = settle(gesture, FunctionButtonGesture::CONFIRM, 355);
+  EXPECT_EQ(secondPress.physicalPressed, FunctionButtonGesture::CONFIRM);
+  EXPECT_EQ(secondPress.pressed, 0);
+  auto state = settle(gesture, 0, 400);
+
+  EXPECT_EQ(state.pressed, FunctionButtonGesture::BACK);
+  EXPECT_EQ(state.released, FunctionButtonGesture::BACK);
+  state = gesture.update(0, 800);
+  EXPECT_EQ(state.pressed, 0);
+}
+
+TEST(WaveshareFunctionButton, BootPlusFunctionChordEmitsBack) {
+  FunctionButtonGesture gesture;
+  settle(gesture, FunctionButtonGesture::BACK, 0);
+  settle(gesture, FunctionButtonGesture::BACK | FunctionButtonGesture::CONFIRM, 50);
+  auto state = settle(gesture, 0, 100);
+
+  EXPECT_EQ(state.pressed, FunctionButtonGesture::BACK);
+  EXPECT_EQ(state.released, FunctionButtonGesture::BACK);
+}
+
+TEST(WaveshareFunctionButton, PressAfterWindowCommitsPriorClick) {
+  FunctionButtonGesture gesture;
+  settle(gesture, FunctionButtonGesture::CONFIRM, 0);
+  settle(gesture, 0, 50);
+  gesture.update(FunctionButtonGesture::CONFIRM, 356);
+  const auto state = gesture.update(FunctionButtonGesture::CONFIRM, 361);
 
   EXPECT_EQ(state.pressed, FunctionButtonGesture::CONFIRM);
   EXPECT_EQ(state.released, FunctionButtonGesture::CONFIRM);
-  EXPECT_EQ(state.pressed & FunctionButtonGesture::BACK, 0);
 }
 
 TEST(WaveshareFunctionButton, HoldAtBoundaryKeepsConfirmDownAndNeverEmitsPower) {
@@ -176,7 +202,7 @@ TEST(WaveshareFunctionButton, HoldAtBoundaryKeepsConfirmDownAndNeverEmitsPower) 
   EXPECT_EQ(state.down, 0);
 }
 
-TEST(WaveshareFunctionButton, SecondFunctionPressAfterShortClickIsAnotherConfirm) {
+TEST(WaveshareFunctionButton, HoldingSecondClickCancelsBackAndBecomesConfirmHold) {
   FunctionButtonGesture gesture;
   settle(gesture, FunctionButtonGesture::CONFIRM, 0);
   settle(gesture, 0, 50);
@@ -184,9 +210,11 @@ TEST(WaveshareFunctionButton, SecondFunctionPressAfterShortClickIsAnotherConfirm
 
   auto state = gesture.update(FunctionButtonGesture::CONFIRM, 400);
   EXPECT_EQ(state.pressed, FunctionButtonGesture::CONFIRM);
+  EXPECT_EQ(state.released, 0);
   EXPECT_EQ(state.down, FunctionButtonGesture::CONFIRM);
 
   state = settle(gesture, 0, 500);
+  EXPECT_EQ(state.pressed, 0);
   EXPECT_EQ(state.released, FunctionButtonGesture::CONFIRM);
   EXPECT_EQ(state.released & FunctionButtonGesture::BACK, 0);
 }

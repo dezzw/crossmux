@@ -4,8 +4,8 @@
 
 namespace freeink::input {
 
-// Waveshare ESP32-S3-ePaper-3.97 override (CrossMux vendor copy). Function+dial
-// chords emit Up/Down; Left/Right short presses never map to Up/Down by duration.
+// Waveshare ESP32-S3-ePaper-3.97 override (CrossMux vendor copy). BOOT+dial chords
+// emit Up/Down; Function click/double-click emit Confirm/Back; lone BOOT is silent.
 class FunctionButtonGesture {
  public:
   static constexpr uint8_t BACK = 1u << 0;
@@ -39,41 +39,55 @@ class FunctionButtonGesture {
       pressed = stable_ & static_cast<uint8_t>(~old);
       released = old & static_cast<uint8_t>(~stable_);
       state.physicalPressed = pressed;
-      state.pressed = pressed & BACK;
-      state.released = released & BACK;
 
-      if (pressed & CONFIRM) handleFunctionPress(old, nowMs, state);
-      if (released & CONFIRM) handleFunctionRelease(state);
+      if (pressed & CONFIRM) handleFunctionPress(state);
+      if (released & CONFIRM) handleFunctionRelease(nowMs, state);
 
-      if (stable_ & CONFIRM) {
-        updateDirectionChord(LEFT, UP, leftPressedMs_, pressed, released, nowMs, state);
-        updateDirectionChord(RIGHT, DOWN, rightPressedMs_, pressed, released, nowMs, state);
+      if (pressed & BACK) handleBootPress(old);
+      if (released & BACK) handleBootRelease(state);
+      if (released & CONFIRM) tryEmitBootConfirmBack(state);
+
+      if (stable_ & BACK) {
+        updateDirectionChord(LEFT, UP, bootPreHeldDirections_, bootDialUsed_, leftPressedMs_, pressed, released, nowMs,
+                             state);
+        updateDirectionChord(RIGHT, DOWN, bootPreHeldDirections_, bootDialUsed_, rightPressedMs_, pressed, released,
+                             nowMs, state);
       } else {
         updateDirectionPlain(LEFT, leftPressedMs_, pressed, released, nowMs, state);
         updateDirectionPlain(RIGHT, rightPressedMs_, pressed, released, nowMs, state);
       }
+
+      if ((stable_ & BACK) && (stable_ & CONFIRM)) bootConfirmChordSeen_ = true;
+      tryEmitBootConfirmBack(state);
     }
 
-    if ((stable_ & CONFIRM) && confirmPhase_ == ConfirmPhase::Down && !confirmChordDialUsed_ &&
-        elapsed(functionPressedMs_, nowMs) >= CONFIRM_HOLD_MS) {
-      confirmPhase_ = ConfirmPhase::Hold;
+    if ((stable_ & CONFIRM) && (clickPhase_ == ClickPhase::FirstPress || clickPhase_ == ClickPhase::SecondPress) &&
+        elapsed(functionPressedMs_, nowMs) >= DOUBLE_CLICK_MS) {
+      clickPhase_ = ClickPhase::ConfirmHold;
       state.pressed |= CONFIRM;
       state.startedMs = functionPressedMs_;
     }
 
-    state.down = stable_ & BACK;
-    state.down |= directionDown_;
-    if (confirmPhase_ == ConfirmPhase::Hold) state.down |= CONFIRM;
+    if (clickPhase_ == ClickPhase::PendingConfirm && !(candidate_ & CONFIRM) &&
+        elapsed(pendingConfirmMs_, nowMs) > DOUBLE_CLICK_MS) {
+      clickPhase_ = ClickPhase::Idle;
+      state.pressed |= CONFIRM;
+      state.released |= CONFIRM;
+      state.startedMs = pendingConfirmPressedMs_;
+    }
+
+    state.down = directionDown_;
+    if (clickPhase_ == ClickPhase::ConfirmHold) state.down |= CONFIRM;
     return state;
   }
 
   bool isDebouncePending() const { return candidate_ != stable_; }
 
   static constexpr uint32_t DEBOUNCE_MS = 5;
-  static constexpr uint32_t CONFIRM_HOLD_MS = 300;
+  static constexpr uint32_t DOUBLE_CLICK_MS = 300;
 
  private:
-  enum class ConfirmPhase : uint8_t { Idle, Down, Hold };
+  enum class ClickPhase : uint8_t { Idle, FirstPress, PendingConfirm, SecondPress, ConfirmHold };
 
   static constexpr uint32_t elapsed(uint32_t start, uint32_t now) { return now - start; }
 
@@ -88,13 +102,13 @@ class FunctionButtonGesture {
     state.startedMs = pressedMs;
   }
 
-  void updateDirectionChord(uint8_t physical, uint8_t logical, uint32_t& pressedMs, uint8_t pressed, uint8_t released,
-                            uint32_t nowMs, State& state) {
-    const uint8_t preHeld = confirmPreHeldDirections_ & physical;
+  void updateDirectionChord(uint8_t physical, uint8_t logical, uint8_t& preHeldDirections, bool& dialUsed,
+                            uint32_t& pressedMs, uint8_t pressed, uint8_t released, uint32_t nowMs, State& state) {
+    const uint8_t preHeld = preHeldDirections & physical;
 
     if ((pressed & physical) && !preHeld) {
       pressedMs = nowMs;
-      confirmChordDialUsed_ = true;
+      dialUsed = true;
       directionDown_ |= logical;
       state.pressed |= logical;
       state.startedMs = pressedMs;
@@ -103,7 +117,7 @@ class FunctionButtonGesture {
     if (!(released & physical)) return;
 
     if (preHeld) {
-      confirmPreHeldDirections_ &= static_cast<uint8_t>(~physical);
+      preHeldDirections &= static_cast<uint8_t>(~physical);
       state.pressed |= physical;
       state.released |= physical;
       state.startedMs = pressedMs;
@@ -117,47 +131,90 @@ class FunctionButtonGesture {
     }
   }
 
-  void handleFunctionPress(uint8_t previousStable, uint32_t nowMs, State& state) {
+  void handleBootPress(uint8_t previousStable) {
+    bootPreHeldDirections_ = previousStable & static_cast<uint8_t>(LEFT | RIGHT);
+    if (bootPreHeldDirections_ & LEFT) leftPressedMs_ = candidateChangedMs_;
+    if (bootPreHeldDirections_ & RIGHT) rightPressedMs_ = candidateChangedMs_;
+  }
+
+  void handleBootRelease(State& state) {
     (void)state;
-    (void)nowMs;
+    if (bootDialUsed_) {
+      bootDialUsed_ = false;
+      bootPreHeldDirections_ = 0;
+      bootConfirmChordSeen_ = false;
+    }
+  }
+
+  void tryEmitBootConfirmBack(State& state) {
+    if (!bootConfirmChordSeen_ || bootDialUsed_ || (stable_ & BACK) || (stable_ & CONFIRM)) return;
+
+    state.pressed |= BACK;
+    state.released |= BACK;
+    state.startedMs = candidateChangedMs_;
+    bootConfirmChordSeen_ = false;
+  }
+
+  void handleFunctionPress(State& state) {
+    switch (clickPhase_) {
+      case ClickPhase::PendingConfirm:
+        if (elapsed(pendingConfirmMs_, candidateChangedMs_) <= DOUBLE_CLICK_MS) {
+          clickPhase_ = ClickPhase::SecondPress;
+        } else {
+          state.pressed |= CONFIRM;
+          state.released |= CONFIRM;
+          state.startedMs = pendingConfirmPressedMs_;
+          clickPhase_ = ClickPhase::FirstPress;
+        }
+        break;
+      case ClickPhase::Idle:
+      case ClickPhase::FirstPress:
+      case ClickPhase::SecondPress:
+      case ClickPhase::ConfirmHold:
+        clickPhase_ = ClickPhase::FirstPress;
+        break;
+    }
     functionPressedMs_ = candidateChangedMs_;
-    confirmChordDialUsed_ = false;
-    confirmPreHeldDirections_ = previousStable & static_cast<uint8_t>(LEFT | RIGHT);
-    if (confirmPreHeldDirections_ & LEFT) leftPressedMs_ = functionPressedMs_;
-    if (confirmPreHeldDirections_ & RIGHT) rightPressedMs_ = functionPressedMs_;
-    confirmPhase_ = ConfirmPhase::Down;
   }
 
-  void handleFunctionRelease(State& state) {
-    if (confirmChordDialUsed_) {
-      confirmPhase_ = ConfirmPhase::Idle;
-      confirmPreHeldDirections_ = 0;
+  void handleFunctionRelease(uint32_t nowMs, State& state) {
+    if (clickPhase_ == ClickPhase::ConfirmHold) {
+      state.released |= CONFIRM;
+      state.startedMs = functionPressedMs_;
+      clickPhase_ = ClickPhase::Idle;
       return;
     }
 
-    if (confirmPhase_ == ConfirmPhase::Hold) {
-      state.released |= CONFIRM;
-      state.startedMs = functionPressedMs_;
-      confirmPhase_ = ConfirmPhase::Idle;
-      return;
-    }
-
-    if (confirmPhase_ == ConfirmPhase::Down) {
-      state.pressed |= CONFIRM;
-      state.released |= CONFIRM;
-      state.startedMs = functionPressedMs_;
-      confirmPhase_ = ConfirmPhase::Idle;
+    switch (clickPhase_) {
+      case ClickPhase::SecondPress:
+        state.pressed |= BACK;
+        state.released |= BACK;
+        state.startedMs = pendingConfirmPressedMs_;
+        clickPhase_ = ClickPhase::Idle;
+        break;
+      case ClickPhase::FirstPress:
+        pendingConfirmMs_ = nowMs;
+        pendingConfirmPressedMs_ = functionPressedMs_;
+        clickPhase_ = ClickPhase::PendingConfirm;
+        break;
+      case ClickPhase::Idle:
+      case ClickPhase::PendingConfirm:
+      case ClickPhase::ConfirmHold:
+        break;
     }
   }
 
-  ConfirmPhase confirmPhase_ = ConfirmPhase::Idle;
+  ClickPhase clickPhase_ = ClickPhase::Idle;
   uint8_t candidate_ = 0;
   uint8_t stable_ = 0;
   uint8_t directionDown_ = 0;
-  uint8_t confirmPreHeldDirections_ = 0;
-  bool confirmChordDialUsed_ = false;
+  uint8_t bootPreHeldDirections_ = 0;
+  bool bootDialUsed_ = false;
+  bool bootConfirmChordSeen_ = false;
   uint32_t candidateChangedMs_ = 0;
   uint32_t functionPressedMs_ = 0;
+  uint32_t pendingConfirmMs_ = 0;
+  uint32_t pendingConfirmPressedMs_ = 0;
   uint32_t leftPressedMs_ = 0;
   uint32_t rightPressedMs_ = 0;
 };
