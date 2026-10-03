@@ -21,7 +21,45 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: Check PR Title
+      # Bracket form: "[feat] Summary" (preferred). Colon form uses the step below.
+      - name: Check PR Title (bracket form)
+        if: ${{ startsWith(github.event.pull_request.title, '[') }}
         uses: amannn/action-semantic-pull-request@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            build
+            chore
+            ci
+            docs
+            feat
+            fix
+            patch
+            perf
+            refactor
+            revert
+            style
+            test
+          headerPattern: '^\[(\w+)\] (.*)$'
+          headerPatternCorrespondence: type, subject
+
+      - name: Check PR Title (Conventional Commits)
+        if: ${{ !startsWith(github.event.pull_request.title, '[') }}
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            build
+            chore
+            ci
+            docs
+            feat
+            fix
+            patch
+            perf
+            refactor
+            revert
+            style
+            test
