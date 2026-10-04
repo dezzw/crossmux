@@ -111,6 +111,8 @@ add_test(NAME PioarduinoCache
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_pioarduino_cache.py)
 add_test(NAME ReadingUiRegressions
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_reading_ui_regressions.py)
+add_test(NAME MainTabEntryReleaseBarrier
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_main_tab_entry_release_barrier.py)
 add_test(NAME DownloadMemoryLifecycle
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_download_memory_lifecycle.py)
 add_test(NAME InxStyleCompatibility
