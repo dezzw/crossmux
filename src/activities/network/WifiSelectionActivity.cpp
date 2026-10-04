@@ -808,16 +808,15 @@ void WifiSelectionActivity::loop() {
     const int count = static_cast<int>(networks.size());
     buttonNavigator.onNextRelease(
         [this, &moveSelection, count] { moveSelection(ButtonNavigator::nextIndex(selectedNetworkIndex, count)); });
-    buttonNavigator.onPreviousRelease([this, &moveSelection, count] {
-      moveSelection(ButtonNavigator::previousIndex(selectedNetworkIndex, count));
-    });
+    buttonNavigator.onPreviousRelease(
+        [this, &moveSelection, count] { moveSelection(ButtonNavigator::previousIndex(selectedNetworkIndex, count)); });
     buttonNavigator.onNextContinuous([this, &moveSelection, count] {
       moveSelection(
           ButtonNavigator::nextPageIndex(static_cast<int>(selectedNetworkIndex), count, listNav.pageRowsFor(count)));
     });
     buttonNavigator.onPreviousContinuous([this, &moveSelection, count] {
       moveSelection(ButtonNavigator::previousPageIndex(static_cast<int>(selectedNetworkIndex), count,
-                                                         listNav.pageRowsFor(count)));
+                                                       listNav.pageRowsFor(count)));
     });
   }
 }

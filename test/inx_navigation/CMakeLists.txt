@@ -1,4 +1,6 @@
-add_executable(InxNavigationTest InxNavigationTest.cpp)
+add_executable(InxNavigationTest
+  InxNavigationTest.cpp
+  ${REPO_ROOT}/freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp)
 
 target_include_directories(InxNavigationTest BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs)
 target_include_directories(InxNavigationTest PRIVATE

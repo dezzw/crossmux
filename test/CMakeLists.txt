@@ -120,3 +120,5 @@ add_test(NAME InxRecentThumbnails
 
 add_test(NAME UiFontFallback
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ui_font_fallback.py)
+add_test(NAME WifiListNavRebuild
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wifi_list_nav_rebuild.py)

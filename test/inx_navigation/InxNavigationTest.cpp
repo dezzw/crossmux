@@ -91,6 +91,52 @@ TEST(InxNavigation, FollowPendingCorrectionSetsRebuildNeeded) {
   EXPECT_FALSE(nav.consumeRebuildNeeded());
 }
 
+TEST(InxNavigation, ListNavRebuildLoopConvergesOnLongList) {
+  freeink::ui::ListNav nav;
+  constexpr int kCount = 25;
+  nav.visibleRows = 5;
+  nav.drawnRows = 4;
+  nav.drawnCount = kCount;
+  nav.reset(0);
+
+  const auto simulateRenderPass = [&]() {
+    const int selected = nav.selected.load();
+    const int drawn = nav.pageRowsFor(kCount);
+    const bool selectedDrawn = selected >= nav.top && selected < nav.top + drawn;
+    nav.onListRendered(static_cast<uint16_t>(nav.top), drawn, selectedDrawn);
+  };
+
+  const auto runWifiStyleRebuildLoop = [&]() {
+    int passes = 0;
+    int previousTop = nav.top;
+    int oscillations = 0;
+    simulateRenderPass();
+    while (nav.consumeRebuildNeeded() && passes < 8) {
+      if (nav.top < previousTop) {
+        ++oscillations;
+      }
+      previousTop = nav.top;
+      simulateRenderPass();
+      ++passes;
+    }
+    return std::make_pair(passes, oscillations);
+  };
+
+  for (int step = 0; step < 12; ++step) {
+    nav.requestSelection(step);
+    nav.follow(kCount);
+    const auto [passes, oscillations] = runWifiStyleRebuildLoop();
+    EXPECT_LT(passes, 8) << "rebuild loop did not converge at selection " << step;
+    EXPECT_EQ(oscillations, 0) << "viewport top oscillated at selection " << step;
+    EXPECT_FALSE(nav.followPending);
+    EXPECT_FALSE(nav.rebuildNeeded);
+    const int selected = nav.selected.load();
+    const int page = nav.pageRowsFor(kCount);
+    EXPECT_GE(selected, nav.top);
+    EXPECT_LT(selected, nav.top + page) << "selection must be visible after converge";
+  }
+}
+
 TEST(InxNavigation, TracksLastInputWithTouchPriority) {
   InputModality modality = InputModality::Touch;
   modality = inputModalityAfter(modality, false, false);
