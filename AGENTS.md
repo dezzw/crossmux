@@ -66,7 +66,7 @@ full reasoning, examples, and edge cases.
 ```bash
 pio run                             # Build Waveshare (default env)
 pio run -t upload                    # Build + flash
-pio run -e simulator -t run_simulator # Desktop X4 simulator (SDL2 + curl)
+pio run -e simulator -t run_simulator # Desktop Waveshare-profile simulator (SDL2 + curl)
 pio check                           # Static analysis (cppcheck)
 ./bin/ci-check                      # Full code-change checks (see contributor workflow)
 ./bin/clang-format-fix               # Format (CI uses clang-format 21+)

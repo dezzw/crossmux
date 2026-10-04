@@ -2,7 +2,7 @@
 
 > Deep reference for [AGENTS.md](../../AGENTS.md). This fork targets the
 > **Waveshare ESP32-S3-ePaper-3.97** (800×480 SSD1677) as its sole hardware
-> image, plus the desktop **X4-class simulator** for host-side development.
+> image, plus the desktop **Waveshare-profile simulator** for host-side development.
 
 ## TL;DR
 
@@ -39,9 +39,11 @@ tags.
 ## Simulator
 
 `env:simulator` is a native build using the pinned
-[crosspoint-simulator](https://github.com/0x1abin/crosspoint-simulator) fork.
-It exercises reader/UI code paths on the host without e-ink timing. Install SDL2
-and OpenSSL development headers, place EPUBs under `fs_/books/`, then:
+[crosspoint-simulator](https://github.com/dezzw/crosspoint-simulator) fork
+(`SIMULATOR_DEVICE_WAVESHARE_EPAPER_397` / `FREEINK_DEVICE_WAVESHARE_EPAPER_397`).
+Waveshare face-button chords and logical `HalGPIO` mapping live in that simulator
+repo (not CrossMux overlay libraries). Install SDL2 and OpenSSL development
+headers, place EPUBs under `fs_/books/`, then:
 
 ```bash
 pio run -e simulator -t run_simulator

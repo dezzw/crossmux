@@ -96,9 +96,12 @@ pio run -e simulator -t run_simulator
 ```
 
 The simulator implementation and launcher come from the pinned
-[`0x1abin/crosspoint-simulator`](https://github.com/0x1abin/crosspoint-simulator)
-fork; the exact revision is recorded in `platformio.ini`.
-Arrow keys are Up/Down, `P` is Power, mouse input provides touch, and `S` sleeps.
+[`dezzw/crosspoint-simulator`](https://github.com/dezzw/crosspoint-simulator)
+fork; the exact revision is recorded in `platformio.ini`. CrossMux builds
+`env:simulator` with the Waveshare 3.97 profile so keyboard input models face
+buttons and `FunctionButtonGesture` (see the simulator README). `P` is Power and
+`S` sleeps; Escape/Enter/Left/Right follow the Waveshare keyboard map rather
+than the generic X4 direct map.
 The simulator covers UI, input, RTC state, and sleep/wake flows. It does not
 emulate EPD waveforms, SDMMC contention, PSRAM, or power consumption.
 
