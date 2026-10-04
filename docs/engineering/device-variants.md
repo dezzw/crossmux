@@ -40,12 +40,26 @@ tags.
 
 `env:simulator` is a native build using the pinned
 [crosspoint-simulator](https://github.com/0x1abin/crosspoint-simulator) fork.
-It exercises reader/UI code paths on the host without e-ink timing. Install SDL2
-and OpenSSL development headers, place EPUBs under `fs_/books/`, then:
+CrossMux configures it as **Waveshare ESP32-S3 ePaper 3.97** (`BoardConfig::WaveshareEpaper397`):
+800×480 profile, no touch, and the same vendor
+`FunctionButtonGesture` header as hardware (`lib/waveshare397_input/include/`).
+SDL keys feed **physical** face buttons; the gesture layer maps them to logical
+Back/Confirm/Left/Right/Up/Down like `InputManager::updateFunctionMultiGesture`.
+
+Install SDL2 and OpenSSL development headers, place EPUBs under `fs_/books/`, then:
 
 ```bash
 pio run -e simulator -t run_simulator
 ```
+
+| SDL key | Physical control | Notes |
+|---|---|---|
+| Escape | BOOT (GPIO0) | Hold for dial chords; short press alone does nothing |
+| Return / Enter | Function (GPIO5) | Click → Confirm after ~300 ms; double-click → Back |
+| Left / Right arrow | Dial sides | Left/Right on release; with BOOT held → Up/Down edges |
+| P | Side power (AXP2101) | Outside the gesture map; sleep shortcut **S** unchanged |
+
+Up/Down arrow keys are intentionally unmapped in Waveshare mode (use BOOT+dial).
 
 Hardware CI and main CI keep `simulator` buildable alongside
 `waveshare_epaper_397_nightly`.

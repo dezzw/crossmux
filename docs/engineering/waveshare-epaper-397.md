@@ -8,7 +8,12 @@ and ES8311/NS4150B audio.
 pio run -e waveshare_epaper_397
 pio run -e waveshare_epaper_397 -t upload --upload-port /dev/tty.usbmodem101
 pio device monitor --port /dev/tty.usbmodem101 --baud 115200
+pio run -e simulator -t run_simulator   # desktop SDL preview (same button map below)
 ```
+
+Desktop simulator keys (physical layer): **Escape** = BOOT, **Return** = Function,
+**Left/Right** = dial, **P** = side power. See
+[device-variants.md](device-variants.md#simulator) for chord behavior.
 
 ## Hardware contract
 
