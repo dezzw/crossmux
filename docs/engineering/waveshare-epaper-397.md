@@ -11,9 +11,10 @@ pio device monitor --port /dev/tty.usbmodem101 --baud 115200
 pio run -e simulator -t run_simulator   # desktop SDL preview (same button map below)
 ```
 
-Desktop simulator keys (physical layer): **Escape** = BOOT, **Return** = Function,
-**Left/Right** = dial, **P** = side power. See
-[device-variants.md](device-variants.md#simulator) for chord behavior.
+Desktop simulator keys map to face buttons: **Escape** = BOOT (GPIO0), **Return**
+= Function (GPIO5), **Left/Right arrow** = Left/Right (GPIO4/GPIO6), **P** = side
+power. Back/Confirm/Up/Down are produced by `FunctionButtonGesture`, not direct
+key bindings. See [device-variants.md](device-variants.md#simulator).
 
 ## Hardware contract
 
@@ -66,7 +67,7 @@ The wake gesture remains absorbed. A screenshot chord may play the constituent
 physical-key cues, but screenshot recognition adds no cue of its own.
 
 GPIO4/GPIO6 short presses emit Left/Right on release when BOOT (GPIO0) is not
-held. While BOOT is held, dial up/down sides emit Up/Down on press and release;
+held. While BOOT is held, Left/Right face buttons emit Up/Down on press and release;
 duration alone never maps Left/Right or lone BOOT to Up/Down or Back. BOOT plus
 Function emits Back on chord release.
 
@@ -89,7 +90,7 @@ AXP2101 shutdown path then removes system power.
 
 - Confirm boot without panic/OOM and successful PSRAM, AXP2101, SDMMC, and RTC initialization.
 - Visually check full, fast/windowed, half, and four-gray refreshes; repeat sleep/wake three times.
-- Repeat Left, Right, Function click/hold/double-click, BOOT+dial Up/Down chords, BOOT+Function Back, lone BOOT (no action), and side Power gestures three times;
+- Repeat Left, Right, Function click/hold/double-click, BOOT+Left/Right Up/Down chords, BOOT+Function Back, lone BOOT (no action), and side Power gestures three times;
   one gesture must produce one action.
 - With Sound Feedback at its fresh-install Medium default, confirm physical Left/Right presses play audible `select`
   and Confirm/Back/Power presses play `tap` without waiting for release or gesture classification. Confirm long Power

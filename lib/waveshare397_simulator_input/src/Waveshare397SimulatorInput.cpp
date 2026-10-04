@@ -25,10 +25,12 @@ using Gesture = freeink::input::FunctionButtonGesture;
 static constexpr int NUM_BUTTONS = 7;
 static constexpr SDL_Scancode SIMULATOR_SLEEP_SCANCODE = SDL_SCANCODE_S;
 
+// SDL → Waveshare face buttons (GPIO0/5/4/6). Logical Back/Confirm/Up/Down come
+// from FunctionButtonGesture, same as hardware InputManager.
 static constexpr SDL_Scancode kBoot = SDL_SCANCODE_ESCAPE;
 static constexpr SDL_Scancode kFunction = SDL_SCANCODE_RETURN;
-static constexpr SDL_Scancode kDialLeft = SDL_SCANCODE_LEFT;
-static constexpr SDL_Scancode kDialRight = SDL_SCANCODE_RIGHT;
+static constexpr SDL_Scancode kFaceLeft = SDL_SCANCODE_LEFT;
+static constexpr SDL_Scancode kFaceRight = SDL_SCANCODE_RIGHT;
 static constexpr SDL_Scancode kPower = SDL_SCANCODE_P;
 
 Gesture gesture;
@@ -61,8 +63,8 @@ uint8_t rawFromKeyboard() {
   uint8_t raw = 0;
   if (keys[kBoot]) raw |= Gesture::BACK;
   if (keys[kFunction]) raw |= Gesture::CONFIRM;
-  if (keys[kDialLeft]) raw |= Gesture::LEFT;
-  if (keys[kDialRight]) raw |= Gesture::RIGHT;
+  if (keys[kFaceLeft]) raw |= Gesture::LEFT;
+  if (keys[kFaceRight]) raw |= Gesture::RIGHT;
   raw |= syntheticRawDown;
   return raw;
 }

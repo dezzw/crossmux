@@ -40,11 +40,12 @@ tags.
 
 `env:simulator` is a native build using the pinned
 [crosspoint-simulator](https://github.com/0x1abin/crosspoint-simulator) fork.
-CrossMux configures it as **Waveshare ESP32-S3 ePaper 3.97** (`BoardConfig::WaveshareEpaper397`):
-800×480 profile, no touch, and the same vendor
-`FunctionButtonGesture` header as hardware (`lib/waveshare397_input/include/`).
-SDL keys feed **physical** face buttons; the gesture layer maps them to logical
-Back/Confirm/Left/Right/Up/Down like `InputManager::updateFunctionMultiGesture`.
+CrossMux configures it for **Waveshare ESP32-S3 ePaper 3.97** (800×480, no touch)
+using the same vendor `FunctionButtonGesture` header as hardware
+(`lib/waveshare397_input/include/`). SDL keys map to the four **face buttons**
+(GPIO0 BOOT, GPIO5 Function, GPIO4 Left, GPIO6 Right); `FunctionButtonGesture`
+then produces logical Back/Confirm/Left/Right/Up/Down like
+`InputManager::updateFunctionMultiGesture` on the device.
 
 Install SDL2 and OpenSSL development headers, place EPUBs under `fs_/books/`, then:
 
@@ -52,14 +53,16 @@ Install SDL2 and OpenSSL development headers, place EPUBs under `fs_/books/`, th
 pio run -e simulator -t run_simulator
 ```
 
-| SDL key | Physical control | Notes |
-|---|---|---|
-| Escape | BOOT (GPIO0) | Hold for dial chords; short press alone does nothing |
-| Return / Enter | Function (GPIO5) | Click → Confirm after ~300 ms; double-click → Back |
-| Left / Right arrow | Dial sides | Left/Right on release; with BOOT held → Up/Down edges |
-| P | Side power (AXP2101) | Outside the gesture map; sleep shortcut **S** unchanged |
+| SDL key | Face button | GPIO | Notes |
+|---|---|---|---|
+| Escape | BOOT | 0 | Short press alone → no logical action; hold + Left/Right → Up/Down |
+| Return / Enter | Function | 5 | Click → Confirm (~300 ms window); double-click → Back |
+| Left arrow | Left | 4 | Logical Left/Right on release; chords with BOOT per gesture rules |
+| Right arrow | Right | 6 | Same as Left |
+| P | Side power (AXP2101) | — | Outside face-button map; sleep shortcut **S** unchanged |
 
-Up/Down arrow keys are intentionally unmapped in Waveshare mode (use BOOT+dial).
+Up/Down arrow keys are not mapped to face buttons. Logical Up/Down come from
+**BOOT + Left/Right** through `FunctionButtonGesture`, not from keyboard Up/Down.
 
 Hardware CI and main CI keep `simulator` buildable alongside
 `waveshare_epaper_397_nightly`.
