@@ -284,16 +284,14 @@ bool ActivityManager::handleMainTabInput() {
         // Short taps can present press+release in one frame (sim chords / fast
         // hardware). Skip the release barrier when the matching release already
         // arrived so content navigation is not swallowed on the next frame.
-        if (!mappedInput.wasReleased(MappedInputManager::Button::Down))
-          mainTabEntryReleasePending = true;
+        if (!mappedInput.wasReleased(MappedInputManager::Button::Down)) mainTabEntryReleasePending = true;
         currentActivity->selectMainTabContentEdge(MainTabContentEdge::First);
         requestUpdate();
         return true;
       }
       if (mappedInput.wasPressed(MappedInputManager::Button::Up)) {
         mainTabFocus = MainTabFocus::Content;
-        if (!mappedInput.wasReleased(MappedInputManager::Button::Up))
-          mainTabEntryReleasePending = true;
+        if (!mappedInput.wasReleased(MappedInputManager::Button::Up)) mainTabEntryReleasePending = true;
         currentActivity->selectMainTabContentEdge(MainTabContentEdge::Last);
         requestUpdate();
         return true;
