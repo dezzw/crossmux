@@ -20,7 +20,7 @@ FetchContent_Declare(
 FetchContent_Declare(
   crosspoint_simulator
   GIT_REPOSITORY https://github.com/dezzw/crosspoint-simulator.git
-  GIT_TAG 91d1574e71c7c488f03a9042953be9f103356809
+  GIT_TAG 82727e8bbfa68456620041750f0d32326d1ca60a
 )
 
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -111,6 +111,8 @@ add_test(NAME PioarduinoCache
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_pioarduino_cache.py)
 add_test(NAME ReadingUiRegressions
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_reading_ui_regressions.py)
+add_test(NAME MainTabEntryReleaseBarrier
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_main_tab_entry_release_barrier.py)
 add_test(NAME DownloadMemoryLifecycle
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_download_memory_lifecycle.py)
 add_test(NAME InxStyleCompatibility
