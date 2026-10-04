@@ -25,8 +25,6 @@ class FunctionButtonGesture {
 
   State update(uint8_t raw, uint32_t nowMs) {
     State state;
-    uint8_t pressed = 0;
-    uint8_t released = 0;
 
     if (raw != candidate_) {
       candidate_ = raw;
@@ -36,8 +34,8 @@ class FunctionButtonGesture {
     if (candidate_ != stable_ && elapsed(candidateChangedMs_, nowMs) >= DEBOUNCE_MS) {
       const uint8_t old = stable_;
       stable_ = candidate_;
-      pressed = stable_ & static_cast<uint8_t>(~old);
-      released = old & static_cast<uint8_t>(~stable_);
+      const uint8_t pressed = stable_ & static_cast<uint8_t>(~old);
+      const uint8_t released = old & static_cast<uint8_t>(~stable_);
       state.physicalPressed = pressed;
 
       if (pressed & CONFIRM) handleFunctionPress(state);
