@@ -795,15 +795,29 @@ void WifiSelectionActivity::loop() {
     }
 
     const auto moveSelection = [this](const int index) {
-      selectedNetworkIndex = static_cast<size_t>(index);
-      listNav.selected = index;
-      listNav.follow(static_cast<int>(networks.size()));
+      {
+        // Same nav-vs-render race as UiListActivity::moveSelectionTo: the render
+        // task writes top mid-build, so read and mutate under one lock.
+        RenderLock lock(*this);
+        selectedNetworkIndex = static_cast<size_t>(index);
+        listNav.selected = index;
+        listNav.follow(static_cast<int>(networks.size()));
+      }
       requestUpdate();
     };
-    buttonNavigator.onNext(
-        [this, &moveSelection] { moveSelection(ButtonNavigator::nextIndex(selectedNetworkIndex, networks.size())); });
-    buttonNavigator.onPrevious([this, &moveSelection] {
-      moveSelection(ButtonNavigator::previousIndex(selectedNetworkIndex, networks.size()));
+    const int count = static_cast<int>(networks.size());
+    buttonNavigator.onNextRelease(
+        [this, &moveSelection, count] { moveSelection(ButtonNavigator::nextIndex(selectedNetworkIndex, count)); });
+    buttonNavigator.onPreviousRelease([this, &moveSelection, count] {
+      moveSelection(ButtonNavigator::previousIndex(selectedNetworkIndex, count));
+    });
+    buttonNavigator.onNextContinuous([this, &moveSelection, count] {
+      moveSelection(
+          ButtonNavigator::nextPageIndex(static_cast<int>(selectedNetworkIndex), count, listNav.pageRowsFor(count)));
+    });
+    buttonNavigator.onPreviousContinuous([this, &moveSelection, count] {
+      moveSelection(ButtonNavigator::previousPageIndex(static_cast<int>(selectedNetworkIndex), count,
+                                                         listNav.pageRowsFor(count)));
     });
   }
 }
@@ -989,6 +1003,11 @@ void WifiSelectionActivity::buildPromptDialog(UiScreen& screen) {
 
 void WifiSelectionActivity::renderNetworkList(const Rect* screen, const ThemeMetrics* metrics) {
   renderUi();
+  // Wrapped SSIDs can fit fewer rows than the fixed-height estimate; ListNav
+  // may request another build so follow() converges (see list.h rebuild loop).
+  for (int pass = 0; !networks.empty() && listNav.consumeRebuildNeeded() && pass < 8; ++pass) {
+    renderUi();
+  }
   if (networks.empty()) {
     // Below the centered "no networks" line the app drew.
     const auto height = renderer.getLineHeight(UI_10_FONT_ID);

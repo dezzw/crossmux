@@ -81,6 +81,16 @@ TEST(InxNavigation, ScrollsListPagesWithoutMovingSelection) {
   EXPECT_EQ(nav.selected, 2);
 }
 
+TEST(InxNavigation, FollowPendingCorrectionSetsRebuildNeeded) {
+  freeink::ui::ListNav nav;
+  nav.visibleRows = 5;
+  nav.top = 0;
+  nav.followPending = true;
+  nav.onListRendered(0, 4, false);
+  EXPECT_TRUE(nav.consumeRebuildNeeded());
+  EXPECT_FALSE(nav.consumeRebuildNeeded());
+}
+
 TEST(InxNavigation, TracksLastInputWithTouchPriority) {
   InputModality modality = InputModality::Touch;
   modality = inputModalityAfter(modality, false, false);
