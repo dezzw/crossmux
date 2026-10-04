@@ -74,7 +74,7 @@ Install SDL2 and curl (plus OpenSSL development headers on Linux), place EPUBs i
 pio run -e simulator -t run_simulator
 ```
 
-The [CrossMux simulator fork](https://github.com/0x1abin/crosspoint-simulator) is pinned in `platformio.ini`. It previews UI and button input; it does not validate e-ink waveforms, power consumption, or Waveshare PMIC timing.
+The [Waveshare-profile simulator fork](https://github.com/dezzw/crosspoint-simulator) is pinned in `platformio.ini` (face-button input is implemented in that repo, not CrossMux overlays). It previews UI and button input; it does not validate e-ink waveforms, power consumption, or Waveshare PMIC timing.
 
 ### Checks and debugging
 

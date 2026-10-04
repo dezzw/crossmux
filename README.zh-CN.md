@@ -74,7 +74,7 @@ pio run -t upload
 pio run -e simulator -t run_simulator
 ```
 
-[CrossMux 模拟器 fork](https://github.com/0x1abin/crosspoint-simulator) 的版本固定在 `platformio.ini` 中。它用于预览 UI 和按键输入，不能验证墨水屏波形、耗电或 Waveshare PMIC 时序。
+[Waveshare 配置模拟器 fork](https://github.com/dezzw/crosspoint-simulator) 的版本固定在 `platformio.ini` 中（面键输入在该仓库实现，而非 CrossMux overlay）。它用于预览 UI 和按键输入，不能验证墨水屏波形、耗电或 Waveshare PMIC 时序。
 
 ### 检查与调试
 
