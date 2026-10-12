@@ -18,7 +18,6 @@
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
-#include "util/DeviceInputStrings.h"
 
 namespace fui = freeink::ui;
 
@@ -1008,12 +1007,11 @@ void WifiSelectionActivity::renderNetworkList(const Rect* screen, const ThemeMet
   for (int pass = 0; !networks.empty() && listNav.consumeRebuildNeeded() && pass < 8; ++pass) {
     renderUi();
   }
-  if (networks.empty()) {
+  if (networks.empty() && GUI.keyInstructionTipsVisible()) {
     // Below the centered "no networks" line the app drew.
     const auto height = renderer.getLineHeight(UI_10_FONT_ID);
     const auto top = screen->y + (screen->height - height) / 2;
-    UITheme::drawCenteredText(renderer, *screen, SMALL_FONT_ID, top + height + 10,
-                              trInput(StrId::STR_PRESS_OK_SCAN_WS397, StrId::STR_PRESS_OK_SCAN));
+    UITheme::drawCenteredText(renderer, *screen, SMALL_FONT_ID, top + height + 10, tr(STR_PRESS_OK_SCAN));
   }
 
   GUI.drawHelpText(renderer,

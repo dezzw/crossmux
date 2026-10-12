@@ -20,15 +20,7 @@ class WeReadDownloadUiTest(unittest.TestCase):
         title = source.split("void drawTruncatedProgressTitle", 1)[1].split("void drawProgressStatus", 1)[0]
         render = source.split("void WeReadActivity::render(RenderLock&&)", 1)[1]
         download = render.split("    case State::Downloading: {", 1)[1].split("    case State::Error:", 1)[0]
-        line4 = re.search(
-            r"#if FREEINK_DEVICE_WAVESHARE_EPAPER_397\nconstexpr StrId kPostProcessLongWaitLine4 = .*?\n#else\n"
-            r"constexpr StrId kPostProcessLongWaitLine4 = .*?\n#endif",
-            source,
-            re.S,
-        )
         waits = "\n".join(re.findall(r"constexpr StrId kPostProcess\w+Lines\[\] = \{.*?\};", source, re.S))
-        if line4:
-            waits = line4.group(0) + "\n" + waits
         harness = r'''
 #include <algorithm>
 #include <atomic>
@@ -70,6 +62,10 @@ void drawCenteredText(GfxRenderer&, const Rect&, int, int, const char* text, boo
   shownTitle = text;
 }
 }
+struct ThemeFacade {
+  bool keyInstructionTipsVisible() const { return true; }
+};
+ThemeFacade GUI;
 struct { const char* get(StrId) { return "label"; } } I18N;
 #define tr(key) "Stage %u/%u: %s"
 void drawProgressStatus(GfxRenderer&, const Rect&, const char*, const char* stage, const char* status,

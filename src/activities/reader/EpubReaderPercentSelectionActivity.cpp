@@ -10,7 +10,6 @@
 #include "components/UITheme.h"
 #include "components/UiSliderDialog.h"
 #include "fontIds.h"
-#include "util/DeviceInputStrings.h"
 
 namespace fui = freeink::ui;
 
@@ -156,11 +155,9 @@ void EpubReaderPercentSelectionActivity::buildPercentScreen(UiScreen& screen) {
   char readout[16];
   snprintf(readout, sizeof(readout), "%d%%", percent);
   char hint1[64];
-  snprintf(hint1, sizeof(hint1), "%s %d%%",
-           I18N.get(strIdInput(StrId::STR_STEP_HINT_FRONT_WS397, StrId::STR_STEP_HINT_FRONT)), kSmallStep);
+  snprintf(hint1, sizeof(hint1), "%s %d%%", I18N.get(StrId::STR_STEP_HINT_FRONT), kSmallStep);
   char hint2[64];
-  snprintf(hint2, sizeof(hint2), "%s %d%%",
-           I18N.get(strIdInput(StrId::STR_STEP_HINT_SIDE_WS397, StrId::STR_STEP_HINT_SIDE)), kLargeStep);
+  snprintf(hint2, sizeof(hint2), "%s %d%%", I18N.get(StrId::STR_STEP_HINT_SIDE), kLargeStep);
 
   UiSliderDialogSpec spec;
   spec.readout = readout;

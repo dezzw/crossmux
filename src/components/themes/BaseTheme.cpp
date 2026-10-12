@@ -246,6 +246,14 @@ bool BaseTheme::buttonHintsVisible() const {
 #endif
 }
 
+bool BaseTheme::keyInstructionTipsVisible() const {
+#if FREEINK_DEVICE_WAVESHARE_EPAPER_397
+  return false;
+#else
+  return true;
+#endif
+}
+
 void BaseTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const {
   if (!buttonHintsVisible()) {
     return;

@@ -75,17 +75,11 @@ constexpr StrId kPostProcessWaitLines[] = {
     StrId::STR_WEREAD_POST_PROCESS_WAIT_LINE_2,
 };
 
-#if FREEINK_DEVICE_WAVESHARE_EPAPER_397
-constexpr StrId kPostProcessLongWaitLine4 = StrId::STR_WEREAD_POST_PROCESS_LONG_WAIT_LINE_4_WS397;
-#else
-constexpr StrId kPostProcessLongWaitLine4 = StrId::STR_WEREAD_POST_PROCESS_LONG_WAIT_LINE_4;
-#endif
-
 constexpr StrId kPostProcessLongWaitLines[] = {
     StrId::STR_WEREAD_POST_PROCESS_LONG_WAIT_LINE_1,
     StrId::STR_WEREAD_POST_PROCESS_LONG_WAIT_LINE_2,
     StrId::STR_WEREAD_POST_PROCESS_LONG_WAIT_LINE_3,
-    kPostProcessLongWaitLine4,
+    StrId::STR_WEREAD_POST_PROCESS_LONG_WAIT_LINE_4,
 };
 
 constexpr int kDisclaimerActionCount = static_cast<int>(sizeof(kDisclaimerActions) / sizeof(kDisclaimerActions[0]));
@@ -2533,6 +2527,9 @@ void WeReadActivity::render(RenderLock&&) {
             case PostProcessNotice::LongWait:
               lines = kPostProcessLongWaitLines;
               lineCount = static_cast<int>(sizeof(kPostProcessLongWaitLines) / sizeof(kPostProcessLongWaitLines[0]));
+              if (!GUI.keyInstructionTipsVisible() && lineCount > 0) {
+                lineCount--;
+              }
               break;
           }
           break;
