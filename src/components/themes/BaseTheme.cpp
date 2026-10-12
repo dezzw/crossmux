@@ -238,9 +238,19 @@ void BaseTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   renderer.setOrientation(orig_orientation);
 }
 
-bool BaseTheme::buttonHintsVisible() const { return SETTINGS.showButtonHints; }
+bool BaseTheme::buttonHintsVisible() const {
+#if FREEINK_DEVICE_WAVESHARE_EPAPER_397
+  return false;
+#else
+  return SETTINGS.showButtonHints;
+#endif
+}
 
 void BaseTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const {
+  if (!buttonHintsVisible()) {
+    return;
+  }
+
   const int screenWidth = renderer.getScreenWidth();
   constexpr int buttonWidth = BaseMetrics::values.sideButtonHintsWidth;  // Width on screen (height when rotated)
   constexpr int buttonHeight = 80;                                       // Height on screen (width when rotated)
