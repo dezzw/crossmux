@@ -443,8 +443,8 @@ int KeyboardEntryActivity::keyInstructionTipBandReserve() const {
   if (!GUI.keyInstructionTipsVisible()) return 0;
   const auto& metrics = UITheme::getInstance().getMetrics();
   const int tipsLh = renderer.getLineHeight(SMALL_FONT_ID);
-  constexpr int kMaxTipLinesBelowHeader = 3;
-  return tipsLh * (1 + kMaxTipLinesBelowHeader) + metrics.verticalSpacing;
+  return keyboard_entry::keyInstructionBandHeightPx(tipsLh, metrics.verticalSpacing,
+                                                    keyboard_entry::worstCaseKeyInstructionBandLayout());
 }
 
 int KeyboardEntryActivity::inputStartY() const {
@@ -868,8 +868,13 @@ void KeyboardEntryActivity::render(RenderLock&&) {
   std::vector<int> lineStarts;
   collectLineStarts(displayText, maxLineWidth, lineStarts);
   const int totalLines = static_cast<int>(lineStarts.size());
-  const int maxVis = keyboard_entry::maxVisibleInputLines(inputY, kbRect.y, lineHeight, metrics.verticalSpacing,
-                                                          keyInstructionTipBandReserve());
+  const int tipsLh = renderer.getLineHeight(SMALL_FONT_ID);
+  const int tipBandReserve = GUI.keyInstructionTipsVisible() ? keyboard_entry::keyInstructionBandHeightPx(
+                                                                   tipsLh, metrics.verticalSpacing,
+                                                                   keyboard_entry::worstCaseKeyInstructionBandLayout())
+                                                             : 0;
+  const int maxVis =
+      keyboard_entry::maxVisibleInputLines(inputY, kbRect.y, lineHeight, metrics.verticalSpacing, tipBandReserve);
   const int cursorLine = keyboard_entry::cursorLineIndex(
       static_cast<int>(cursorPos), static_cast<int>(displayText.length()), lineStarts.data(), totalLines);
   const auto viewport = keyboard_entry::viewportForCursor(totalLines, cursorLine, maxVis);
@@ -1001,20 +1006,11 @@ void KeyboardEntryActivity::render(RenderLock&&) {
     }
   }
 
-  const int tipsLh = renderer.getLineHeight(SMALL_FONT_ID);
   const int underlineBottom = inputY + inputHeight + lineHeight + metrics.verticalSpacing + 4;
   auto drawTip = [&](const char* tip, int y) { renderer.drawCenteredText(SMALL_FONT_ID, y, tip, true); };
 
-  int tipCount = 0;
-  if (cursorMode) {
-    tipCount = 1;
-  } else if (urlPanel) {
-    tipCount = 1 + (!text.empty() ? 1 : 0);
-  } else if (symbols) {
-    tipCount = !text.empty() ? 1 : 0;
-  } else {
-    tipCount = 1 + (inputType == InputType::Url ? 1 : 0) + (!text.empty() ? 1 : 0);
-  }
+  const int tipCount =
+      keyboard_entry::tipCountBelowHeader(cursorMode, urlPanel, symbols, text.empty(), inputType == InputType::Url);
 
   if (GUI.keyInstructionTipsVisible() && tipCount > 0) {
     int y = (underlineBottom + kbRect.y) / 2 - (tipCount + 1) * tipsLh / 2;

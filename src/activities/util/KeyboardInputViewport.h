@@ -9,6 +9,40 @@ struct InputLineViewport {
   int visibleLineCount = 0;
 };
 
+struct KeyInstructionBandLayout {
+  int tipCountBelowHeader = 0;
+  int inlineHintLines = 0;
+};
+
+// Matches KeyboardEntryActivity::render() tipCount branches.
+inline int tipCountBelowHeader(const bool cursorMode, const bool urlPanel, const bool symbols, const bool textEmpty,
+                               const bool isUrlInput) {
+  if (cursorMode) return 1;
+  if (urlPanel) return 1 + (textEmpty ? 0 : 1);
+  if (symbols) return textEmpty ? 0 : 1;
+  return 1 + (isUrlInput ? 1 : 0) + (textEmpty ? 0 : 1);
+}
+
+inline int inlineHintLineCount(const bool keyTipsVisible, const bool hintVisible, const bool textEmpty,
+                               const bool cursorMode) {
+  if (!keyTipsVisible || !hintVisible || textEmpty) return 0;
+  return cursorMode ? 2 : 1;
+}
+
+inline KeyInstructionBandLayout worstCaseKeyInstructionBandLayout() {
+  return {tipCountBelowHeader(false, false, false, false, true), 2};
+}
+
+// Vertical space below the input underline reserved for inline hints plus the centered tip block.
+inline int keyInstructionBandHeightPx(const int tipsLineHeight, const int verticalSpacing,
+                                      const KeyInstructionBandLayout layout) {
+  if (tipsLineHeight <= 0) return 0;
+  if (layout.tipCountBelowHeader <= 0 && layout.inlineHintLines <= 0) return 0;
+  const int mainBlockLines = layout.tipCountBelowHeader > 0 ? (1 + layout.tipCountBelowHeader) : 0;
+  const int totalLines = layout.inlineHintLines + mainBlockLines;
+  return tipsLineHeight * totalLines + verticalSpacing;
+}
+
 // Lines of input text must fit between inputTop and keyboardTop, including one underline row.
 inline int maxVisibleInputLines(const int inputTop, const int keyboardTop, const int lineHeight,
                                 const int verticalSpacing, const int tipBandReserve = 0) {

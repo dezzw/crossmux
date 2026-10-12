@@ -30,3 +30,18 @@ TEST(KeyboardInputViewport, CursorLineIndexFromStarts) {
   EXPECT_EQ(keyboard_entry::cursorLineIndex(10, 50, starts, 4), 1);
   EXPECT_EQ(keyboard_entry::cursorLineIndex(40, 50, starts, 4), 3);
 }
+
+TEST(KeyboardInputViewport, TipsVisibleBandReserveMatchesSixLinesPlusSpacing) {
+  constexpr int tipsLh = 18;
+  constexpr int spacing = 8;
+  const int reserve =
+      keyboard_entry::keyInstructionBandHeightPx(tipsLh, spacing, keyboard_entry::worstCaseKeyInstructionBandLayout());
+  EXPECT_EQ(reserve, tipsLh * 6 + spacing);
+
+  const int withTips = keyboard_entry::maxVisibleInputLines(100, 400, 20, spacing, reserve);
+  const int oldUnderserved = keyboard_entry::maxVisibleInputLines(100, 400, 20, spacing, tipsLh * 4 + spacing);
+  EXPECT_LT(withTips, oldUnderserved);
+
+  const int underlineBottom = 100 + (withTips - 1) * 20 + 20 + spacing + 4;
+  EXPECT_LE(underlineBottom + reserve, 400);
+}
