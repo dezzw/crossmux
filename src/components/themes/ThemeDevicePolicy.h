@@ -22,7 +22,8 @@ inline bool deviceButtonHintsVisible(const bool settingsShowButtonHints) {
 #endif
 }
 
-inline void deviceApplyButtonHintMetrics(int& buttonHintsHeight, int& sideButtonHintsWidth, const bool showButtonHints) {
+inline void deviceApplyButtonHintMetrics(int& buttonHintsHeight, int& sideButtonHintsWidth,
+                                         const bool showButtonHints) {
   if (!showButtonHints) {
     buttonHintsHeight = 0;
     sideButtonHintsWidth = 0;
