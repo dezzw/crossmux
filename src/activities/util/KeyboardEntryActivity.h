@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "activities/Activity.h"
 #include "util/ButtonNavigator.h"
@@ -115,6 +116,8 @@ class KeyboardEntryActivity : public Activity {
   // Binary search over the monotonic prefix advance; always advances at least
   // one byte so an oversized glyph cannot stall the wrap loop.
   int lineBreakEnd(std::string& s, int start, int maxWidth) const;
+  void collectLineStarts(std::string& displayText, int maxLineWidth, std::vector<int>& lineStarts) const;
+  int keyInstructionTipBandReserve() const;
 
   const freeink::ui::KeyboardLayout& currentLayout() const;
   const freeink::ui::KeyboardKey* selectedKey() const;
