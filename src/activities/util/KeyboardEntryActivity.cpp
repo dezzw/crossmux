@@ -542,7 +542,7 @@ fui::Rect KeyboardEntryActivity::keyboardRect() const {
   const int width = pageWidth * metrics.keyboardWidthPercent / 100;
   const int x = (pageWidth - width) / 2;
   int y = pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - height + metrics.keyboardVerticalOffset;
-  if (!UITheme::getInstance().keyInstructionTipsVisible()) {
+  if (!GUI.keyInstructionTipsVisible()) {
     constexpr int kKeyboardTipBandHeight = 72;
     y -= kKeyboardTipBandHeight;
   }
