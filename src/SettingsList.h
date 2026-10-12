@@ -490,7 +490,6 @@ inline bool isSettingAvailableOnBoard(const SettingInfo& setting) {
     case StrId::STR_SHOW_BUTTON_HINTS:
     case StrId::STR_SIDE_BTN_LAYOUT:
     case StrId::STR_FRONT_BTN_FOLLOW_ORIENTATION:
-    case StrId::STR_BACK_SHORT_TO_FILE_BROWSER:
       return false;
     default:
       break;

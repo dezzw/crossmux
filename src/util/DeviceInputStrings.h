@@ -21,3 +21,12 @@ inline StrId strIdInput(const StrId ws397, const StrId other) {
   return other;
 #endif
 }
+
+inline const char* settingDisplayName(const StrId id) {
+#if FREEINK_DEVICE_WAVESHARE_EPAPER_397
+  if (id == StrId::STR_BACK_SHORT_TO_FILE_BROWSER) {
+    return trInput(StrId::STR_BACK_SHORT_TO_FILE_BROWSER_WS397, StrId::STR_BACK_SHORT_TO_FILE_BROWSER);
+  }
+#endif
+  return I18N.get(id);
+}
