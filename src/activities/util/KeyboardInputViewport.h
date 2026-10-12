@@ -20,8 +20,7 @@ inline int maxVisibleInputLines(const int inputTop, const int keyboardTop, const
   return std::max(1, available / lineHeight);
 }
 
-inline InputLineViewport viewportForCursor(const int totalLines, const int cursorLineIndex,
-                                           const int maxVisibleLines) {
+inline InputLineViewport viewportForCursor(const int totalLines, const int cursorLineIndex, const int maxVisibleLines) {
   const int maxVis = std::max(1, maxVisibleLines);
   if (totalLines <= 0) {
     return {0, 0};
@@ -37,8 +36,7 @@ inline InputLineViewport viewportForCursor(const int totalLines, const int curso
   return {first, maxVis};
 }
 
-inline int cursorLineIndex(const int cursorPos, const int textLength, const int* lineStarts,
-                           const int lineStartCount) {
+inline int cursorLineIndex(const int cursorPos, const int textLength, const int* lineStarts, const int lineStartCount) {
   if (lineStartCount <= 0) return 0;
   int line = 0;
   for (int i = lineStartCount - 1; i >= 0; --i) {
