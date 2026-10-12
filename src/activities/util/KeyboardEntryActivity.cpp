@@ -12,6 +12,7 @@
 #include "components/UITheme.h"
 #include "components/UIThemeTokens.h"
 #include "fontIds.h"
+#include "util/DeviceInputStrings.h"
 
 namespace fui = freeink::ui;
 
@@ -914,17 +915,23 @@ void KeyboardEntryActivity::render(RenderLock&&) {
             SMALL_FONT_ID, hintLineY,
             passwordVisible ? tr(STR_KB_HINT_TOGGLE_HIDE_PASSWORD) : tr(STR_KB_HINT_TOGGLE_SHOW_PASSWORD), true);
         hintLineY += hintLh;
-        renderer.drawCenteredText(SMALL_FONT_ID, hintLineY, tr(STR_KB_HINT_RETURN_CURSOR), true);
+        renderer.drawCenteredText(SMALL_FONT_ID, hintLineY,
+                                  trInput(StrId::STR_KB_HINT_RETURN_CURSOR_WS397, StrId::STR_KB_HINT_RETURN_CURSOR),
+                                  true);
       } else {
-        renderer.drawCenteredText(SMALL_FONT_ID, hintLineY, tr(STR_KB_HINT_MOVE_CURSOR), true);
+        renderer.drawCenteredText(SMALL_FONT_ID, hintLineY,
+                                  trInput(StrId::STR_KB_HINT_MOVE_CURSOR_WS397, StrId::STR_KB_HINT_MOVE_CURSOR), true);
         hintLineY += hintLh;
         if (inputType == InputType::Password) {
-          const char* passTip = passwordVisible ? tr(STR_KB_HINT_HIDE_PASSWORD) : tr(STR_KB_HINT_SHOW_PASSWORD);
+          const char* passTip = passwordVisible
+                                    ? trInput(StrId::STR_KB_HINT_HIDE_PASSWORD_WS397, StrId::STR_KB_HINT_HIDE_PASSWORD)
+                                    : trInput(StrId::STR_KB_HINT_SHOW_PASSWORD_WS397, StrId::STR_KB_HINT_SHOW_PASSWORD);
           renderer.drawCenteredText(SMALL_FONT_ID, hintLineY, passTip, true);
         }
       }
     } else {
-      renderer.drawCenteredText(SMALL_FONT_ID, hintY, tr(STR_KB_HINT_EDIT_ENTRY), true);
+      renderer.drawCenteredText(SMALL_FONT_ID, hintY,
+                                trInput(StrId::STR_KB_HINT_EDIT_ENTRY_WS397, StrId::STR_KB_HINT_EDIT_ENTRY), true);
     }
   }
 
@@ -950,25 +957,25 @@ void KeyboardEntryActivity::render(RenderLock&&) {
     drawTip(tr(STR_KB_TIPS), y);
     y += tipsLh;
     if (cursorMode) {
-      drawTip(tr(STR_KB_HINT_RETURN_KEYBOARD), y);
+      drawTip(trInput(StrId::STR_KB_HINT_RETURN_KEYBOARD_WS397, StrId::STR_KB_HINT_RETURN_KEYBOARD), y);
     } else if (urlPanel) {
       drawTip(tr(STR_KB_HINT_EXIT_URL_MODE), y);
       y += tipsLh;
       if (!text.empty()) {
-        drawTip(tr(STR_KB_HINT_CLEAR_TEXT), y);
+        drawTip(trInput(StrId::STR_KB_HINT_CLEAR_TEXT_WS397, StrId::STR_KB_HINT_CLEAR_TEXT), y);
       }
     } else if (symbols) {
       if (!text.empty()) {
-        drawTip(tr(STR_KB_HINT_CLEAR_TEXT), y);
+        drawTip(trInput(StrId::STR_KB_HINT_CLEAR_TEXT_WS397, StrId::STR_KB_HINT_CLEAR_TEXT), y);
       }
     } else {
       const char* altCharTip;
       if (inputType == InputType::Url) {
-        altCharTip = tr(STR_KB_HINT_SECONDARY_CHAR);
+        altCharTip = trInput(StrId::STR_KB_HINT_SECONDARY_CHAR_WS397, StrId::STR_KB_HINT_SECONDARY_CHAR);
       } else if (shifted) {
-        altCharTip = tr(STR_KB_HINT_LOWER_SECONDARY);
+        altCharTip = trInput(StrId::STR_KB_HINT_LOWER_SECONDARY_WS397, StrId::STR_KB_HINT_LOWER_SECONDARY);
       } else {
-        altCharTip = tr(STR_KB_HINT_UPPER_SECONDARY);
+        altCharTip = trInput(StrId::STR_KB_HINT_UPPER_SECONDARY_WS397, StrId::STR_KB_HINT_UPPER_SECONDARY);
       }
       drawTip(altCharTip, y);
       y += tipsLh;
@@ -977,7 +984,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
         y += tipsLh;
       }
       if (!text.empty()) {
-        drawTip(tr(STR_KB_HINT_CLEAR_TEXT), y);
+        drawTip(trInput(StrId::STR_KB_HINT_CLEAR_TEXT_WS397, StrId::STR_KB_HINT_CLEAR_TEXT), y);
       }
     }
   }

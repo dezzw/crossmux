@@ -11,6 +11,7 @@
 #include "components/UITheme.h"
 #include "components/UiSliderDialog.h"
 #include "fontIds.h"
+#include "util/DeviceInputStrings.h"
 
 namespace fui = freeink::ui;
 
@@ -169,7 +170,8 @@ void IntervalSelectionActivity::buildIntervalScreen(UiScreen& screen) {
   char stepText[24];
   int hintIndex = 0;
   for (const auto& [labelId, step] :
-       {std::pair{StrId::STR_STEP_HINT_FRONT, smallStep}, std::pair{StrId::STR_STEP_HINT_SIDE, largeStep}}) {
+       {std::pair{strIdInput(StrId::STR_STEP_HINT_FRONT_WS397, StrId::STR_STEP_HINT_FRONT), smallStep},
+        std::pair{strIdInput(StrId::STR_STEP_HINT_SIDE_WS397, StrId::STR_STEP_HINT_SIDE), largeStep}}) {
     if (valueFormatId != StrId::STR_NONE_OPT) {
       snprintf(stepText, sizeof(stepText), I18N.get(valueFormatId), static_cast<unsigned int>(step));
     } else {

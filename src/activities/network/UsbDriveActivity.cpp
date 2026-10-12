@@ -10,6 +10,7 @@
 #include "MappedInputManager.h"
 #include "SilentRestart.h"
 #include "components/UITheme.h"
+#include "util/DeviceInputStrings.h"
 
 namespace fui = freeink::ui;
 
@@ -128,7 +129,8 @@ void UsbDriveActivity::buildDriveScreen(UiScreen& screen) const {
         secondaryDetail = tr(STR_USB_DRIVE_EJECT_HINT);
         break;
       case State::IoError:
-        message = startFailed ? tr(STR_USB_DRIVE_START_ERROR) : tr(STR_USB_DRIVE_ERROR);
+        message = startFailed ? trInput(StrId::STR_USB_DRIVE_START_ERROR_WS397, StrId::STR_USB_DRIVE_START_ERROR)
+                              : tr(STR_USB_DRIVE_ERROR);
         break;
       case State::Ejected:
       case State::Disconnected:

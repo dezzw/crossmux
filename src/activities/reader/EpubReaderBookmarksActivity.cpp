@@ -10,6 +10,7 @@
 #include "components/UiAppHelpers.h"
 #include "fontIds.h"
 #include "util/BookmarkFile.h"
+#include "util/DeviceInputStrings.h"
 
 namespace fui = freeink::ui;
 
@@ -212,7 +213,7 @@ void EpubReaderBookmarksActivity::buildScreen(UiScreen& screen) {
     const int helpLineHeight = renderer.getLineHeight(SMALL_FONT_ID);
     const fui::Rect band = screen.takeBottom(static_cast<int16_t>(helpLineHeight + metrics.verticalSpacing));
     GUI.drawHelpText(renderer, Rect{band.x, band.y + metrics.verticalSpacing, band.width, helpLineHeight},
-                     tr(STR_HOLD_OPEN_TO_DELETE));
+                     trInput(StrId::STR_HOLD_OPEN_TO_DELETE_WS397, StrId::STR_HOLD_OPEN_TO_DELETE));
   }
 
   // bookmarkSubtitles/bookmarkRowItems are built once whenever `bookmarks`
