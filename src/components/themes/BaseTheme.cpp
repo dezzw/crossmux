@@ -21,6 +21,7 @@
 #include "components/UiAppHelpers.h"
 #include "components/icons/bluetooth.h"
 #include "components/icons/bookmark.h"
+#include "components/themes/ThemeDevicePolicy.h"
 #include "fontIds.h"
 #include "util/TimeUtils.h"
 
@@ -238,21 +239,9 @@ void BaseTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   renderer.setOrientation(orig_orientation);
 }
 
-bool BaseTheme::buttonHintsVisible() const {
-#if FREEINK_DEVICE_WAVESHARE_EPAPER_397
-  return false;
-#else
-  return SETTINGS.showButtonHints;
-#endif
-}
+bool BaseTheme::buttonHintsVisible() const { return deviceButtonHintsVisible(SETTINGS.showButtonHints); }
 
-bool BaseTheme::keyInstructionTipsVisible() const {
-#if FREEINK_DEVICE_WAVESHARE_EPAPER_397
-  return false;
-#else
-  return true;
-#endif
-}
+bool BaseTheme::keyInstructionTipsVisible() const { return deviceKeyInstructionTipsVisible(); }
 
 void BaseTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const {
   if (!buttonHintsVisible()) {

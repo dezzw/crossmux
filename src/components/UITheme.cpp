@@ -13,6 +13,7 @@
 #include "RecentBooksStore.h"
 #include "components/SelectionCursorPolicy.h"
 #include "components/themes/BaseTheme.h"
+#include "components/themes/ThemeDevicePolicy.h"
 #include "components/themes/inx/InxTheme.h"
 
 UITheme UITheme::instance;
@@ -61,10 +62,8 @@ const ThemeMetrics& UITheme::getMetrics() const {
   const bool showButtonHints = currentTheme->buttonHintsVisible();
   if (!metricsValid || showButtonHints != metricsForButtonHints) {
     adjustedMetrics = *currentMetrics;
-    if (!showButtonHints) {
-      adjustedMetrics.buttonHintsHeight = 0;
-      adjustedMetrics.sideButtonHintsWidth = 0;
-    }
+    deviceApplyButtonHintMetrics(adjustedMetrics.buttonHintsHeight, adjustedMetrics.sideButtonHintsWidth,
+                                 showButtonHints);
     metricsForButtonHints = showButtonHints;
     metricsValid = true;
   }

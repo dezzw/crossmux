@@ -532,6 +532,31 @@ bool KeyboardEntryActivity::cursorPositionFromPoint(const int x, const int y, si
   return false;
 }
 
+int KeyboardEntryActivity::keyboardInstructionBandHeight() const {
+  if (GUI.keyInstructionTipsVisible()) return 0;
+
+  const auto& metrics = UITheme::getInstance().getMetrics();
+  const int tipsLh = renderer.getLineHeight(SMALL_FONT_ID);
+  const int lineHeight = renderer.getLineHeight(UI_12_FONT_ID);
+  const int inputY = inputStartY();
+  const int underlineBottom = inputY + lineHeight + metrics.verticalSpacing + 4;
+
+  const int rows = currentLayout().rowCount;
+  const int gap = metrics.keyboardKeySpacing;
+  const int kbHeight = rows * metrics.keyboardKeyHeight + (rows > 1 ? (rows - 1) * gap : 0);
+  const int pageHeight = renderer.getScreenHeight();
+  const int kbTopWithTips =
+      pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - kbHeight + metrics.keyboardVerticalOffset;
+  const int rawGap = kbTopWithTips - underlineBottom;
+  if (rawGap <= 0) return 0;
+
+  // Cap shift to the tallest tip block render() can draw (see tipCount branches in render()).
+  const int maxTipCount = 3;
+  const int maxTipBlock = tipsLh * (1 + maxTipCount);
+  const int maxInlineHints = tipsLh * 2 + 4;
+  return std::min(rawGap, maxTipBlock + maxInlineHints);
+}
+
 fui::Rect KeyboardEntryActivity::keyboardRect() const {
   const auto& metrics = UITheme::getInstance().getMetrics();
   const int pageWidth = renderer.getScreenWidth();
@@ -542,10 +567,7 @@ fui::Rect KeyboardEntryActivity::keyboardRect() const {
   const int width = pageWidth * metrics.keyboardWidthPercent / 100;
   const int x = (pageWidth - width) / 2;
   int y = pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - height + metrics.keyboardVerticalOffset;
-  if (!GUI.keyInstructionTipsVisible()) {
-    constexpr int kKeyboardTipBandHeight = 72;
-    y -= kKeyboardTipBandHeight;
-  }
+  y -= keyboardInstructionBandHeight();
   return fui::Rect{static_cast<int16_t>(x), static_cast<int16_t>(y), static_cast<int16_t>(width),
                    static_cast<int16_t>(height)};
 }
