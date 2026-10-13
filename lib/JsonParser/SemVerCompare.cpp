@@ -92,8 +92,8 @@ int semverCompareNewer(const char* currentVersion, const char* latestVersion) {
   if (latest.minor != current.minor) return latest.minor > current.minor ? 1 : -1;
   if (latest.patch != current.patch) return latest.patch > current.patch ? 1 : -1;
 
-  if (!current.hasPrerelease && latest.hasPrerelease) return 1;
-  if (current.hasPrerelease && !latest.hasPrerelease) return -1;
+  if (!current.hasPrerelease && latest.hasPrerelease) return -1;
+  if (current.hasPrerelease && !latest.hasPrerelease) return 1;
 
   if (current.hasPrerelease && latest.hasPrerelease) {
     const int pre = compareAscii(current.prerelease, latest.prerelease);
