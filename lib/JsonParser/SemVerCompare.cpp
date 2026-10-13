@@ -76,11 +76,6 @@ int compareAscii(const char* a, const char* b) {
   return *a == '\0' ? -1 : 1;
 }
 
-bool isNightlyPrerelease(const char* prerelease) {
-  return prerelease != nullptr && strstr(prerelease, "-rc") != nullptr &&
-         strstr(prerelease, "waveshare-epaper-397") != nullptr;
-}
-
 }  // namespace
 
 int semverCompareNewer(const char* currentVersion, const char* latestVersion) {
@@ -98,15 +93,13 @@ int semverCompareNewer(const char* currentVersion, const char* latestVersion) {
   if (current.hasPrerelease && latest.hasPrerelease) {
     const int pre = compareAscii(current.prerelease, latest.prerelease);
     if (pre != 0) return pre < 0 ? 1 : -1;
-    if (isNightlyPrerelease(current.prerelease) && isNightlyPrerelease(latest.prerelease)) {
-      if (current.hasBuild && latest.hasBuild) {
-        const int buildCmp = compareAscii(current.build, latest.build);
-        if (buildCmp != 0) return buildCmp > 0 ? 1 : -1;
-      } else if (!current.hasBuild && latest.hasBuild) {
-        return 1;
-      } else if (current.hasBuild && !latest.hasBuild) {
-        return -1;
-      }
+    if (current.hasBuild && latest.hasBuild) {
+      const int buildCmp = compareAscii(current.build, latest.build);
+      if (buildCmp != 0) return buildCmp < 0 ? 1 : -1;
+    } else if (!current.hasBuild && latest.hasBuild) {
+      return 1;
+    } else if (current.hasBuild && !latest.hasBuild) {
+      return -1;
     }
   }
 
