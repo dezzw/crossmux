@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regenerate src/network/TlsCaBundle.cpp from Mozilla CA extract."""
 
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -21,13 +22,15 @@ def main():
     cacert = Path('/tmp/cacert.pem')
     if not cacert.is_file():
         subprocess.check_call(['curl', '-fsSL', 'https://curl.se/ca/cacert.pem', '-o', str(cacert)])
-    blocks = cacert.read_text().split('-----BEGIN CERTIFICATE-----')
+    all_certs = re.findall(
+        r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----',
+        cacert.read_text(),
+        flags=re.DOTALL,
+    )
     selected = []
     seen = set()
-    for block in blocks:
-        if '-----END CERTIFICATE-----' not in block:
-            continue
-        cert = '-----BEGIN CERTIFICATE-----' + block
+    for cert in all_certs:
+        cert = cert.strip() + '\n'
         with tempfile.NamedTemporaryFile('w', delete=False, suffix='.pem') as handle:
             handle.write(cert)
             path = handle.name
@@ -38,11 +41,16 @@ def main():
                 selected.append(cert.strip())
                 seen.add(name)
                 break
+    if len(selected) != len(NEEDED):
+        missing = [name for name in NEEDED if name not in seen]
+        raise SystemExit(f'Missing CA roots: {missing}')
     PEM_OUT.write_text('\n\n'.join(selected) + '\n')
-    pem = PEM_OUT.read_text()
-    escaped = pem.replace('\\', '\\\\').replace('"', '\\"')
-    chunks = [escaped[i : i + 72] for i in range(0, len(escaped), 72)]
-    body = '\n'.join(f'    "{part}"' for part in chunks)
+    literals = []
+    for cert in selected:
+        for line in cert.splitlines():
+            escaped_line = line.replace('\\', '\\\\').replace('"', '\\"')
+            literals.append(f'    "{escaped_line}\\n"')
+    body = '\n'.join(literals)
     CPP_OUT.write_text(
         '#include "TlsCaBundle.h"\n\nnamespace TlsCaBundle {\n\n'
         f'static const char kPemRoots[] =\n{body};\n\n'

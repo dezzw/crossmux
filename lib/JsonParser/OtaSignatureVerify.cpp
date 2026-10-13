@@ -1,5 +1,7 @@
 #include "OtaSignatureVerify.h"
 
+#include <cstring>
+
 #if defined(CROSSPOINT_HOST_TEST)
 #include <openssl/bio.h>
 #include <openssl/evp.h>

@@ -7,8 +7,8 @@
 #include <OtaManifestParser.h>
 #include <OtaSignatureVerify.h>
 #include <SemVerCompare.h>
-#include <base64.h>
 #include <esp_ota_ops.h>
+#include <mbedtls/base64.h>
 #include <esp_wifi.h>
 #include <mbedtls/sha256.h>
 // clang-format on
@@ -43,10 +43,11 @@ bool hexEquals(const char* expectedHex, const uint8_t digest[32]) {
 bool decodeBase64Signature(const std::string& encoded, uint8_t* out, size_t outCapacity, size_t& outLen) {
   outLen = 0;
   if (encoded.empty() || outCapacity == 0) return false;
-  const String decoded = base64::decode(encoded.c_str());
-  if (decoded.isEmpty() || static_cast<size_t>(decoded.length()) > outCapacity) return false;
-  memcpy(out, decoded.c_str(), decoded.length());
-  outLen = static_cast<size_t>(decoded.length());
+  size_t decodedLen = 0;
+  const int rc = mbedtls_base64_decode(out, outCapacity, &decodedLen,
+                                       reinterpret_cast<const unsigned char*>(encoded.data()), encoded.size());
+  if (rc != 0 || decodedLen == 0) return false;
+  outLen = decodedLen;
   return true;
 }
 

@@ -262,6 +262,11 @@ HttpDownloader::TransportFailure HttpDownloader::lastTransportFailure() { return
 
 int HttpDownloader::lastHttpStatusCode() { return gLastHttpStatus; }
 
+bool HttpDownloader::fetchUrl(const std::string& url, Stream& outContent, const std::string& username,
+                              const std::string& password) {
+  return fetchUrl(url, outContent, FetchOptions{}, username, password);
+}
+
 bool HttpDownloader::fetchUrl(const std::string& url, Stream& outContent, const FetchOptions& options,
                               const std::string& username, const std::string& password) {
   LOG_DBG("HTTP", "Fetching: %s", url.c_str());
@@ -269,6 +274,11 @@ bool HttpDownloader::fetchUrl(const std::string& url, Stream& outContent, const 
   sink.verifyTlsPeer = options.verifyTlsPeer;
   sink.write = [&outContent](const uint8_t* data, size_t len) { return outContent.write(data, len) == len; };
   return runGetSecure(url, username, password, sink) == OK;
+}
+
+bool HttpDownloader::fetchUrl(const std::string& url, std::string& outContent, const std::string& username,
+                              const std::string& password) {
+  return fetchUrl(url, outContent, FetchOptions{}, username, password);
 }
 
 bool HttpDownloader::fetchUrl(const std::string& url, std::string& outContent, const FetchOptions& options,
@@ -284,6 +294,11 @@ bool HttpDownloader::fetchUrl(const std::string& url, std::string& outContent, c
   return runGetSecure(url, username, password, sink) == OK;
 }
 
+bool HttpDownloader::fetchUrl(const std::string& url, const DataCallback& onData, const std::string& username,
+                              const std::string& password) {
+  return fetchUrl(url, onData, FetchOptions{}, username, password);
+}
+
 bool HttpDownloader::fetchUrl(const std::string& url, const DataCallback& onData, const FetchOptions& options,
                               const std::string& username, const std::string& password) {
   LOG_DBG("HTTP", "Fetching: %s", url.c_str());
@@ -291,6 +306,12 @@ bool HttpDownloader::fetchUrl(const std::string& url, const DataCallback& onData
   sink.verifyTlsPeer = options.verifyTlsPeer;
   sink.write = onData;
   return runGetSecure(url, username, password, sink) == OK;
+}
+
+HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& url, const std::string& destPath,
+                                                             ProgressCallback progress, bool* cancelFlag,
+                                                             const std::string& username, const std::string& password) {
+  return downloadToFile(url, destPath, std::move(progress), cancelFlag, FetchOptions{}, username, password);
 }
 
 HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& url, const std::string& destPath,

@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdio>
+#include <filesystem>
 #include <vector>
 
 #include "lib/JsonParser/OtaSignatureVerify.h"
@@ -11,9 +12,14 @@
 
 namespace {
 
+std::string testPrivateKeyPath() {
+  return (std::filesystem::path(__FILE__).parent_path().parent_path() / "fixtures" / "ota_test_private.pem").string();
+}
+
 EVP_PKEY* testPrivateKey() {
   static EVP_PKEY* cached = []() -> EVP_PKEY* {
-    FILE* keyFile = fopen("/workspace/test/fixtures/ota_test_private.pem", "rb");
+    const std::string path = testPrivateKeyPath();
+    FILE* keyFile = fopen(path.c_str(), "rb");
     if (!keyFile) return nullptr;
     EVP_PKEY* key = PEM_read_PrivateKey(keyFile, nullptr, nullptr, nullptr);
     fclose(keyFile);

@@ -45,16 +45,22 @@ class HttpDownloader {
   /**
    * Fetch text content from a URL with optional credentials.
    */
-  static bool fetchUrl(const std::string& url, std::string& outContent, const FetchOptions& options = {},
+  static bool fetchUrl(const std::string& url, std::string& outContent, const std::string& username = "",
+                       const std::string& password = "");
+  static bool fetchUrl(const std::string& url, std::string& outContent, const FetchOptions& options,
                        const std::string& username = "", const std::string& password = "");
 
-  static bool fetchUrl(const std::string& url, Stream& stream, const FetchOptions& options = {},
+  static bool fetchUrl(const std::string& url, Stream& stream, const std::string& username = "",
+                       const std::string& password = "");
+  static bool fetchUrl(const std::string& url, Stream& stream, const FetchOptions& options,
                        const std::string& username = "", const std::string& password = "");
 
   /**
    * Stream the response body to onData as it arrives, without buffering it.
    */
-  static bool fetchUrl(const std::string& url, const DataCallback& onData, const FetchOptions& options = {},
+  static bool fetchUrl(const std::string& url, const DataCallback& onData, const std::string& username = "",
+                       const std::string& password = "");
+  static bool fetchUrl(const std::string& url, const DataCallback& onData, const FetchOptions& options,
                        const std::string& username = "", const std::string& password = "");
 
   /**
@@ -62,6 +68,8 @@ class HttpDownloader {
    */
   static DownloadError downloadToFile(const std::string& url, const std::string& destPath,
                                       ProgressCallback progress = nullptr, bool* cancelFlag = nullptr,
-                                      const FetchOptions& options = {}, const std::string& username = "",
+                                      const std::string& username = "", const std::string& password = "");
+  static DownloadError downloadToFile(const std::string& url, const std::string& destPath, ProgressCallback progress,
+                                      bool* cancelFlag, const FetchOptions& options, const std::string& username = "",
                                       const std::string& password = "");
 };
