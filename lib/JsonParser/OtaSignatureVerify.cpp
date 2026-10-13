@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#if defined(CROSSPOINT_HOST_TEST)
+#if defined(CROSSPOINT_HOST_TEST) || defined(SIMULATOR)
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -15,7 +15,7 @@ bool otaVerifyEcdsaP256Sha256(const uint8_t digest[32], const uint8_t* signature
                               const char* publicKeyPem) {
   if (digest == nullptr || signature == nullptr || signatureLen == 0 || publicKeyPem == nullptr) return false;
 
-#if defined(CROSSPOINT_HOST_TEST)
+#if defined(CROSSPOINT_HOST_TEST) || defined(SIMULATOR)
   BIO* bio = BIO_new_mem_buf(publicKeyPem, -1);
   if (!bio) return false;
   EVP_PKEY* key = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
