@@ -175,6 +175,7 @@ jobs:
             echo "::error::OTA_SIGNING_KEY secret is required to publish signed OTA manifests"
             exit 1
           fi
+          python3 scripts/verify_ota_public_key.py
           tag="$BUILD_TAG"
           if [ "$CHANNEL" = stable ]; then
             tag="$GITHUB_REF_NAME"

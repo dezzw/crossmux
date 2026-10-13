@@ -27,7 +27,7 @@ bool otaVerifyEcdsaP256Sha256(const uint8_t digest[32], const uint8_t* signature
     EVP_PKEY_free(key);
     return false;
   }
-  const bool ok = EVP_DigestVerifyInit(ctx, nullptr, EVP_sha256(), nullptr, key) == 1 &&
+  const bool ok = EVP_DigestVerifyInit(ctx, nullptr, nullptr, nullptr, key) == 1 &&
                   EVP_DigestVerify(ctx, signature, signatureLen, digest, 32) == 1;
   EVP_MD_CTX_free(ctx);
   EVP_PKEY_free(key);

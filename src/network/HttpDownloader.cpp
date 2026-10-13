@@ -54,6 +54,14 @@ bool isRedirect(int status) {
   return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
 }
 
+bool rejectsCleartextRedirect(const std::string& secureStartUrl, const std::string& nextUrl) {
+  if (secureStartUrl.rfind("https://", 0) == 0 && nextUrl.rfind("http://", 0) == 0) {
+    LOG_ERR("HTTP", "Blocked HTTPS to HTTP redirect to %s", nextUrl.c_str());
+    return true;
+  }
+  return false;
+}
+
 struct WifiPowerSaveGuard {
   WifiPowerSaveGuard() {
     esp_err_t err = esp_wifi_set_ps(WIFI_PS_NONE);
@@ -69,6 +77,7 @@ struct WifiPowerSaveGuard {
 HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std::string& username,
                                          const std::string& password, const char* userAgent, Sink& sink) {
   WifiPowerSaveGuard psGuard;
+  const std::string secureStartUrl = startUrl;
   std::string url = startUrl;
 
   for (int hop = 0; hop <= MAX_REDIRECTS; ++hop) {
@@ -112,11 +121,17 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
     gLastHttpStatus = status;
     if (isRedirect(status)) {
       const std::string location = http.getHeader("location");
-      if (location.empty() || !freeink::SecureHttpClient::resolveUrl(url, location, url)) {
+      std::string nextUrl;
+      if (location.empty() || !freeink::SecureHttpClient::resolveUrl(url, location, nextUrl)) {
         LOG_ERR("HTTP", "wolfSSL bad redirect: %d", status);
         gLastTransportFailure = HttpDownloader::TransportFailure::HttpStatus;
         return HttpDownloader::HTTP_ERROR;
       }
+      if (rejectsCleartextRedirect(secureStartUrl, nextUrl)) {
+        gLastTransportFailure = HttpDownloader::TransportFailure::HttpStatus;
+        return HttpDownloader::HTTP_ERROR;
+      }
+      url = std::move(nextUrl);
       continue;
     }
     if (status != 200) {

@@ -15,6 +15,11 @@ NEEDED = [
     'Amazon Root CA 1',
     'Sectigo Public Server Authentication Root R46',
     'USERTrust RSA Certification Authority',
+    'USERTrust ECC Certification Authority',
+    'GlobalSign Root CA - R3',
+    'GTS Root R1',
+    'GTS Root R3',
+    'GTS Root R4',
 ]
 
 

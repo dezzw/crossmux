@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sign firmware SHA-256 and write device OTA manifest fields."""
+"""Sign OTA manifest (canonical payload) and write device manifest fields."""
 
 import argparse
 import base64
@@ -17,14 +17,19 @@ def load_private_key_pem() -> str:
     return raw
 
 
+def canonical_payload(version: str, board_tag: str, size: int, sha256_hex: str) -> bytes:
+    return f'{version}|{board_tag}|{size}|{sha256_hex.lower()}'.encode('utf-8')
+
+
 def sign_digest(private_pem: str, digest: bytes) -> bytes:
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
 
     key = serialization.load_pem_private_key(private_pem.encode(), password=None)
     if not isinstance(key, ec.EllipticCurvePrivateKey):
         raise SystemExit('OTA_SIGNING_KEY must be an EC private key')
-    return key.sign(digest, ec.ECDSA(hashes.SHA256()))
+    return key.sign(digest, ec.ECDSA(Prehashed(hashes.SHA256())))
 
 
 def sha256_file(path: Path) -> str:
@@ -48,18 +53,25 @@ def main():
     if not firmware.is_file():
         raise SystemExit(f'missing firmware: {firmware}')
 
-    digest = bytes.fromhex(sha256_file(firmware))
-    signature = sign_digest(private_pem, digest)
-
     manifest = json.loads(args.manifest.read_text())
+    version = manifest.get('version')
+    board_tag = manifest.get('boardTag')
+    if not version or not board_tag:
+        raise SystemExit('manifest must include version and boardTag before signing')
+
+    fw_sha256 = sha256_file(firmware)
+    fw_size = firmware.stat().st_size
+    payload = canonical_payload(version, board_tag, fw_size, fw_sha256)
+    signing_digest = hashlib.sha256(payload).digest()
+    signature = sign_digest(private_pem, signing_digest)
+
     manifest['firmware'] = {
         'url': args.download_url,
-        'size': firmware.stat().st_size,
-        'sha256': digest.hex(),
+        'size': fw_size,
+        'sha256': fw_sha256,
         'signature': base64.b64encode(signature).decode('ascii'),
     }
-    if 'signature' in manifest:
-        manifest['signature'] = manifest['firmware']['signature']
+    manifest['signature'] = manifest['firmware']['signature']
     args.output.write_text(json.dumps(manifest, indent=2) + '\n')
     print(f'Signed manifest written to {args.output}')
 

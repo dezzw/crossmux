@@ -18,6 +18,7 @@ class OtaUpdater {
   bool updateAvailable = false;
   Channel channel = Channel::Stable;
   std::string latestVersion;
+  std::string otaBoardTag;
   std::string otaUrl;
   std::string otaSha256Hex;
   std::string otaSignatureBase64;

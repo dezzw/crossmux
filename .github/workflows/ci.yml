@@ -76,6 +76,9 @@ jobs:
       - name: Run cppcheck
         run: pio check --fail-on-defect low --fail-on-defect medium --fail-on-defect high
 
+      - name: Verify TLS bundle against OTA/font hosts
+        run: bash scripts/ci_verify_tls_hosts.sh
+
   build-waveshare-397-nightly:
     name: Build Waveshare 3.97 nightly (ESP32-S3)
     needs: select_runner
