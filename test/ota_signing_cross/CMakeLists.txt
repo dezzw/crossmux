@@ -1,4 +1,5 @@
 set(REPO_ROOT ${CMAKE_SOURCE_DIR}/..)
+find_package(OpenSSL REQUIRED)
 add_executable(OtaSigningCrossTest
   OtaSigningCrossTest.cpp
   ${REPO_ROOT}/lib/JsonParser/OtaSigningPayload.cpp

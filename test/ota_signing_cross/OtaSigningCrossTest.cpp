@@ -7,15 +7,14 @@
 #include <filesystem>
 #include <vector>
 
-#include "lib/JsonParser/OtaSigningPayload.h"
 #include "lib/JsonParser/OtaSignatureVerify.h"
+#include "lib/JsonParser/OtaSigningPayload.h"
 #include "src/network/OtaSigningTestPublicKey.h"
 
 namespace {
 
 std::string testPrivateKeyPath() {
-  return (std::filesystem::path(__FILE__).parent_path().parent_path() / "fixtures" / "ota_test_private.pem")
-      .string();
+  return (std::filesystem::path(__FILE__).parent_path().parent_path() / "fixtures" / "ota_test_private.pem").string();
 }
 
 EVP_PKEY* testPrivateKey() {
@@ -58,6 +57,6 @@ TEST(OtaSigningCross, ScriptCanonicalMatchesFirmwareVerify) {
 
   const auto signature = signPrehashedDigest(digest.data());
   ASSERT_FALSE(signature.empty());
-  EXPECT_TRUE(otaVerifyEcdsaP256Sha256(digest.data(), signature.data(), signature.size(),
-                                        OTA_SIGNING_TEST_PUBLIC_KEY_PEM));
+  EXPECT_TRUE(
+      otaVerifyEcdsaP256Sha256(digest.data(), signature.data(), signature.size(), OTA_SIGNING_TEST_PUBLIC_KEY_PEM));
 }

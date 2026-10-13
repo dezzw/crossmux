@@ -21,8 +21,8 @@ void toLowerHex(char* hex) {
 
 }  // namespace
 
-bool otaBuildSigningCanonical(char* out, size_t outCapacity, const char* version, const char* boardTag, size_t firmwareSize,
-                                const char* sha256Hex) {
+bool otaBuildSigningCanonical(char* out, size_t outCapacity, const char* version, const char* boardTag,
+                              size_t firmwareSize, const char* sha256Hex) {
   if (out == nullptr || outCapacity == 0 || version == nullptr || boardTag == nullptr || sha256Hex == nullptr) {
     return false;
   }
