@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 

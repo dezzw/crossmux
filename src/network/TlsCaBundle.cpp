@@ -259,6 +259,8 @@ J1CJeyAvP/+/oYtKR"
     " CERTIFICATE-----
 ";
 
-const char* pemRoots() { return kPemRoots; }
+const char* pemRoots() {
+  return kPemRoots;
+}
 
 }  // namespace TlsCaBundle

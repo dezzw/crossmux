@@ -7,4 +7,4 @@
 // publicKeyPem must be a PEM-encoded EC public key. signature is raw DER or
 // fixed-length P1363 (r||s) — this implementation accepts DER from OpenSSL sign.
 bool otaVerifyEcdsaP256Sha256(const uint8_t digest[32], const uint8_t* signature, size_t signatureLen,
-                               const char* publicKeyPem);
+                              const char* publicKeyPem);

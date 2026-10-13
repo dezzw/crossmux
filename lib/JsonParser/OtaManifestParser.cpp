@@ -95,7 +95,8 @@ void OtaManifestParser::commitReleaseNote(const char* value, const size_t len) {
 
 void OtaManifestParser::commitAsset() {
   if (strcmp(currentAssetRole, "firmware") == 0) {
-    if (currentAssetUrl[0] != '\0') safeCopy(firmwareUrl, sizeof(firmwareUrl), currentAssetUrl, strlen(currentAssetUrl));
+    if (currentAssetUrl[0] != '\0')
+      safeCopy(firmwareUrl, sizeof(firmwareUrl), currentAssetUrl, strlen(currentAssetUrl));
     if (currentAssetSha256[0] != '\0') {
       safeCopy(firmwareSha256, sizeof(firmwareSha256), currentAssetSha256, strlen(currentAssetSha256));
     }
@@ -170,7 +171,8 @@ void OtaManifestParser::sOnString(void* ctx, const char* value, size_t len) {
   auto* self = static_cast<OtaManifestParser*>(ctx);
 
   if (self->position == Position::IN_RELEASE_NOTES_ARRAY) {
-    if (self->releaseNotesDepth == 0) self->commitReleaseNote(value, len);
+    if (self->releaseNotesDepth == 0)
+      self->commitReleaseNote(value, len);
     else
       self->releaseNotesInvalid = true;
     self->lastKey = LastKey::NONE;
@@ -376,7 +378,8 @@ void OtaManifestParser::sOnArrayEnd(void* ctx) {
       if (self->releaseNotesDepth > 0) {
         self->releaseNotesDepth--;
       } else {
-        if (!self->releaseNotesInvalid && self->releaseNoteCount >= 2) self->releaseNotesFound = true;
+        if (!self->releaseNotesInvalid && self->releaseNoteCount >= 2)
+          self->releaseNotesFound = true;
         else
           self->clearReleaseNotes();
         self->position = Position::TOP_LEVEL;

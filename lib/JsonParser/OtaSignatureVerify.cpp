@@ -10,7 +10,7 @@
 #endif
 
 bool otaVerifyEcdsaP256Sha256(const uint8_t digest[32], const uint8_t* signature, size_t signatureLen,
-                               const char* publicKeyPem) {
+                              const char* publicKeyPem) {
   if (digest == nullptr || signature == nullptr || signatureLen == 0 || publicKeyPem == nullptr) return false;
 
 #if defined(CROSSPOINT_HOST_TEST)
@@ -33,14 +33,13 @@ bool otaVerifyEcdsaP256Sha256(const uint8_t digest[32], const uint8_t* signature
 #else
   mbedtls_pk_context pk;
   mbedtls_pk_init(&pk);
-  const int parsed = mbedtls_pk_parse_public_key(&pk, reinterpret_cast<const unsigned char*>(publicKeyPem),
-                                                 strlen(publicKeyPem) + 1);
+  const int parsed =
+      mbedtls_pk_parse_public_key(&pk, reinterpret_cast<const unsigned char*>(publicKeyPem), strlen(publicKeyPem) + 1);
   if (parsed != 0) {
     mbedtls_pk_free(&pk);
     return false;
   }
-  const int verified =
-      mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, digest, 32, signature, signatureLen);
+  const int verified = mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, digest, 32, signature, signatureLen);
   mbedtls_pk_free(&pk);
   return verified == 0;
 #endif

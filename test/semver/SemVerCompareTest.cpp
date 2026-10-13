@@ -10,4 +10,6 @@ TEST(SemVerCompare, EqualStable) { EXPECT_EQ(semverCompareNewer("2.0.0", "2.0.0"
 
 TEST(SemVerCompare, RcCurrentStableLatest) { EXPECT_EQ(semverCompareNewer("1.0.0-rc", "1.0.0"), 1); }
 
-TEST(SemVerCompare, IgnoresNightlySuffix) { EXPECT_EQ(semverCompareNewer("1.0.0-waveshare-epaper-397-rc+deadbeef", "1.0.1"), 1); }
+TEST(SemVerCompare, IgnoresNightlySuffix) {
+  EXPECT_EQ(semverCompareNewer("1.0.0-waveshare-epaper-397-rc+deadbeef", "1.0.1"), 1);
+}
