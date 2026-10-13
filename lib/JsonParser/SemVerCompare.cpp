@@ -12,8 +12,6 @@ struct ParsedVersion {
   bool valid = false;
   bool hasPrerelease = false;
   char prerelease[96];
-  bool hasBuild = false;
-  char build[32];
 };
 
 bool parseSegment(const char*& cursor, int& out) {
@@ -48,32 +46,66 @@ ParsedVersion parseVersion(const char* version) {
     }
     parsed.prerelease[i] = '\0';
   }
-  if (*cursor == '+') {
-    ++cursor;
-    parsed.hasBuild = true;
-    size_t i = 0;
-    while (*cursor != '\0' && i + 1 < sizeof(parsed.build)) {
-      parsed.build[i++] = *cursor++;
-    }
-    parsed.build[i] = '\0';
-  }
 
   parsed.valid = true;
   return parsed;
 }
 
-int compareAscii(const char* a, const char* b) {
-  if (a == nullptr) a = "";
-  if (b == nullptr) b = "";
-  while (*a != '\0' && *b != '\0') {
-    const unsigned char ca = static_cast<unsigned char>(*a);
-    const unsigned char cb = static_cast<unsigned char>(*b);
-    if (ca != cb) return ca < cb ? -1 : 1;
-    ++a;
-    ++b;
+bool isNumericIdentifier(const char* start, const char* end) {
+  if (start == end) return false;
+  for (const char* c = start; c < end; ++c) {
+    if (!std::isdigit(static_cast<unsigned char>(*c))) return false;
   }
-  if (*a == '\0' && *b == '\0') return 0;
-  return *a == '\0' ? -1 : 1;
+  return true;
+}
+
+int compareIdentifiers(const char* aStart, const char* aEnd, const char* bStart, const char* bEnd) {
+  const bool aNum = isNumericIdentifier(aStart, aEnd);
+  const bool bNum = isNumericIdentifier(bStart, bEnd);
+  if (aNum && bNum) {
+    int aVal = 0;
+    for (const char* c = aStart; c < aEnd; ++c) {
+      aVal = aVal * 10 + (*c - '0');
+    }
+    int bVal = 0;
+    for (const char* c = bStart; c < bEnd; ++c) {
+      bVal = bVal * 10 + (*c - '0');
+    }
+    if (aVal != bVal) return aVal < bVal ? -1 : 1;
+    return 0;
+  }
+  const size_t aLen = static_cast<size_t>(aEnd - aStart);
+  const size_t bLen = static_cast<size_t>(bEnd - bStart);
+  const size_t minLen = aLen < bLen ? aLen : bLen;
+  const int cmp = memcmp(aStart, bStart, minLen);
+  if (cmp != 0) return cmp < 0 ? -1 : 1;
+  if (aLen != bLen) return aLen < bLen ? -1 : 1;
+  return 0;
+}
+
+int comparePrerelease(const char* a, const char* b) {
+  if (a == nullptr || *a == '\0') {
+    return (b == nullptr || *b == '\0') ? 0 : -1;
+  }
+  if (b == nullptr || *b == '\0') return 1;
+
+  const char* aCursor = a;
+  const char* bCursor = b;
+  while (true) {
+    const char* aStart = aCursor;
+    const char* bStart = bCursor;
+    while (*aCursor != '\0' && *aCursor != '.') ++aCursor;
+    while (*bCursor != '\0' && *bCursor != '.') ++bCursor;
+    const int idCmp = compareIdentifiers(aStart, aCursor, bStart, bCursor);
+    if (idCmp != 0) return idCmp;
+    const bool aDone = *aCursor == '\0';
+    const bool bDone = *bCursor == '\0';
+    if (aDone && bDone) return 0;
+    if (aDone) return -1;
+    if (bDone) return 1;
+    ++aCursor;
+    ++bCursor;
+  }
 }
 
 }  // namespace
@@ -91,16 +123,8 @@ int semverCompareNewer(const char* currentVersion, const char* latestVersion) {
   if (current.hasPrerelease && !latest.hasPrerelease) return 1;
 
   if (current.hasPrerelease && latest.hasPrerelease) {
-    const int pre = compareAscii(current.prerelease, latest.prerelease);
-    if (pre != 0) return pre < 0 ? 1 : -1;
-    if (current.hasBuild && latest.hasBuild) {
-      const int buildCmp = compareAscii(current.build, latest.build);
-      if (buildCmp != 0) return buildCmp < 0 ? 1 : -1;
-    } else if (!current.hasBuild && latest.hasBuild) {
-      return 1;
-    } else if (current.hasBuild && !latest.hasBuild) {
-      return -1;
-    }
+    const int pre = comparePrerelease(current.prerelease, latest.prerelease);
+    if (pre != 0) return pre > 0 ? 1 : -1;
   }
 
   return 0;

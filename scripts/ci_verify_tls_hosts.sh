@@ -11,7 +11,7 @@ fi
 verify_host() {
   local host="$1"
   echo "TLS verify: ${host}"
-  openssl s_client -connect "${host}:443" -servername "$host" -CAfile "$BUNDLE" -brief </dev/null 2>&1 | grep -q 'Verification: OK'
+  openssl s_client -connect "${host}:443" -servername "$host" -verify_hostname "$host" -CAfile "$BUNDLE" -brief </dev/null 2>&1 | grep -q 'Verification: OK'
 }
 
 verify_host github.com

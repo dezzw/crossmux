@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#if defined(CROSSPOINT_HOST_TEST) || defined(SIMULATOR)
+#if defined(SIMULATOR)
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -15,21 +15,20 @@ bool otaVerifyEcdsaP256Sha256(const uint8_t digest[32], const uint8_t* signature
                               const char* publicKeyPem) {
   if (digest == nullptr || signature == nullptr || signatureLen == 0 || publicKeyPem == nullptr) return false;
 
-#if defined(CROSSPOINT_HOST_TEST) || defined(SIMULATOR)
+#if defined(SIMULATOR)
   BIO* bio = BIO_new_mem_buf(publicKeyPem, -1);
   if (!bio) return false;
   EVP_PKEY* key = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
   BIO_free(bio);
   if (!key) return false;
 
-  EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-  if (!ctx) {
+  EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new(key, nullptr);
+  if (!pctx) {
     EVP_PKEY_free(key);
     return false;
   }
-  const bool ok = EVP_DigestVerifyInit(ctx, nullptr, nullptr, nullptr, key) == 1 &&
-                  EVP_DigestVerify(ctx, signature, signatureLen, digest, 32) == 1;
-  EVP_MD_CTX_free(ctx);
+  const bool ok = EVP_PKEY_verify_init(pctx) == 1 && EVP_PKEY_verify(pctx, signature, signatureLen, digest, 32) == 1;
+  EVP_PKEY_CTX_free(pctx);
   EVP_PKEY_free(key);
   return ok;
 #else

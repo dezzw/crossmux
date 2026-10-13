@@ -8,7 +8,6 @@
 #include <OtaSigningPayload.h>
 #include <OtaSignatureVerify.h>
 #include <SemVerCompare.h>
-#include <esp_app_format.h>
 #include <esp_ota_ops.h>
 #include <mbedtls/base64.h>
 #include <esp_wifi.h>
@@ -25,6 +24,7 @@
 #include "CrossMuxEndpoints.h"
 #include "FirmwareBoardTag.h"
 #include "FirmwareFlasher.h"
+#include "FirmwareVersionTag.h"
 #include "OtaSigningPublicKey.h"
 
 #if defined(FREEINK_DEVICE_WAVESHARE_EPAPER_397) && !defined(SIMULATOR) && !defined(CROSSPOINT_HOST_TEST)
@@ -154,6 +154,9 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
   bool wrongChip = false;
   board_tag::Scanner boardScanner;
   bool wrongBoard = false;
+  firmware_version_tag::Scanner versionScanner;
+  versionScanner.setExpected(latestVersion.c_str(), latestVersion.size());
+  bool wrongVersion = false;
 
   mbedtls_sha256_context shaCtx;
   mbedtls_sha256_init(&shaCtx);
@@ -180,6 +183,12 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
           }
         }
         boardScanner.feed(data, len);
+        versionScanner.feed(data, len);
+        if (versionScanner.mismatch()) {
+          LOG_ERR("OTA", "wrong version: image=%s manifest=%s", versionScanner.foundVersion(), latestVersion.c_str());
+          wrongVersion = true;
+          return false;
+        }
         if (boardScanner.mismatch()) {
           LOG_ERR("OTA", "wrong board: image=%s device=%.*s", boardScanner.foundName(),
                   static_cast<int>(board_tag::boardNameLen()), board_tag::boardName());
@@ -204,11 +213,13 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
 
   esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
   boardScanner.markStreamComplete();
+  versionScanner.markStreamComplete();
   mbedtls_sha256_finish(&shaCtx, digest);
   mbedtls_sha256_free(&shaCtx);
 
-  if (wrongChip || wrongBoard || boardScanner.missingRequiredTag()) {
-    LOG_ERR("OTA", "Firmware install aborted: wrong or untagged device");
+  if (wrongChip || wrongBoard || wrongVersion || boardScanner.missingRequiredTag() ||
+      versionScanner.missingRequiredTag()) {
+    LOG_ERR("OTA", "Firmware install aborted: wrong or untagged device/version");
     esp_ota_abort(otaHandle);
     return WRONG_DEVICE_ERROR;
   }
@@ -250,23 +261,6 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
     LOG_ERR("OTA", "Signature verification failed");
     esp_ota_abort(otaHandle);
     return SIGNATURE_ERROR;
-  }
-
-  esp_app_desc_t newAppDesc{};
-  if (esp_ota_get_partition_description(updatePartition, &newAppDesc) != ESP_OK) {
-    LOG_ERR("OTA", "Failed to read new app descriptor");
-    esp_ota_abort(otaHandle);
-    return INTERNAL_UPDATE_ERROR;
-  }
-  if (strncmp(newAppDesc.version, latestVersion.c_str(), sizeof(newAppDesc.version)) != 0) {
-    LOG_ERR("OTA", "Image version mismatch: image=%s manifest=%s", newAppDesc.version, latestVersion.c_str());
-    esp_ota_abort(otaHandle);
-    return WRONG_DEVICE_ERROR;
-  }
-  if (semverCompareNewer(CROSSPOINT_VERSION, newAppDesc.version) <= 0) {
-    LOG_ERR("OTA", "Image version not newer than running");
-    esp_ota_abort(otaHandle);
-    return UPDATE_OLDER_ERROR;
   }
 
   esp_err = esp_ota_end(otaHandle);

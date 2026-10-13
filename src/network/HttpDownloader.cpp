@@ -10,9 +10,11 @@
 #include <esp_http_client.h>
 #include <esp_wifi.h>
 
+#include <cctype>
 #include <cstdio>
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include "TlsCaBundle.h"
 
@@ -54,8 +56,19 @@ bool isRedirect(int status) {
   return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
 }
 
+bool hasCaseInsensitivePrefix(std::string_view value, std::string_view prefix) {
+  if (value.size() < prefix.size()) return false;
+  for (size_t i = 0; i < prefix.size(); ++i) {
+    const unsigned char a = static_cast<unsigned char>(value[i]);
+    const unsigned char b = static_cast<unsigned char>(prefix[i]);
+    if (std::tolower(a) != std::tolower(b)) return false;
+  }
+  return true;
+}
+
 bool rejectsCleartextRedirect(const std::string& secureStartUrl, const std::string& nextUrl) {
-  if (secureStartUrl.rfind("https://", 0) == 0 && nextUrl.rfind("http://", 0) == 0) {
+  if (hasCaseInsensitivePrefix(secureStartUrl, "https://") && hasCaseInsensitivePrefix(nextUrl, "http://") &&
+      !hasCaseInsensitivePrefix(nextUrl, "https://")) {
     LOG_ERR("HTTP", "Blocked HTTPS to HTTP redirect to %s", nextUrl.c_str());
     return true;
   }

@@ -31,23 +31,23 @@ EVP_PKEY* testPrivateKey() {
 std::vector<uint8_t> signPrehashedDigest(const uint8_t digest[32]) {
   EVP_PKEY* key = testPrivateKey();
   if (!key) return {};
-  EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+  EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new(key, nullptr);
+  if (!pctx) return {};
   std::vector<uint8_t> signature(128);
   size_t sigLen = signature.size();
-  if (EVP_DigestSignInit(ctx, nullptr, nullptr, nullptr, key) != 1 ||
-      EVP_DigestSign(ctx, signature.data(), &sigLen, digest, 32) != 1) {
-    EVP_MD_CTX_free(ctx);
+  if (EVP_PKEY_sign_init(pctx) != 1 || EVP_PKEY_sign(pctx, signature.data(), &sigLen, digest, 32) != 1) {
+    EVP_PKEY_CTX_free(pctx);
     return {};
   }
   signature.resize(sigLen);
-  EVP_MD_CTX_free(ctx);
+  EVP_PKEY_CTX_free(pctx);
   return signature;
 }
 
 }  // namespace
 
 TEST(OtaSigningCross, ScriptCanonicalMatchesFirmwareVerify) {
-  const char* version = "1.6.0-waveshare-epaper-397-rc+abcdef0";
+  const char* version = "1.6.0-waveshare-epaper-397-rc.42";
   const char* boardTag = "waveshare_epaper_397";
   const size_t fwSize = 5636288;
   const char* sha256 = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF";

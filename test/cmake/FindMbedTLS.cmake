@@ -1,0 +1,8 @@
+find_library(MBEDTLS_CRYPTO_LIBRARY NAMES mbedcrypto REQUIRED)
+find_path(MBEDTLS_INCLUDE_DIR mbedtls/pk.h REQUIRED)
+
+add_library(MbedTLS::mbedcrypto UNKNOWN IMPORTED)
+set_target_properties(MbedTLS::mbedcrypto PROPERTIES
+  IMPORTED_LOCATION "${MBEDTLS_CRYPTO_LIBRARY}"
+  INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIR}"
+)

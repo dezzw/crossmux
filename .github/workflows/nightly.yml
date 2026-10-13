@@ -126,8 +126,8 @@ jobs:
           enable-cache: false
       - name: Install PlatformIO Core
         run: uv pip install --system -U pioarduino==6.1.19
-      - name: Set seven-character build revision
-        run: echo "CROSSPOINT_RC_HASH=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - name: Set monotonic nightly RC run number
+        run: echo "CROSSPOINT_RC_RUN=${{ github.run_number }}" >> "$GITHUB_ENV"
       - name: Build unified target
         run: pio run -e "${{ matrix.environment }}"
       - name: Package and verify unified target
@@ -163,7 +163,7 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install signing dependencies
-        run: pip install cryptography
+        run: pip install 'cryptography==44.0.2'
       - name: Sign OTA manifests
         env:
           OTA_SIGNING_KEY: ${{ secrets.OTA_SIGNING_KEY }}
