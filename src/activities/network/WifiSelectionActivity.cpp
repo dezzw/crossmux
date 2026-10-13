@@ -1007,7 +1007,7 @@ void WifiSelectionActivity::renderNetworkList(const Rect* screen, const ThemeMet
   for (int pass = 0; !networks.empty() && listNav.consumeRebuildNeeded() && pass < 8; ++pass) {
     renderUi();
   }
-  if (networks.empty()) {
+  if (networks.empty() && GUI.keyInstructionTipsVisible()) {
     // Below the centered "no networks" line the app drew.
     const auto height = renderer.getLineHeight(UI_10_FONT_ID);
     const auto top = screen->y + (screen->height - height) / 2;

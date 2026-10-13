@@ -75,6 +75,8 @@ inline void buildSliderDialogScreen(UiAppHost::UiScreen& screen, const GfxRender
   fui::TextStyle hint = theme.smallText;
   hint.align = fui::TextAlign::Center;
   const int16_t hintLh = screen.target().lineHeight(hint.font);
-  if (spec.hintLine1) screen.target().text(screen.takeTop(hintLh, theme.spaceSm), spec.hintLine1, hint);
-  if (spec.hintLine2) screen.target().text(screen.takeTop(hintLh), spec.hintLine2, hint);
+  if (GUI.keyInstructionTipsVisible()) {
+    if (spec.hintLine1) screen.target().text(screen.takeTop(hintLh, theme.spaceSm), spec.hintLine1, hint);
+    if (spec.hintLine2) screen.target().text(screen.takeTop(hintLh), spec.hintLine2, hint);
+  }
 }

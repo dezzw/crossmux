@@ -485,6 +485,16 @@ inline const std::vector<SettingInfo>& getBaseSettingsList() {
 
 inline bool isSettingAvailableOnBoard(const SettingInfo& setting) {
   if (!BoardConfig::hasHomeKey() && setting.nameId == StrId::STR_SHOW_READER_MENU) return false;
+#if FREEINK_DEVICE_WAVESHARE_EPAPER_397
+  switch (setting.nameId) {
+    case StrId::STR_SHOW_BUTTON_HINTS:
+    case StrId::STR_SIDE_BTN_LAYOUT:
+    case StrId::STR_FRONT_BTN_FOLLOW_ORIENTATION:
+      return false;
+    default:
+      break;
+  }
+#endif
   return true;
 }
 

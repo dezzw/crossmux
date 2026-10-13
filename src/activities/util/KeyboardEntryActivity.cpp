@@ -9,6 +9,7 @@
 
 #include "KeyboardLayoutSet.h"
 #include "MappedInputManager.h"
+#include "activities/util/KeyboardInputViewport.h"
 #include "components/UITheme.h"
 #include "components/UIThemeTokens.h"
 #include "fontIds.h"
@@ -424,6 +425,28 @@ int KeyboardEntryActivity::lineBreakEnd(std::string& s, const int start, const i
   return best < firstCharEnd ? firstCharEnd : best;
 }
 
+void KeyboardEntryActivity::collectLineStarts(std::string& displayText, const int maxLineWidth,
+                                              std::vector<int>& lineStarts) const {
+  lineStarts.clear();
+  lineStarts.push_back(0);
+  int idx = 0;
+  const int len = static_cast<int>(displayText.length());
+  while (idx < len) {
+    const int end = lineBreakEnd(displayText, idx, maxLineWidth);
+    if (end >= len) break;
+    idx = end;
+    lineStarts.push_back(idx);
+  }
+}
+
+int KeyboardEntryActivity::keyInstructionTipBandReserve() const {
+  if (!GUI.keyInstructionTipsVisible()) return 0;
+  const auto& metrics = UITheme::getInstance().getMetrics();
+  const int tipsLh = renderer.getLineHeight(SMALL_FONT_ID);
+  return keyboard_entry::keyInstructionBandHeightPx(tipsLh, metrics.verticalSpacing,
+                                                    keyboard_entry::worstCaseKeyInstructionBandLayout());
+}
+
 int KeyboardEntryActivity::inputStartY() const {
   const auto& metrics = UITheme::getInstance().getMetrics();
   constexpr int MIN_HEADER_GAP = 6;
@@ -457,15 +480,26 @@ bool KeyboardEntryActivity::cursorPositionFromPoint(const int x, const int y, si
   const bool centerText = metrics.keyboardCenteredText;
   std::string displayText = displayTextForCurrentState();
 
-  int lineStartIdx = 0;
-  int lineY = inputY;
+  std::vector<int> lineStarts;
+  collectLineStarts(displayText, maxLineWidth, lineStarts);
+  const int totalLines = static_cast<int>(lineStarts.size());
+  const int kbTop = keyboardRect().y;
+  const int maxVis = keyboard_entry::maxVisibleInputLines(inputY, kbTop, lineHeight, metrics.verticalSpacing,
+                                                          keyInstructionTipBandReserve());
+  const int cursorLine = keyboard_entry::cursorLineIndex(
+      static_cast<int>(cursorPos), static_cast<int>(displayText.length()), lineStarts.data(), totalLines);
+  const auto viewport = keyboard_entry::viewportForCursor(totalLines, cursorLine, maxVis);
+  const int firstVisible = viewport.firstLineIndex;
+
   int lastLineStartIdx = 0;
   int lastLineEndIdx = static_cast<int>(displayText.length());
   int lastLineStartX = effectiveMargin;
   int lastLineWidth = 0;
 
-  while (true) {
-    const int lineEndIdx = lineBreakEnd(displayText, lineStartIdx, maxLineWidth);
+  for (int lineIndex = 0; lineIndex < totalLines; ++lineIndex) {
+    const int lineStartIdx = lineStarts[static_cast<size_t>(lineIndex)];
+    const int lineEndIdx = (lineIndex + 1 < totalLines) ? lineStarts[static_cast<size_t>(lineIndex + 1)]
+                                                        : static_cast<int>(displayText.length());
     const int textWidth = measureRange(displayText, lineStartIdx, lineEndIdx);
     const int lineStartX = centerText ? effectiveMargin + (maxLineWidth - textWidth) / 2 : effectiveMargin;
     const bool isRtl = rangeIsRtl(displayText, lineStartIdx, lineEndIdx);
@@ -473,6 +507,12 @@ bool KeyboardEntryActivity::cursorPositionFromPoint(const int x, const int y, si
     lastLineEndIdx = lineEndIdx;
     lastLineStartX = lineStartX;
     lastLineWidth = textWidth;
+
+    if (lineIndex < firstVisible || lineIndex >= firstVisible + viewport.visibleLineCount) {
+      continue;
+    }
+
+    const int lineY = inputY + (lineIndex - firstVisible) * lineHeight;
 
     if (y >= lineY - metrics.verticalSpacing && y < lineY + lineHeight + metrics.verticalSpacing) {
       if (x <= lineStartX) {
@@ -501,26 +541,29 @@ bool KeyboardEntryActivity::cursorPositionFromPoint(const int x, const int y, si
       position = static_cast<size_t>(lineEndIdx);
       return true;
     }
+  }
 
-    if (lineEndIdx == static_cast<int>(displayText.length())) {
-      break;
-    }
-
-    lineY += lineHeight;
-    lineStartIdx = lineEndIdx;
+  const int lastLineIndex = totalLines - 1;
+  int toggleLineY = inputY;
+  if (lastLineIndex >= firstVisible && lastLineIndex < firstVisible + viewport.visibleLineCount) {
+    toggleLineY = inputY + (lastLineIndex - firstVisible) * lineHeight;
+  } else if (viewport.visibleLineCount > 0) {
+    toggleLineY = inputY + (viewport.visibleLineCount - 1) * lineHeight;
   }
 
   if (inputType == InputType::Password) {
     const int toggleWidth =
         std::max(renderer.getTextWidth(UI_12_FONT_ID, "[abc]"), renderer.getTextWidth(UI_12_FONT_ID, "[***]"));
     const int toggleX = pageWidth - effectiveMargin - toggleWidth;
-    if (x >= toggleX - 4 && x < pageWidth - effectiveMargin + 4 && y >= lineY - 2 && y < lineY + lineHeight + 5) {
+    if (x >= toggleX - 4 && x < pageWidth - effectiveMargin + 4 && y >= toggleLineY - 2 &&
+        y < toggleLineY + lineHeight + 5) {
       passwordToggle = true;
       return true;
     }
   }
 
-  const int underlineBottom = lineY + lineHeight + metrics.verticalSpacing + 8;
+  const int visibleHeight = viewport.visibleLineCount > 0 ? (viewport.visibleLineCount - 1) * lineHeight : 0;
+  const int underlineBottom = inputY + visibleHeight + lineHeight + metrics.verticalSpacing + 8;
   if (y >= inputY - metrics.verticalSpacing && y < underlineBottom && x >= effectiveMargin &&
       x < effectiveMargin + maxLineWidth + toggleReserve) {
     const bool isRtl = rangeIsRtl(displayText, lastLineStartIdx, lastLineEndIdx);
@@ -532,6 +575,31 @@ bool KeyboardEntryActivity::cursorPositionFromPoint(const int x, const int y, si
   return false;
 }
 
+int KeyboardEntryActivity::keyboardInstructionBandHeight() const {
+  if (GUI.keyInstructionTipsVisible()) return 0;
+
+  const auto& metrics = UITheme::getInstance().getMetrics();
+  const int tipsLh = renderer.getLineHeight(SMALL_FONT_ID);
+  const int lineHeight = renderer.getLineHeight(UI_12_FONT_ID);
+  const int inputY = inputStartY();
+  const int underlineBottom = inputY + lineHeight + metrics.verticalSpacing + 4;
+
+  const int rows = currentLayout().rowCount;
+  const int gap = metrics.keyboardKeySpacing;
+  const int kbHeight = rows * metrics.keyboardKeyHeight + (rows > 1 ? (rows - 1) * gap : 0);
+  const int pageHeight = renderer.getScreenHeight();
+  const int kbTopWithTips =
+      pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - kbHeight + metrics.keyboardVerticalOffset;
+  const int rawGap = kbTopWithTips - underlineBottom;
+  if (rawGap <= 0) return 0;
+
+  // Cap shift to the tallest tip block render() can draw (see tipCount branches in render()).
+  const int maxTipCount = 3;
+  const int maxTipBlock = tipsLh * (1 + maxTipCount);
+  const int maxInlineHints = tipsLh * 2 + 4;
+  return std::min(rawGap, maxTipBlock + maxInlineHints);
+}
+
 fui::Rect KeyboardEntryActivity::keyboardRect() const {
   const auto& metrics = UITheme::getInstance().getMetrics();
   const int pageWidth = renderer.getScreenWidth();
@@ -541,8 +609,8 @@ fui::Rect KeyboardEntryActivity::keyboardRect() const {
   const int height = rows * metrics.keyboardKeyHeight + (rows > 1 ? (rows - 1) * gap : 0);
   const int width = pageWidth * metrics.keyboardWidthPercent / 100;
   const int x = (pageWidth - width) / 2;
-  const int y =
-      pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - height + metrics.keyboardVerticalOffset;
+  int y = pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - height + metrics.keyboardVerticalOffset;
+  y -= keyboardInstructionBandHeight();
   return fui::Rect{static_cast<int16_t>(x), static_cast<int16_t>(y), static_cast<int16_t>(width),
                    static_cast<int16_t>(height)};
 }
@@ -763,6 +831,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
 
   const int lineHeight = renderer.getLineHeight(UI_12_FONT_ID);
   const int inputY = inputStartY();
+  const fui::Rect kbRect = keyboardRect();
   int inputHeight = 0;
 
   std::string displayText = displayTextForCurrentState();
@@ -796,74 +865,79 @@ void KeyboardEntryActivity::render(RenderLock&&) {
     if (w > cursorCharWidth) cursorCharWidth = w;
   }
 
-  int lineStartIdx = 0;
+  std::vector<int> lineStarts;
+  collectLineStarts(displayText, maxLineWidth, lineStarts);
+  const int totalLines = static_cast<int>(lineStarts.size());
+  const int tipsLh = renderer.getLineHeight(SMALL_FONT_ID);
+  const int tipBandReserve = GUI.keyInstructionTipsVisible() ? keyboard_entry::keyInstructionBandHeightPx(
+                                                                   tipsLh, metrics.verticalSpacing,
+                                                                   keyboard_entry::worstCaseKeyInstructionBandLayout())
+                                                             : 0;
+  const int maxVis =
+      keyboard_entry::maxVisibleInputLines(inputY, kbRect.y, lineHeight, metrics.verticalSpacing, tipBandReserve);
+  const int cursorLine = keyboard_entry::cursorLineIndex(
+      static_cast<int>(cursorPos), static_cast<int>(displayText.length()), lineStarts.data(), totalLines);
+  const auto viewport = keyboard_entry::viewportForCursor(totalLines, cursorLine, maxVis);
+  const int firstVisible = viewport.firstLineIndex;
+
   int textWidth = 0;
   int cursorPixelX = effectiveMargin;
   int cursorLineY = inputY;
   bool cursorDrawn = false;
 
-  while (true) {
-    const int lineEndIdx = lineBreakEnd(displayText, lineStartIdx, maxLineWidth);
+  for (int lineIndex = firstVisible; lineIndex < firstVisible + viewport.visibleLineCount; ++lineIndex) {
+    const int lineStartIdx = lineStarts[static_cast<size_t>(lineIndex)];
+    const int lineEndIdx = (lineIndex + 1 < totalLines) ? lineStarts[static_cast<size_t>(lineIndex + 1)]
+                                                        : static_cast<int>(displayText.length());
     const std::string lineText = displayText.substr(lineStartIdx, lineEndIdx - lineStartIdx);
     textWidth = renderer.getTextAdvanceX(UI_12_FONT_ID, lineText.c_str(), EpdFontFamily::REGULAR);
-    {
-      const bool isRtl = rangeIsRtl(displayText, lineStartIdx, lineEndIdx);
-      const int lineStartX = centerText ? effectiveMargin + (maxLineWidth - textWidth) / 2 : effectiveMargin;
-      const bool isLastLine = (lineEndIdx == static_cast<int>(displayText.length()));
-      bool isCursorLine = false;
-      if (!cursorDrawn && cursorPos >= lineStartIdx &&
-          (isLastLine ? cursorPos <= lineEndIdx : cursorPos < lineEndIdx)) {
-        std::string beforeCursor;
-        if (isPassword && !passwordVisible && cursorMode) {
-          beforeCursor = std::string(cursorPos - lineStartIdx, '*');
-        } else {
-          beforeCursor = displayText.substr(lineStartIdx, cursorPos - lineStartIdx);
-        }
-        int beforeWidth = renderer.getTextAdvanceX(UI_12_FONT_ID, beforeCursor.c_str(), EpdFontFamily::REGULAR);
-        int throughCursorWidth = beforeWidth;
-        int kernOffset = 0;
-        if (cursorCharBytes > 0) {
-          std::string beforeAndCursor = beforeCursor + displayCursorChar;
-          throughCursorWidth = renderer.getTextAdvanceX(UI_12_FONT_ID, beforeAndCursor.c_str(), EpdFontFamily::REGULAR);
-          int charAdvance = renderer.getTextAdvanceX(UI_12_FONT_ID, displayCursorChar, EpdFontFamily::REGULAR);
-          kernOffset = throughCursorWidth - beforeWidth - charAdvance;
-        }
-        if (isRtl) {
-          const int logicalWidth = cursorMode && cursorCharBytes > 0 ? throughCursorWidth : beforeWidth;
-          cursorPixelX = lineStartX + textWidth - logicalWidth;
-        } else {
-          cursorPixelX = lineStartX + beforeWidth + kernOffset;
-        }
-        cursorLineY = inputY + inputHeight;
-        cursorDrawn = true;
-        isCursorLine = true;
-      }
-
-      if (isCursorLine && cursorMode && isPassword && !passwordVisible && !togglePos) {
-        // Draw text in 3 parts to avoid block cursor overflowing onto next char.
-        // displayText uses '*' for all chars; actual char may be wider than '*'.
-        // Part 1: chars before cursor position
-        const std::string part1 = displayText.substr(lineStartIdx, cursorPos - lineStartIdx);
-        renderer.drawText(UI_12_FONT_ID, lineStartX, inputY + inputHeight, part1.c_str());
-        // Part 2: skip cursor slot (block + actual char drawn later)
-        // Part 3: chars after cursor position (skip char under cursor), starting at cursorPixelX + cursorCharWidth
-        const int afterStart = static_cast<int>(cursorPos + cursorCharBytes);
-        const int afterEnd = lineEndIdx;
-        if (afterStart < afterEnd) {
-          const std::string part3 = displayText.substr(afterStart, afterEnd - afterStart);
-          renderer.drawText(UI_12_FONT_ID, cursorPixelX + cursorCharWidth, inputY + inputHeight, part3.c_str());
-        }
+    const bool isRtl = rangeIsRtl(displayText, lineStartIdx, lineEndIdx);
+    const int lineStartX = centerText ? effectiveMargin + (maxLineWidth - textWidth) / 2 : effectiveMargin;
+    const bool isLastLine = (lineEndIdx == static_cast<int>(displayText.length()));
+    const int drawY = inputY + (lineIndex - firstVisible) * lineHeight;
+    bool isCursorLine = false;
+    if (!cursorDrawn && cursorPos >= lineStartIdx && (isLastLine ? cursorPos <= lineEndIdx : cursorPos < lineEndIdx)) {
+      std::string beforeCursor;
+      if (isPassword && !passwordVisible && cursorMode) {
+        beforeCursor = std::string(cursorPos - lineStartIdx, '*');
       } else {
-        renderer.drawText(UI_12_FONT_ID, lineStartX, inputY + inputHeight, lineText.c_str());
+        beforeCursor = displayText.substr(lineStartIdx, cursorPos - lineStartIdx);
       }
-      if (lineEndIdx == static_cast<int>(displayText.length())) {
-        break;
+      int beforeWidth = renderer.getTextAdvanceX(UI_12_FONT_ID, beforeCursor.c_str(), EpdFontFamily::REGULAR);
+      int throughCursorWidth = beforeWidth;
+      int kernOffset = 0;
+      if (cursorCharBytes > 0) {
+        std::string beforeAndCursor = beforeCursor + displayCursorChar;
+        throughCursorWidth = renderer.getTextAdvanceX(UI_12_FONT_ID, beforeAndCursor.c_str(), EpdFontFamily::REGULAR);
+        int charAdvance = renderer.getTextAdvanceX(UI_12_FONT_ID, displayCursorChar, EpdFontFamily::REGULAR);
+        kernOffset = throughCursorWidth - beforeWidth - charAdvance;
       }
+      if (isRtl) {
+        const int logicalWidth = cursorMode && cursorCharBytes > 0 ? throughCursorWidth : beforeWidth;
+        cursorPixelX = lineStartX + textWidth - logicalWidth;
+      } else {
+        cursorPixelX = lineStartX + beforeWidth + kernOffset;
+      }
+      cursorLineY = drawY;
+      cursorDrawn = true;
+      isCursorLine = true;
+    }
 
-      inputHeight += lineHeight;
-      lineStartIdx = lineEndIdx;
+    if (isCursorLine && cursorMode && isPassword && !passwordVisible && !togglePos) {
+      const std::string part1 = displayText.substr(lineStartIdx, cursorPos - lineStartIdx);
+      renderer.drawText(UI_12_FONT_ID, lineStartX, drawY, part1.c_str());
+      const int afterStart = static_cast<int>(cursorPos + cursorCharBytes);
+      const int afterEnd = lineEndIdx;
+      if (afterStart < afterEnd) {
+        const std::string part3 = displayText.substr(afterStart, afterEnd - afterStart);
+        renderer.drawText(UI_12_FONT_ID, cursorPixelX + cursorCharWidth, drawY, part3.c_str());
+      }
+    } else {
+      renderer.drawText(UI_12_FONT_ID, lineStartX, drawY, lineText.c_str());
     }
   }
+
+  inputHeight = viewport.visibleLineCount > 0 ? (viewport.visibleLineCount - 1) * lineHeight : 0;
 
   const int fieldWidth = (inputHeight > 0) ? maxLineWidth : textWidth;
   const int lineMargin = effectiveMargin;
@@ -892,7 +966,11 @@ void KeyboardEntryActivity::render(RenderLock&&) {
     const char* toggleLabel = passwordVisible ? "[***]" : "[abc]";
     const int toggleWidth = renderer.getTextWidth(UI_12_FONT_ID, toggleLabel);
     const int toggleX = pageWidth - effectiveMargin - toggleWidth;
-    const int toggleY = inputY + inputHeight;
+    const int lastLineIndex = totalLines - 1;
+    int toggleY = inputY + inputHeight;
+    if (lastLineIndex >= firstVisible && lastLineIndex < firstVisible + viewport.visibleLineCount) {
+      toggleY = inputY + (lastLineIndex - firstVisible) * lineHeight;
+    }
     const bool toggleSelected = cursorMode && togglePos;
 
     if (toggleSelected) {
@@ -903,7 +981,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
     }
   }
 
-  if (hintVisible && !text.empty()) {
+  if (GUI.keyInstructionTipsVisible() && hintVisible && !text.empty()) {
     const int hintLh = renderer.getLineHeight(SMALL_FONT_ID);
     const int underlineY = inputY + inputHeight + lineHeight + metrics.verticalSpacing;
     const int hintY = underlineY + 4;
@@ -928,24 +1006,13 @@ void KeyboardEntryActivity::render(RenderLock&&) {
     }
   }
 
-  const fui::Rect kbRect = keyboardRect();
-
-  const int tipsLh = renderer.getLineHeight(SMALL_FONT_ID);
   const int underlineBottom = inputY + inputHeight + lineHeight + metrics.verticalSpacing + 4;
   auto drawTip = [&](const char* tip, int y) { renderer.drawCenteredText(SMALL_FONT_ID, y, tip, true); };
 
-  int tipCount = 0;
-  if (cursorMode) {
-    tipCount = 1;
-  } else if (urlPanel) {
-    tipCount = 1 + (!text.empty() ? 1 : 0);
-  } else if (symbols) {
-    tipCount = !text.empty() ? 1 : 0;
-  } else {
-    tipCount = 1 + (inputType == InputType::Url ? 1 : 0) + (!text.empty() ? 1 : 0);
-  }
+  const int tipCount =
+      keyboard_entry::tipCountBelowHeader(cursorMode, urlPanel, symbols, text.empty(), inputType == InputType::Url);
 
-  if (tipCount > 0) {
+  if (GUI.keyInstructionTipsVisible() && tipCount > 0) {
     int y = (underlineBottom + kbRect.y) / 2 - (tipCount + 1) * tipsLh / 2;
     drawTip(tr(STR_KB_TIPS), y);
     y += tipsLh;

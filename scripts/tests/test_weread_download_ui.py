@@ -62,6 +62,10 @@ void drawCenteredText(GfxRenderer&, const Rect&, int, int, const char* text, boo
   shownTitle = text;
 }
 }
+struct ThemeFacade {
+  bool keyInstructionTipsVisible() const { return true; }
+};
+ThemeFacade GUI;
 struct { const char* get(StrId) { return "label"; } } I18N;
 #define tr(key) "Stage %u/%u: %s"
 void drawProgressStatus(GfxRenderer&, const Rect&, const char*, const char* stage, const char* status,
@@ -130,3 +134,13 @@ int main() {
                 "-std=c++20", "-Wall", "-Wextra", "-Werror", str(cpp), "-o", str(executable)
             ], check=True, capture_output=True)
             subprocess.run([str(executable)], check=True)
+
+    def test_long_wait_omits_key_instruction_lines_when_tips_hidden(self):
+        source = (ROOT / "src/activities/apps/weread/webapi/WeReadActivity.cpp").read_text()
+        self.assertIn("lineCount = std::min(lineCount, 2)", source)
+        self.assertRegex(
+            source,
+            r"if \(!GUI\.keyInstructionTipsVisible\(\)\) \{\s*"
+            r"// Lines 3–4 are one parenthetical plus a key-instruction",
+            re.S,
+        )

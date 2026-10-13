@@ -1,0 +1,4 @@
+add_executable(keyboard_input_viewport_test KeyboardInputViewportTest.cpp)
+target_include_directories(keyboard_input_viewport_test PRIVATE ${REPO_ROOT}/src)
+target_link_libraries(keyboard_input_viewport_test PRIVATE crosspoint_test_common GTest::gtest_main)
+gtest_discover_tests(keyboard_input_viewport_test)

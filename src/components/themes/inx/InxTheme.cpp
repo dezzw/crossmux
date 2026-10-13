@@ -196,6 +196,10 @@ void InxTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const ch
 }
 
 void InxTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const {
+  if (!buttonHintsVisible()) {
+    return;
+  }
+
   constexpr int width = InxMetrics::values.sideButtonHintsWidth;
   constexpr int height = 78;
   const int screenWidth = renderer.getScreenWidth();

@@ -44,6 +44,7 @@
 #include "components/UiAppHelpers.h"
 #include "fontIds.h"
 #include "util/ButtonNavigator.h"
+#include "util/DeviceInputStrings.h"
 #include "util/ReadingBackground.h"
 #include "util/SystemSettingsReset.h"
 
@@ -319,8 +320,10 @@ void SettingsActivity::rebuildSettingsLists() {
   }
 
   // Append device-only ACTION items
+#if !FREEINK_DEVICE_WAVESHARE_EPAPER_397
   controlsSettings.insert(controlsSettings.begin(),
                           SettingInfo::Action(StrId::STR_REMAP_FRONT_BUTTONS, SettingAction::RemapFrontButtons));
+#endif
 #if FREEINK_CAP_BLE_HID_HOST
   controlsSettings.push_back(SettingInfo::Action(StrId::STR_BLUETOOTH, SettingAction::Bluetooth));
 #endif
@@ -425,7 +428,7 @@ void SettingsActivity::rebuildRowItems() {
   rowItems_.reserve(settings.size());
   for (size_t i = 0; i < settings.size(); i++) {
     fui::ListItem item;
-    item.label = I18N.get(settings[i].nameId);
+    item.label = settingDisplayName(settings[i].nameId);
     item.actionValue = static_cast<int16_t>(i);
     rowItems_.push_back(item);
   }
@@ -448,8 +451,9 @@ void SettingsActivity::rebuildAccordionRows() {
   for (int index = 0; index < count; ++index) {
     const auto row = InxAccordionGeometry::rowAt(counts, expandedCategories, index);
     const bool category = row.isCategory();
-    rowLabels_[index] = category ? I18N.get(categoryNames[row.category])
-                                 : std::string("  ") + I18N.get(settingsForCategory(row.category)[row.setting].nameId);
+    rowLabels_[index] =
+        category ? I18N.get(categoryNames[row.category])
+                 : std::string("  ") + settingDisplayName(settingsForCategory(row.category)[row.setting].nameId);
     fui::ListItem item;
     item.label = rowLabels_[index].c_str();
     item.actionValue = static_cast<int16_t>(index);

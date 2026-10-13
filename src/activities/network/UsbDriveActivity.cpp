@@ -128,7 +128,13 @@ void UsbDriveActivity::buildDriveScreen(UiScreen& screen) const {
         secondaryDetail = tr(STR_USB_DRIVE_EJECT_HINT);
         break;
       case State::IoError:
-        message = startFailed ? tr(STR_USB_DRIVE_START_ERROR) : tr(STR_USB_DRIVE_ERROR);
+        message = startFailed
+#if FREEINK_DEVICE_WAVESHARE_EPAPER_397
+                      ? tr(STR_USB_DRIVE_START_FAILED)
+#else
+                      ? tr(STR_USB_DRIVE_START_ERROR)
+#endif
+                      : tr(STR_USB_DRIVE_ERROR);
         break;
       case State::Ejected:
       case State::Disconnected:

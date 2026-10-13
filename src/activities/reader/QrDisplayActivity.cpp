@@ -34,7 +34,8 @@ void QrDisplayActivity::render(RenderLock&&) {
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_DISPLAY_QR), nullptr);
 
   const int availableWidth = pageWidth - 40;
-  const int availableHeight = pageHeight - metrics.topPadding - metrics.headerHeight - metrics.verticalSpacing * 2 - 40;
+  const int availableHeight =
+      pageHeight - metrics.topPadding - metrics.headerHeight - metrics.verticalSpacing * 2 - metrics.buttonHintsHeight;
   const int startY = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
 
   const Rect qrBounds(20, startY, availableWidth, availableHeight);

@@ -13,6 +13,7 @@
 #include "RecentBooksStore.h"
 #include "components/SelectionCursorPolicy.h"
 #include "components/themes/BaseTheme.h"
+#include "components/themes/ThemeDevicePolicy.h"
 #include "components/themes/inx/InxTheme.h"
 
 UITheme UITheme::instance;
@@ -61,9 +62,8 @@ const ThemeMetrics& UITheme::getMetrics() const {
   const bool showButtonHints = currentTheme->buttonHintsVisible();
   if (!metricsValid || showButtonHints != metricsForButtonHints) {
     adjustedMetrics = *currentMetrics;
-    if (!showButtonHints) {
-      adjustedMetrics.buttonHintsHeight = 0;
-    }
+    deviceApplyButtonHintMetrics(adjustedMetrics.buttonHintsHeight, adjustedMetrics.sideButtonHintsWidth,
+                                 showButtonHints);
     metricsForButtonHints = showButtonHints;
     metricsValid = true;
   }
@@ -90,7 +90,7 @@ int UITheme::getNumberOfItemsPerPage(const GfxRenderer& renderer, bool hasHeader
   if (hasTabBar) {
     reservedHeight += metrics.tabBarHeight;
   }
-  if (hasButtonHints && orientation != GfxRenderer::Orientation::LandscapeClockwise &&
+  if (hasButtonHints && metrics.buttonHintsHeight > 0 && orientation != GfxRenderer::Orientation::LandscapeClockwise &&
       orientation != GfxRenderer::Orientation::LandscapeCounterClockwise) {
     reservedHeight += metrics.verticalSpacing + metrics.buttonHintsHeight;
   }
@@ -107,24 +107,24 @@ Rect UITheme::getScreenSafeArea(const GfxRenderer& renderer, bool hasFrontButton
   const ThemeMetrics metrics = getMetrics();
   switch (orientation) {
     case GfxRenderer::Orientation::Portrait:
-      if (hasFrontButtonHints) {
+      if (hasFrontButtonHints && metrics.buttonHintsHeight > 0) {
         safeArea.height -= metrics.buttonHintsHeight;
       }
       break;
     case GfxRenderer::Orientation::LandscapeClockwise:
-      if (hasFrontButtonHints) {
+      if (hasFrontButtonHints && metrics.buttonHintsHeight > 0) {
         safeArea.x += metrics.buttonHintsHeight;
         safeArea.width -= metrics.buttonHintsHeight;
       }
       break;
     case GfxRenderer::Orientation::PortraitInverted:
-      if (hasFrontButtonHints) {
+      if (hasFrontButtonHints && metrics.buttonHintsHeight > 0) {
         safeArea.y += metrics.buttonHintsHeight;
         safeArea.height -= metrics.buttonHintsHeight;
       }
       break;
     case GfxRenderer::Orientation::LandscapeCounterClockwise:
-      if (hasFrontButtonHints) {
+      if (hasFrontButtonHints && metrics.buttonHintsHeight > 0) {
         safeArea.width -= metrics.buttonHintsHeight;
       }
       break;

@@ -2527,6 +2527,10 @@ void WeReadActivity::render(RenderLock&&) {
             case PostProcessNotice::LongWait:
               lines = kPostProcessLongWaitLines;
               lineCount = static_cast<int>(sizeof(kPostProcessLongWaitLines) / sizeof(kPostProcessLongWaitLines[0]));
+              if (!GUI.keyInstructionTipsVisible()) {
+                // Lines 3–4 are one parenthetical plus a key-instruction; hide both so line 2 is not left dangling.
+                lineCount = std::min(lineCount, 2);
+              }
               break;
           }
           break;
