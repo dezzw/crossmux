@@ -34,22 +34,31 @@ class NightlyTargetTest(unittest.TestCase):
             )
         self.assertEqual(urlopen.call_count, 2)
 
-    def test_matrix_has_single_waveshare_nightly_target(self):
-        matrix = package_nightly_target.matrix('nightly')['include']
-        self.assertEqual(len(matrix), 1)
+    def test_matrix_has_single_waveshare_target_per_channel(self):
+        nightly = package_nightly_target.matrix('nightly')['include']
+        stable = package_nightly_target.matrix('stable')['include']
+        self.assertEqual(len(nightly), 1)
+        self.assertEqual(len(stable), 1)
         self.assertEqual(
-            {entry['targetId'] for entry in matrix},
+            {entry['targetId'] for entry in nightly},
             set(nightly_targets.TARGETS),
         )
         self.assertEqual(
-            matrix[0],
+            nightly[0],
             {
                 'targetId': 'waveshare_epaper_397',
                 'deviceSlug': 'waveshare-epaper-397',
                 'environment': 'waveshare_epaper_397_nightly',
             },
         )
-        self.assertEqual(package_nightly_target.matrix('stable')['include'], [])
+        self.assertEqual(
+            stable[0],
+            {
+                'targetId': 'waveshare_epaper_397',
+                'deviceSlug': 'waveshare-epaper-397',
+                'environment': 'waveshare_epaper_397',
+            },
+        )
 
     def test_runtime_models_and_board_tags_are_explicit(self):
         targets = nightly_targets.TARGETS
@@ -58,6 +67,8 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertEqual(target['boardTag'], 'waveshare_epaper_397')
         self.assertEqual(target['deviceSlug'], 'waveshare-epaper-397')
         self.assertEqual(target['environments']['nightly'], 'waveshare_epaper_397_nightly')
+        self.assertEqual(target['environments']['stable'], 'waveshare_epaper_397')
+        self.assertEqual(target['supportedChannels'], ['nightly', 'stable'])
         self.assertTrue(target['fullInstall'])
         self.assertEqual(
             nightly_targets.environment_for('waveshare_epaper_397', 'nightly', 'global'),
@@ -182,7 +193,7 @@ class NightlyTargetTest(unittest.TestCase):
 
             self.assertEqual(manifests[0]['channel'], 'nightly')
             self.assertEqual(manifests[0]['version'], '1.6.0-waveshare-epaper-397-rc+aaaaaaa')
-            self.assertEqual(manifests[0]['supportedChannels'], ['nightly'])
+            self.assertEqual(manifests[0]['supportedChannels'], ['nightly', 'stable'])
 
     def test_publish_github_job_runs_on_github_hosted_runner(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
