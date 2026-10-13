@@ -4,8 +4,8 @@
 #include <cstdlib>
 #include <vector>
 
-#include "lib/JsonParser/OtaSigningPayload.h"
 #include "lib/JsonParser/OtaSignatureVerify.h"
+#include "lib/JsonParser/OtaSigningPayload.h"
 #include "test/fixtures/ota_signing_known_answer.generated.h"
 
 namespace {

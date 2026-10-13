@@ -124,7 +124,7 @@ int semverCompareNewer(const char* currentVersion, const char* latestVersion) {
 
   if (current.hasPrerelease && latest.hasPrerelease) {
     const int pre = comparePrerelease(current.prerelease, latest.prerelease);
-    if (pre != 0) return pre > 0 ? 1 : -1;
+    if (pre != 0) return pre < 0 ? 1 : -1;
   }
 
   return 0;
