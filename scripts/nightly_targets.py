@@ -8,8 +8,11 @@ TARGETS = {
         'boardTag': 'waveshare_epaper_397',
         'chip': 'ESP32-S3',
         'chipId': 0x0009,
-        'environments': {'nightly': 'waveshare_epaper_397_nightly'},
-        'supportedChannels': ['nightly'],
+        'environments': {
+            'nightly': 'waveshare_epaper_397_nightly',
+            'stable': 'waveshare_epaper_397',
+        },
+        'supportedChannels': ['nightly', 'stable'],
         'fullInstall': True,
     },
 }

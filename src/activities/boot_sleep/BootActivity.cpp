@@ -39,13 +39,7 @@ void BootActivity::renderSplash() {
 
 void BootActivity::runPostOta() {
   requestUpdateAndWait();
-  if (!HalOtaSlot::confirmRunningImage()) {
-    failure_.store(Failure::Confirm);
-    stage_.store(Stage::Failed);
-    requestUpdateAndWait();
-    return;
-  }
-  LOG_INF("OTA", "Running image confirmed after startup display");
+  LOG_INF("OTA", "Post-OTA boot; image confirmation deferred until Home UI");
 
   if (!allowAutoPreload_ || SETTINGS.sdFontFlashPreload == 0 || SETTINGS.sdFontFamilyName[0] == '\0') return;
 

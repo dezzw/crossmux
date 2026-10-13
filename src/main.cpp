@@ -489,13 +489,6 @@ void setup() {
     const bool fontsReady = setupDisplayAndFonts(isSilentReboot);
     activityManager.goToFullScreenMessage("SD card error", EpdFontFamily::BOLD);
     activityManager.requestUpdateAndWait();
-    if (otaPendingAtBoot && fontsReady) {
-      if (HalOtaSlot::confirmRunningImage()) {
-        LOG_INF("OTA", "Running image confirmed after SD error display");
-      } else {
-        LOG_ERR("OTA", "Running image confirmation failed after SD error display");
-      }
-    }
     return;
   }
 

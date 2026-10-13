@@ -33,7 +33,7 @@ namespace fui = freeink::ui;
 
 namespace {
 
-constexpr size_t kMaxManifestBytes = 64 * 1024;
+constexpr size_t kMaxManifestBytes = 96 * 1024;
 constexpr size_t kMaxManifestFamilies = 32;
 constexpr size_t kMaxManifestFiles = 128;
 constexpr size_t kMaxFilesPerFamily = 16;
@@ -343,33 +343,134 @@ void FontDownloadActivity::finishAutomaticFlow(const ExitRoute route) {
   finish();
 }
 
+void FontDownloadActivity::recordTransportFailure(ManifestFailure& target, int& httpStatus) {
+  httpStatus = HttpDownloader::lastHttpStatusCode();
+  switch (HttpDownloader::lastTransportFailure()) {
+    case HttpDownloader::TransportFailure::Tls:
+      target = ManifestFailure::Tls;
+      break;
+    case HttpDownloader::TransportFailure::HttpStatus:
+      target = ManifestFailure::Http;
+      break;
+    case HttpDownloader::TransportFailure::FileIo:
+      target = ManifestFailure::SdWrite;
+      break;
+    case HttpDownloader::TransportFailure::Connect:
+    case HttpDownloader::TransportFailure::Incomplete:
+    case HttpDownloader::TransportFailure::None:
+    default:
+      target = ManifestFailure::Network;
+      break;
+  }
+}
+
+void FontDownloadActivity::recordTransportFailure(FileFailure& target, int& httpStatus) {
+  httpStatus = HttpDownloader::lastHttpStatusCode();
+  switch (HttpDownloader::lastTransportFailure()) {
+    case HttpDownloader::TransportFailure::Tls:
+      target = FileFailure::Tls;
+      break;
+    case HttpDownloader::TransportFailure::HttpStatus:
+      target = FileFailure::Http;
+      break;
+    case HttpDownloader::TransportFailure::FileIo:
+      target = FileFailure::Sd;
+      break;
+    case HttpDownloader::TransportFailure::Connect:
+    case HttpDownloader::TransportFailure::Incomplete:
+    case HttpDownloader::TransportFailure::None:
+    default:
+      target = FileFailure::Network;
+      break;
+  }
+}
+
+const char* FontDownloadActivity::failureDetailText() const {
+  if (manifestFailure_ != ManifestFailure::None) {
+    switch (manifestFailure_) {
+      case ManifestFailure::Network:
+        return tr(STR_FONT_ERR_NETWORK);
+      case ManifestFailure::Tls:
+        return tr(STR_FONT_ERR_TLS);
+      case ManifestFailure::Http:
+        if (lastHttpStatus_ > 0) {
+          snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP), lastHttpStatus_);
+          return httpDetailBuffer_;
+        }
+        return tr(STR_FONT_ERR_HTTP);
+      case ManifestFailure::Parse:
+        return tr(STR_FONT_ERR_MANIFEST);
+      case ManifestFailure::Version:
+        return tr(STR_FONT_ERR_MANIFEST);
+      case ManifestFailure::SdWrite:
+        return tr(STR_FONT_ERR_SD);
+      case ManifestFailure::None:
+        break;
+    }
+  }
+  switch (fileFailure_) {
+    case FileFailure::Network:
+      return tr(STR_FONT_ERR_NETWORK);
+    case FileFailure::Tls:
+      return tr(STR_FONT_ERR_TLS);
+    case FileFailure::Http:
+      if (lastHttpStatus_ > 0) {
+        snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP), lastHttpStatus_);
+        return httpDetailBuffer_;
+      }
+      return tr(STR_FONT_ERR_HTTP);
+    case FileFailure::Crc:
+      return tr(STR_FONT_ERR_CRC);
+    case FileFailure::Header:
+      return tr(STR_FONT_ERR_HEADER);
+    case FileFailure::Sd:
+      return tr(STR_FONT_ERR_SD);
+    case FileFailure::None:
+      break;
+  }
+  return tr(STR_FONT_ERR_MANIFEST);
+}
+
 // --- Manifest fetching ---
 
 bool FontDownloadActivity::fetchAndParseManifest() {
-  // Download manifest to a temp file on SD card to avoid holding both
-  // TLS buffers and the full JSON string in RAM simultaneously.
   static constexpr const char* MANIFEST_TMP = "/fonts_manifest.tmp";
   families_.clear();
   files_.clear();
   baseUrl_.clear();
   downloadingFamilyIndex_ = -1;
+  manifestFailure_ = ManifestFailure::None;
+  fileFailure_ = FileFailure::None;
+  lastHttpStatus_ = 0;
 
-  char manifestUrl[160];
-  const int manifestUrlLength =
-      snprintf(manifestUrl, sizeof(manifestUrl), CrossMuxEndpoints::FONT_MANIFEST_FORMAT, CrossMuxEndpoints::host(),
-               FONT_MANIFEST_URL_STRINGIFY(FONTS_MANIFEST_VERSION), FONT_MANIFEST_URL_STRINGIFY(CPFONT_VERSION));
-  if (manifestUrlLength < 0 || static_cast<size_t>(manifestUrlLength) >= sizeof(manifestUrl)) {
-    LOG_ERR("FONT", "Manifest URL exceeds %zu bytes", sizeof(manifestUrl));
-    errorMessage_ = "Failed to fetch font list";
+  char githubUrl[192];
+  char legacyUrl[192];
+  const int githubLen = CrossMuxEndpoints::formatFontGithubManifestUrl(githubUrl, sizeof(githubUrl),
+                                                                       FONTS_MANIFEST_VERSION, CPFONT_VERSION);
+  const int legacyLen = CrossMuxEndpoints::formatFontLegacyManifestUrl(legacyUrl, sizeof(legacyUrl),
+                                                                       FONTS_MANIFEST_VERSION, CPFONT_VERSION);
+  if (githubLen < 0 || static_cast<size_t>(githubLen) >= sizeof(githubUrl) || legacyLen < 0 ||
+      static_cast<size_t>(legacyLen) >= sizeof(legacyUrl)) {
+    LOG_ERR("FONT", "Manifest URL exceeds buffer");
+    manifestFailure_ = ManifestFailure::Network;
     return false;
   }
-  auto result = HttpDownloader::downloadToFile(manifestUrl, MANIFEST_TMP, nullptr);
-  if (result != HttpDownloader::OK) {
-    LOG_ERR("FONT", "Failed to fetch manifest from %s", manifestUrl);
-    errorMessage_ = "Failed to fetch font list";
+
+  const HttpDownloader::FetchOptions verifiedTls{.verifyTlsPeer = true};
+  const char* urls[] = {githubUrl, legacyUrl};
+  bool downloaded = false;
+  for (const char* manifestUrl : urls) {
+    const auto result = HttpDownloader::downloadToFile(manifestUrl, MANIFEST_TMP, nullptr, nullptr, verifiedTls);
+    if (result == HttpDownloader::OK) {
+      downloaded = true;
+      LOG_INF("FONT", "Loaded manifest from %s", manifestUrl);
+      break;
+    }
+    LOG_ERR("FONT", "Manifest fetch failed: %s", manifestUrl);
+    recordTransportFailure(manifestFailure_, lastHttpStatus_);
     Storage.remove(MANIFEST_TMP);
-    return false;
   }
+  if (!downloaded) return false;
 
   JsonDocument doc;
   DeserializationError err;
@@ -380,7 +481,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     if (!Storage.openFileForRead("FONT", MANIFEST_TMP, manifestFile)) {
       LOG_ERR("FONT", "Failed to open temp manifest");
       Storage.remove(MANIFEST_TMP);
-      errorMessage_ = "Failed to read font list";
+      manifestFailure_ = ManifestFailure::SdWrite;
       return false;
     }
     manifestTooLarge = manifestFile.fileSize() > kMaxManifestBytes;
@@ -390,19 +491,19 @@ bool FontDownloadActivity::fetchAndParseManifest() {
 
   if (manifestTooLarge) {
     LOG_ERR("FONT", "Manifest exceeds %zu bytes", kMaxManifestBytes);
-    errorMessage_ = "Invalid font manifest";
+    manifestFailure_ = ManifestFailure::Parse;
     return false;
   }
   if (err) {
     LOG_ERR("FONT", "Manifest parse error: %s", err.c_str());
-    errorMessage_ = "Invalid font manifest";
+    manifestFailure_ = ManifestFailure::Parse;
     return false;
   }
 
   int version = doc["version"] | 0;
   if (version != FONTS_MANIFEST_VERSION) {
     LOG_ERR("FONT", "Unsupported manifest version: %d", version);
-    errorMessage_ = "Unsupported manifest version";
+    manifestFailure_ = ManifestFailure::Version;
     return false;
   }
 
@@ -410,7 +511,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   if (baseUrl_.empty() || baseUrl_.size() > kMaxBaseUrlBytes || baseUrl_.rfind("https://", 0) != 0 ||
       baseUrl_.back() != '/') {
     LOG_ERR("FONT", "Manifest has invalid baseUrl");
-    errorMessage_ = "Invalid font manifest";
+    manifestFailure_ = ManifestFailure::Parse;
     return false;
   }
   families_.clear();
@@ -431,7 +532,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     const char* label = groupObj["label"] | "";
     if (*tag == '\0' || *label == '\0') {
       LOG_ERR("FONT", "Malformed script group at index %zu", groupIndex);
-      errorMessage_ = "Invalid font manifest";
+      manifestFailure_ = ManifestFailure::Parse;
       return false;
     }
     scriptGroupLabels_.push_back(label);
@@ -440,7 +541,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   JsonArray familiesArr = doc["families"].as<JsonArray>();
   if (familiesArr.isNull() || familiesArr.size() == 0 || familiesArr.size() > kMaxManifestFamilies) {
     LOG_ERR("FONT", "Manifest has invalid family count: %zu", familiesArr.size());
-    errorMessage_ = "Invalid font manifest";
+    manifestFailure_ = ManifestFailure::Parse;
     return false;
   }
 
@@ -450,7 +551,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     if (familyFiles.isNull() || familyFiles.size() == 0 || familyFiles.size() > kMaxFilesPerFamily ||
         familyFiles.size() > kMaxManifestFiles - fileCount) {
       LOG_ERR("FONT", "Manifest has invalid file count");
-      errorMessage_ = "Invalid font manifest";
+      manifestFailure_ = ManifestFailure::Parse;
       return false;
     }
     fileCount += familyFiles.size();
@@ -471,7 +572,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
       LOG_ERR("FONT", "Malformed manifest family name: %s", family.name.c_str());
       families_.clear();
       files_.clear();
-      errorMessage_ = "Invalid font manifest";
+      manifestFailure_ = ManifestFailure::Parse;
       return false;
     }
 
@@ -503,7 +604,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
         LOG_ERR("FONT", "Malformed manifest file entry: %s", fileName);
         families_.clear();
         files_.clear();
-        errorMessage_ = "Invalid font manifest";
+        manifestFailure_ = ManifestFailure::Parse;
         return false;
       }
       const bool duplicatePointSize =
@@ -513,7 +614,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
         LOG_ERR("FONT", "Duplicate manifest point size: %s", fileName);
         families_.clear();
         files_.clear();
-        errorMessage_ = "Invalid font manifest";
+        manifestFailure_ = ManifestFailure::Parse;
         return false;
       }
       file.crc32 = fileObj["crc32"].as<uint32_t>();
@@ -758,7 +859,7 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
   const int fileNameLength =
       snprintf(fileName, sizeof(fileName), "%s_%u.cpfont", family.name.c_str(), static_cast<unsigned>(file.pointSize));
   if (fileNameLength < 0 || static_cast<size_t>(fileNameLength) >= sizeof(fileName)) {
-    errorMessage_ = "Invalid font filename";
+    fileFailure_ = FileFailure::Header;
     return DownloadResult::Failed;
   }
   char destPath[128];
@@ -777,6 +878,7 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
 
   std::string url = baseUrl_ + fileName;
   NetworkStartup::prepare(renderer);
+  const HttpDownloader::FetchOptions verifiedTls{.verifyTlsPeer = true};
   const auto result = HttpDownloader::downloadToFile(
       url, downloadPath,
       [this, fileStartProgress, fileSize = file.size](size_t downloaded, size_t) {
@@ -792,7 +894,7 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
         UiAppHost::routeTouch(mappedInput);
         updateDownloadProgress(fileStartProgress + std::min(downloaded, fileSize));
       },
-      &cancelRequested_);
+      &cancelRequested_, verifiedTls);
 
   if (result == HttpDownloader::ABORTED) {
     Storage.remove(downloadPath);
@@ -801,7 +903,7 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
   if (result != HttpDownloader::OK) {
     LOG_ERR("FONT", "Download failed: %s (%d)", fileName, result);
     Storage.remove(downloadPath);
-    errorMessage_ = std::string("Download failed: ") + fileName;
+    recordTransportFailure(fileFailure_, lastHttpStatus_);
     return DownloadResult::Failed;
   }
 
@@ -809,19 +911,19 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
   if (!computeFileCrc32(downloadPath, actualCrc)) {
     LOG_ERR("FONT", "Failed to open file for CRC check: %s", downloadPath);
     Storage.remove(downloadPath);
-    errorMessage_ = std::string("Failed to compute checksum: ") + fileName;
+    fileFailure_ = FileFailure::Sd;
     return DownloadResult::Failed;
   }
   if (actualCrc != file.crc32) {
     LOG_ERR("FONT", "CRC32 mismatch for %s: got %08x expected %08x", fileName, actualCrc, file.crc32);
     Storage.remove(downloadPath);
-    errorMessage_ = std::string("Checksum mismatch: ") + fileName;
+    fileFailure_ = FileFailure::Crc;
     return DownloadResult::Failed;
   }
   if (!fontInstaller_.validateCpfontFile(downloadPath)) {
     LOG_ERR("FONT", "Invalid .cpfont: %s", downloadPath);
     Storage.remove(downloadPath);
-    errorMessage_ = std::string("Invalid font file: ") + fileName;
+    fileFailure_ = FileFailure::Header;
     return DownloadResult::Failed;
   }
 
@@ -831,7 +933,7 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
     if (Storage.exists(destPath)) {
       Storage.remove(backupPath);
     } else if (!Storage.rename(backupPath, destPath)) {
-      errorMessage_ = std::string("Failed to recover font file: ") + fileName;
+      fileFailure_ = FileFailure::Sd;
       return DownloadResult::Failed;
     }
   }
@@ -839,7 +941,7 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
   if ((hadPrevious && !Storage.rename(destPath, backupPath)) || !Storage.rename(downloadPath, destPath)) {
     if (hadPrevious && !Storage.exists(destPath)) Storage.rename(backupPath, destPath);
     Storage.remove(downloadPath);
-    errorMessage_ = std::string("Failed to install font file: ") + fileName;
+    fileFailure_ = FileFailure::Sd;
     return DownloadResult::Failed;
   }
   if (hadPrevious) Storage.remove(backupPath);
@@ -864,7 +966,7 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFamily(Manife
   if (!fontInstaller_.ensureFamilyDir(family.name.c_str())) {
     RenderLock lock(*this);
     state_ = ERROR;
-    errorMessage_ = "Failed to create font directory";
+    fileFailure_ = FileFailure::Sd;
     return DownloadResult::Failed;
   }
 
@@ -927,7 +1029,7 @@ void FontDownloadActivity::selectDownloadedFontAndPreview(const char* familyName
     LOG_ERR("FONT", "OOM allocating TextSettingsActivity (%zu bytes)", sizeof(TextSettingsActivity));
     RenderLock lock(*this);
     state_ = ERROR;
-    errorMessage_ = tr(STR_MEMORY_ERROR);
+    fileFailure_ = FileFailure::Sd;
     operation_ = DownloadOperation::None;
     return;
   }
@@ -1017,7 +1119,7 @@ void FontDownloadActivity::onDeleteConfirmationResult(const ActivityResult& resu
   if (fontInstaller_.deleteFamily(family.name.c_str()) != FontInstaller::Error::OK) {
     RenderLock lock(*this);
     state_ = ERROR;
-    errorMessage_ = "Failed to delete font";
+    fileFailure_ = FileFailure::Sd;
   } else {
     fontInstaller_.refreshRegistry();
     family.installed = false;
@@ -1277,6 +1379,7 @@ std::string FontDownloadActivity::formatSize(size_t bytes) {
 const char* FontDownloadActivity::automaticErrorText() const {
   switch (automaticError_) {
     case AutomaticError::Download:
+      if (manifestFailure_ != ManifestFailure::None || fileFailure_ != FileFailure::None) return failureDetailText();
       return tr(STR_AUTO_FONT_DOWNLOAD_FAILED);
     case AutomaticError::FamilyMissing:
       return tr(STR_AUTO_FONT_FAMILY_MISSING);
@@ -1371,7 +1474,9 @@ void FontDownloadActivity::render(RenderLock&&) {
   } else if (state_ == ERROR) {
     renderer.drawCenteredText(UI_10_FONT_ID, centerY - lineHeight, tr(STR_FONT_INSTALL_FAILED), true,
                               EpdFontFamily::BOLD);
-    const char* detail = purpose_ == Purpose::ReaderAutoInstall ? automaticErrorText() : errorMessage_.c_str();
+    const char* detail = purpose_ == Purpose::ReaderAutoInstall && automaticError_ != AutomaticError::Download
+                             ? automaticErrorText()
+                             : failureDetailText();
     if (detail[0] != '\0') {
       renderer.drawCenteredText(UI_10_FONT_ID, centerY + metrics.verticalSpacing, detail);
     }

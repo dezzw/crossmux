@@ -126,7 +126,7 @@ bool DictionaryDownloadActivity::fetchAndParseManifest() {
   char manifestUrl[192];
   const int manifestUrlLength =
       snprintf(manifestUrl, sizeof(manifestUrl), CrossMuxEndpoints::DICTIONARY_MANIFEST_FORMAT,
-               CrossMuxEndpoints::host(), LANGUAGE_CODES[static_cast<uint8_t>(I18N.getLanguage())]);
+               CrossMuxEndpoints::legacyHost(), LANGUAGE_CODES[static_cast<uint8_t>(I18N.getLanguage())]);
   if (manifestUrlLength < 0 || static_cast<size_t>(manifestUrlLength) >= sizeof(manifestUrl)) {
     LOG_ERR("DICTDL", "Manifest URL exceeds %zu bytes", sizeof(manifestUrl));
     return false;

@@ -31,9 +31,13 @@ size_t boardNameLen();
 class Scanner {
  public:
   void feed(const uint8_t* data, size_t len);
+  // Call after the image stream ends to detect images with no board tag.
+  void markStreamComplete() { streamComplete = true; }
   // True once a tag naming a different board has been seen. Valid mid-stream:
   // callers may abort a download as soon as this turns true.
   bool mismatch() const { return mismatchFound; }
+  bool matchConfirmed() const { return matchConfirmed_; }
+  bool missingRequiredTag() const { return streamComplete && !matchConfirmed_ && !mismatchFound; }
   // Board name from the offending tag, for logging (empty until mismatch()).
   const char* foundName() const { return mismatchFound ? captured : ""; }
 
@@ -44,6 +48,8 @@ class Scanner {
   size_t magicMatched = 0;
   bool capturing = false;
   bool mismatchFound = false;
+  bool matchConfirmed_ = false;
+  bool streamComplete = false;
 };
 
 }  // namespace board_tag
