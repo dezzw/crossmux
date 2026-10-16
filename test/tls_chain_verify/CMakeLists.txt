@@ -19,6 +19,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(wolfssl)
 
+# wolfSSL 5.7.x triggers -Werror=stringop-overflow on GCC 13+ CI when SHA-384 is enabled.
+if(TARGET wolfssl)
+  target_compile_options(wolfssl PRIVATE -Wno-error=stringop-overflow -Wno-stringop-overflow)
+endif()
+
 add_executable(TlsCaChainVerifyTest TlsCaChainVerifyTest.cpp)
 target_include_directories(TlsCaChainVerifyTest PRIVATE ${REPO_ROOT}/src/network ${wolfssl_SOURCE_DIR})
 target_link_libraries(TlsCaChainVerifyTest PRIVATE crosspoint_test_common GTest::gtest_main wolfssl)
