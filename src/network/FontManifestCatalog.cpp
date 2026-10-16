@@ -345,7 +345,14 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
     return failIngest(IngestResult::Parse);
   }
 
+  Catalog preIngestCheckpoint;
+  if (restoreCatalogOnFailure) {
+    preIngestCheckpoint = scratch;
+  }
   if (!ingestFamilies(familiesArr, scratch, mode, baseUrlIndex)) {
+    if (restoreCatalogOnFailure) {
+      scratch = std::move(preIngestCheckpoint);
+    }
     return failIngest(IngestResult::Parse);
   }
 

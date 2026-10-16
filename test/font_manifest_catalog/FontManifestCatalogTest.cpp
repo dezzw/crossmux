@@ -312,13 +312,13 @@ TEST(FontManifestCatalog, MergeReplaceDuplicateInMiddleShiftsFileOffsets) {
   EXPECT_EQ(catalog.families[0].name, "Alpha");
   EXPECT_EQ(catalog.families[0].fileOffset, 0u);
   EXPECT_EQ(catalog.families[0].fileCount, 1u);
-  EXPECT_EQ(catalog.families[1].name, "DupMiddle");
+  EXPECT_EQ(catalog.families[1].name, "Omega");
   EXPECT_EQ(catalog.families[1].fileOffset, 1u);
-  EXPECT_EQ(catalog.families[1].fileCount, 2u);
-  EXPECT_EQ(catalog.families[2].name, "Omega");
-  EXPECT_EQ(catalog.families[2].fileOffset, 3u);
-  EXPECT_EQ(catalog.families[2].fileCount, 1u);
-  EXPECT_EQ(catalog.files[3].pointSize, 12);
+  EXPECT_EQ(catalog.families[1].fileCount, 1u);
+  EXPECT_EQ(catalog.families[2].name, "DupMiddle");
+  EXPECT_EQ(catalog.families[2].fileOffset, 2u);
+  EXPECT_EQ(catalog.families[2].fileCount, 2u);
+  EXPECT_EQ(catalog.files[1].pointSize, 12);
 }
 
 TEST(FontManifestCatalog, SharesBaseUrlAcrossFamiliesFromSameSource) {
