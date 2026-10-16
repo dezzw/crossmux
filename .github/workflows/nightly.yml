@@ -126,8 +126,8 @@ jobs:
           enable-cache: false
       - name: Install PlatformIO Core
         run: uv pip install --system -U pioarduino==6.1.19
-      - name: Set seven-character build revision
-        run: echo "CROSSPOINT_RC_HASH=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - name: Set monotonic nightly RC run number
+        run: echo "CROSSPOINT_RC_RUN=${{ github.run_number }}" >> "$GITHUB_ENV"
       - name: Build unified target
         run: pio run -e "${{ matrix.environment }}"
       - name: Package and verify unified target
@@ -159,14 +159,52 @@ jobs:
         with:
           name: firmware-release-notes
           path: notes
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install signing dependencies
+        run: pip install 'cryptography==44.0.2'
+      - name: Sign OTA manifests
+        env:
+          OTA_SIGNING_KEY: ${{ secrets.OTA_SIGNING_KEY }}
+          CHANNEL: ${{ needs.prepare.outputs.channel }}
+          BUILD_TAG: ${{ needs.prepare.outputs.build_tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OTA_SIGNING_KEY:-}" ]; then
+            echo "::error::OTA_SIGNING_KEY secret is required to publish signed OTA manifests"
+            exit 1
+          fi
+          python3 scripts/verify_ota_public_key.py
+          tag="$BUILD_TAG"
+          if [ "$CHANNEL" = stable ]; then
+            tag="$GITHUB_REF_NAME"
+          fi
+          mapfile -t manifests < <(find artifacts -name '*-global-manifest.json')
+          for manifest in "${manifests[@]}"; do
+            dir="$(dirname "$manifest")"
+            firmware="$(find "$dir" -name '*-firmware.bin' -print -quit)"
+            test -f "$firmware"
+            signed="${manifest%.json}-signed.json"
+            python3 scripts/sign_ota_release.py \
+              --firmware "$firmware" \
+              --manifest "$manifest" \
+              --download-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/$(basename "$firmware")" \
+              --output "$signed"
+            mv "$signed" "$manifest"
+          done
       - name: Load previous global Nightly index
         if: needs.prepare.outputs.channel == 'nightly'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           mkdir -p previous/global
-          gh release download nightly --repo "$GITHUB_REPOSITORY" \
-            --pattern release-index.json --dir previous/global
+          if ! gh release download nightly --repo "$GITHUB_REPOSITORY" \
+            --pattern release-index.json --dir previous/global 2>/dev/null; then
+            echo "No prior nightly release-index.json (first publish)"
+            echo '{"schemaVersion":1,"channel":"nightly","targets":{}}' > previous/global/release-index.json
+          fi
       - uses: actions/upload-artifact@v4
         if: needs.prepare.outputs.channel == 'nightly'
         with:

@@ -4,8 +4,10 @@
 #include <Epub.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalOtaSlot.h>
 #include <HalStorage.h>
 #include <I18n.h>
+#include <Logging.h>
 #include <Memory.h>
 #include <Utf8.h>
 #include <Xtc.h>
@@ -223,6 +225,14 @@ void HomeActivity::loadRecentCovers(int coverHeight) {
 
 void HomeActivity::onEnter() {
   Activity::onEnter();
+
+  if (HalOtaSlot::runningImageState() == HalOtaSlot::RunningImageState::PendingVerify) {
+    if (HalOtaSlot::confirmRunningImage()) {
+      LOG_INF("OTA", "Running image confirmed after Home UI reached");
+    } else {
+      LOG_ERR("OTA", "Running image confirmation failed on Home entry");
+    }
+  }
 
   hasOpdsServers = OPDS_STORE.hasServers();
 

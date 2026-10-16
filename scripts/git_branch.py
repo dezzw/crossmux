@@ -82,6 +82,9 @@ def inject_version(env):
     # version via build_flags in platformio.ini and are unaffected.
     if pioenv != 'waveshare_epaper_397':
         return
+    build_flags = env.get('BUILD_FLAGS', [])
+    if any('CROSSPOINT_VERSION' in str(flag) for flag in build_flags):
+        return
 
     project_dir = env['PROJECT_DIR']
     base_version = get_base_version(project_dir)

@@ -34,22 +34,31 @@ class NightlyTargetTest(unittest.TestCase):
             )
         self.assertEqual(urlopen.call_count, 2)
 
-    def test_matrix_has_single_waveshare_nightly_target(self):
-        matrix = package_nightly_target.matrix('nightly')['include']
-        self.assertEqual(len(matrix), 1)
+    def test_matrix_has_single_waveshare_target_per_channel(self):
+        nightly = package_nightly_target.matrix('nightly')['include']
+        stable = package_nightly_target.matrix('stable')['include']
+        self.assertEqual(len(nightly), 1)
+        self.assertEqual(len(stable), 1)
         self.assertEqual(
-            {entry['targetId'] for entry in matrix},
+            {entry['targetId'] for entry in nightly},
             set(nightly_targets.TARGETS),
         )
         self.assertEqual(
-            matrix[0],
+            nightly[0],
             {
                 'targetId': 'waveshare_epaper_397',
                 'deviceSlug': 'waveshare-epaper-397',
                 'environment': 'waveshare_epaper_397_nightly',
             },
         )
-        self.assertEqual(package_nightly_target.matrix('stable')['include'], [])
+        self.assertEqual(
+            stable[0],
+            {
+                'targetId': 'waveshare_epaper_397',
+                'deviceSlug': 'waveshare-epaper-397',
+                'environment': 'waveshare_epaper_397',
+            },
+        )
 
     def test_runtime_models_and_board_tags_are_explicit(self):
         targets = nightly_targets.TARGETS
@@ -58,6 +67,8 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertEqual(target['boardTag'], 'waveshare_epaper_397')
         self.assertEqual(target['deviceSlug'], 'waveshare-epaper-397')
         self.assertEqual(target['environments']['nightly'], 'waveshare_epaper_397_nightly')
+        self.assertEqual(target['environments']['stable'], 'waveshare_epaper_397')
+        self.assertEqual(target['supportedChannels'], ['nightly', 'stable'])
         self.assertTrue(target['fullInstall'])
         self.assertEqual(
             nightly_targets.environment_for('waveshare_epaper_397', 'nightly', 'global'),
@@ -67,20 +78,20 @@ class NightlyTargetTest(unittest.TestCase):
     def test_versions_are_nightly_release_candidates(self):
         self.assertEqual(
             nightly_targets.version_for(
-                '1.5.7', 'waveshare_epaper_397', 'nightly', 'global', '12345678'
+                '1.5.7', 'waveshare_epaper_397', 'nightly', 'global', '12345'
             ),
-            '1.5.7-waveshare-epaper-397-rc+1234567',
+            '1.5.7-waveshare-epaper-397-rc.12345',
         )
         self.assertEqual(
             nightly_targets.version_for(
-                '1.5.7', 'waveshare_epaper_397', 'nightly', 'zh-CN', '12345678'
+                '1.5.7', 'waveshare_epaper_397', 'nightly', 'zh-CN', '12345'
             ),
-            '1.5.7-waveshare-epaper-397-rc+1234567',
+            '1.5.7-waveshare-epaper-397-rc.12345',
         )
         self.assertNotIn(
             'beta',
             nightly_targets.version_for(
-                '1.5.7', 'waveshare_epaper_397', 'nightly', 'global', '1234567'
+                '1.5.7', 'waveshare_epaper_397', 'nightly', 'global', '12345'
             ),
         )
 
@@ -138,8 +149,9 @@ class NightlyTargetTest(unittest.TestCase):
             build.mkdir(parents=True)
             (build / 'bootloader.bin').write_bytes(b'bootloader')
             (build / 'partitions.bin').write_bytes(b'partitions')
+            nightly_version = '1.6.0-waveshare-epaper-397-rc.0'
             (build / 'firmware.bin').write_bytes(
-                self.write_image(board='waveshare_epaper_397').read_bytes()
+                self.write_image(board='waveshare_epaper_397', version=nightly_version).read_bytes()
             )
             boot_app0 = root / 'boot_app0.bin'
             boot_app0.write_bytes(b'boot_app0')
@@ -181,8 +193,8 @@ class NightlyTargetTest(unittest.TestCase):
             )
 
             self.assertEqual(manifests[0]['channel'], 'nightly')
-            self.assertEqual(manifests[0]['version'], '1.6.0-waveshare-epaper-397-rc+aaaaaaa')
-            self.assertEqual(manifests[0]['supportedChannels'], ['nightly'])
+            self.assertEqual(manifests[0]['version'], '1.6.0-waveshare-epaper-397-rc.0')
+            self.assertEqual(manifests[0]['supportedChannels'], ['nightly', 'stable'])
 
     def test_publish_github_job_runs_on_github_hosted_runner(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
@@ -190,11 +202,13 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertIn('runs-on: ubuntu-latest', github_job)
         self.assertNotIn('COS_SECRET_', github_job)
 
-    def write_image(self, chip_id=0x0009, board='waveshare_epaper_397'):
+    def write_image(self, chip_id=0x0009, board='waveshare_epaper_397', version=None):
         image = bytearray(24)
         image[0] = 0xE9
         image[12:14] = chip_id.to_bytes(2, 'little')
         image.extend(f'CROSSPOINT-BOARD-V1:{board};'.encode())
+        if version is not None:
+            image.extend(f'CROSSPOINT-VERSION-V1:{version};'.encode())
         temp = tempfile.NamedTemporaryFile(delete=False)
         temp.write(image)
         temp.close()
@@ -202,23 +216,36 @@ class NightlyTargetTest(unittest.TestCase):
         return Path(temp.name)
 
     def test_waveshare_image_rejects_other_boards(self):
+        version = '1.6.0-waveshare-epaper-397-rc.0'
         package_nightly_target.verify_firmware(
-            self.write_image(board='waveshare_epaper_397'), 0x0009, 'waveshare_epaper_397'
+            self.write_image(board='waveshare_epaper_397', version=version),
+            0x0009,
+            'waveshare_epaper_397',
+            version,
         )
         with self.assertRaises(SystemExit):
             package_nightly_target.verify_firmware(
-                self.write_image(board='metalio_eink4'), 0x0009, 'waveshare_epaper_397'
+                self.write_image(board='metalio_eink4', version=version),
+                0x0009,
+                'waveshare_epaper_397',
+                version,
             )
 
     def test_rejects_wrong_chip_or_board(self):
-        package_nightly_target.verify_firmware(self.write_image(), 0x0009, 'waveshare_epaper_397')
+        version = '1.6.0-waveshare-epaper-397-rc.0'
+        package_nightly_target.verify_firmware(
+            self.write_image(version=version), 0x0009, 'waveshare_epaper_397', version
+        )
         with self.assertRaises(SystemExit):
             package_nightly_target.verify_firmware(
-                self.write_image(chip_id=5), 0x0009, 'waveshare_epaper_397'
+                self.write_image(chip_id=5, version=version), 0x0009, 'waveshare_epaper_397', version
             )
         with self.assertRaises(SystemExit):
             package_nightly_target.verify_firmware(
-                self.write_image(board='murphy_m4'), 0x0009, 'waveshare_epaper_397'
+                self.write_image(board='murphy_m4', version=version),
+                0x0009,
+                'waveshare_epaper_397',
+                version,
             )
 
 

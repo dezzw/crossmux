@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ReleaseJsonParser.h>
+#include <OtaManifestParser.h>
 
 #include <array>
 #include <cstddef>
@@ -12,17 +12,20 @@
 class OtaUpdater {
  public:
   enum class Channel : uint8_t { Stable, Nightly };
-  using ReleaseNote = ReleaseJsonParser::ReleaseNote;
+  using ReleaseNote = OtaManifestParser::ReleaseNote;
 
  private:
   bool updateAvailable = false;
   Channel channel = Channel::Stable;
   std::string latestVersion;
+  std::string otaBoardTag;
   std::string otaUrl;
+  std::string otaSha256Hex;
+  std::string otaSignatureBase64;
   size_t otaSize = 0;
   size_t processedSize = 0;
   size_t totalSize = 0;
-  std::array<ReleaseNote, ReleaseJsonParser::RELEASE_NOTE_COUNT_MAX> releaseNotes{};
+  std::array<ReleaseNote, OtaManifestParser::RELEASE_NOTE_COUNT_MAX> releaseNotes{};
   size_t releaseNoteCount = 0;
 
  public:
@@ -38,12 +41,12 @@ class OtaUpdater {
     INTERNAL_UPDATE_ERROR,
     OOM_ERROR,
     WRONG_DEVICE_ERROR,
+    SIGNATURE_ERROR,
+    HASH_MISMATCH_ERROR,
   };
 
   size_t getOtaSize() const { return otaSize; }
-
   size_t getProcessedSize() const { return processedSize; }
-
   size_t getTotalSize() const { return totalSize; }
 
   OtaUpdater() = default;
@@ -60,7 +63,7 @@ class OtaUpdater {
         "修复微信读书浏览页退出卡死以及详情菜单行高异常", "提升夜间版发布与固件下载流程的稳定性和可恢复性",
         "改进 Waveshare 3.97 显示刷新与待机唤醒可靠性",   "优化 SD 卡字体缓存与阅读内存回收策略",
     };
-    static_assert(std::size(MOCK_NOTES) <= ReleaseJsonParser::RELEASE_NOTE_COUNT_MAX);
+    static_assert(std::size(MOCK_NOTES) <= OtaManifestParser::RELEASE_NOTE_COUNT_MAX);
     releaseNoteCount = std::size(MOCK_NOTES);
     for (size_t i = 0; i < releaseNoteCount; ++i) {
       strncpy(releaseNotes[i].data(), MOCK_NOTES[i], releaseNotes[i].size() - 1);

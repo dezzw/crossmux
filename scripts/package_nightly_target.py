@@ -6,6 +6,7 @@ import configparser
 import csv
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -77,7 +78,27 @@ def copy_asset(source, destination):
     shutil.copyfile(source, destination)
 
 
-def verify_firmware(path, chip_id, board_tag):
+def scan_firmware_markers(path, board_tag, version):
+    board_marker = f'CROSSPOINT-BOARD-V1:{board_tag};'.encode()
+    version_marker = f'CROSSPOINT-VERSION-V1:{version};'.encode()
+    board_found = False
+    version_found = False
+    overlap = b''
+    with path.open('rb') as stream:
+        while chunk := stream.read(64 * 1024):
+            data = overlap + chunk
+            if not board_found and board_marker in data:
+                board_found = True
+            if not version_found and version_marker in data:
+                version_found = True
+            if board_found and version_found:
+                return True, True
+            keep = max(len(board_marker), len(version_marker)) - 1
+            overlap = data[-keep:] if keep else b''
+    return board_found, version_found
+
+
+def verify_firmware(path, chip_id, board_tag, version):
     with path.open('rb') as stream:
         header = stream.read(24)
         if len(header) != 24 or header[0] != 0xE9:
@@ -88,14 +109,11 @@ def verify_firmware(path, chip_id, board_tag):
                 f'{path.name} chip ID is 0x{actual_chip_id:04x}, expected 0x{chip_id:04x}'
             )
 
-        marker = f'CROSSPOINT-BOARD-V1:{board_tag};'.encode()
-        overlap = b''
-        while chunk := stream.read(64 * 1024):
-            data = overlap + chunk
-            if marker in data:
-                return
-            overlap = data[-(len(marker) - 1):]
-    raise SystemExit(f'{path.name} does not contain board tag {board_tag!r}')
+    board_found, version_found = scan_firmware_markers(path, board_tag, version)
+    if not board_found:
+        raise SystemExit(f'{path.name} does not contain board tag {board_tag!r}')
+    if not version_found:
+        raise SystemExit(f'{path.name} does not contain version tag {version!r}')
 
 
 def package_target(root, target_id, channel, output):
@@ -130,11 +148,15 @@ def package_target(root, target_id, channel, output):
     firmware = next(output / asset['name'] for asset in assets if asset['role'] == 'firmware')
     if firmware.stat().st_size > EXPECTED_PARTITIONS['app0'][1]:
         raise SystemExit(f'{firmware.name} exceeds the OTA app slot')
-    verify_firmware(firmware, target['chipId'], target['boardTag'])
 
     config = configparser.ConfigParser()
     config.read(root / 'platformio.ini')
-    short_sha = git_value(root, 'rev-parse', '--short=7', 'HEAD')
+    rc_run = os.environ.get('CROSSPOINT_RC_RUN', '0').strip()
+    manifest_version = version_for(
+        config['crosspoint']['version'], target_id, channel, 'global', rc_run
+    )
+    verify_firmware(firmware, target['chipId'], target['boardTag'], manifest_version)
+
     manifest = {
         'schemaVersion': 1,
         'channel': channel,
@@ -145,9 +167,7 @@ def package_target(root, target_id, channel, output):
         'supportedChannels': target['supportedChannels'],
         'environment': environment,
         'chip': target['chip'],
-        'version': version_for(
-            config['crosspoint']['version'], target_id, channel, 'global', short_sha
-        ),
+        'version': manifest_version,
         'crossmuxSha': git_value(root, 'rev-parse', 'HEAD'),
         'sdkSha': git_value(root / 'freeink-sdk', 'rev-parse', 'HEAD'),
         'assets': assets,

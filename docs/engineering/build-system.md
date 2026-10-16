@@ -30,7 +30,7 @@
 * **Logging**: ALWAYS use `LOG_INF`, `LOG_DBG`, or `LOG_ERR` from `Logging.h`. Raw Serial output is deprecated.
 * **Environments** (in `platformio.ini`):
   * `waveshare_epaper_397` (**default**): Waveshare ESP32-S3 ePaper 3.97 development build (LOG_LEVEL=2, serial enabled)
-  * `waveshare_epaper_397_nightly`: Nightly packaging build (LOG_LEVEL=1, RC version string from `CROSSPOINT_RC_HASH`)
+  * `waveshare_epaper_397_nightly`: Nightly packaging build (LOG_LEVEL=1, RC version string from `CROSSPOINT_RC_RUN`, default `0` locally)
   * `simulator`: Native X4-class desktop simulator (pinned simulator fork)
 
 Shared ini sections used by the Waveshare profile include `base`, `ble_host`,

@@ -56,6 +56,8 @@ class FontDownloadActivity final : public UiListActivity {
   enum class DownloadOperation : uint8_t { None, Single, DownloadAll, UpdateAll };
   enum class DownloadResult : uint8_t { Success, Cancelled, Failed };
   enum class AutomaticError : uint8_t { Download, FamilyMissing, PointSizeMissing, SettingsSave, FontLoad };
+  enum class ManifestFailure : uint8_t { None, Network, Tls, Http, Parse, Version, SdWrite };
+  enum class FileFailure : uint8_t { None, Network, Tls, Http, Crc, Header, Sd };
   enum class ExitRoute : uint8_t { Home, Reader, ReaderSuppressPrompt, ReaderPreloadChineseFont };
 
   struct ManifestFile {
@@ -100,7 +102,10 @@ class FontDownloadActivity final : public UiListActivity {
   size_t downloadTotal_ = 0;
   uint8_t lastProgressRefreshPercent_ = 0;
   int downloadingFamilyIndex_ = -1;
-  std::string errorMessage_;
+  ManifestFailure manifestFailure_ = ManifestFailure::None;
+  FileFailure fileFailure_ = FileFailure::None;
+  int lastHttpStatus_ = 0;
+  mutable char httpDetailBuffer_[48]{};
   bool cancelRequested_ = false;
   bool readingStatsReleased_ = false;
   DownloadOperation operation_ = DownloadOperation::None;
@@ -146,6 +151,9 @@ class FontDownloadActivity final : public UiListActivity {
   bool startAutomaticDownload();
   void finishAutomaticFlow(ExitRoute route);
   const char* automaticErrorText() const;
+  const char* failureDetailText() const;
+  static void recordTransportFailure(ManifestFailure& target, int& httpStatus);
+  static void recordTransportFailure(FileFailure& target, int& httpStatus);
   bool fetchAndParseManifest();
   void resetDownloadProgress(size_t total);
   void updateDownloadProgress(size_t completed);

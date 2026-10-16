@@ -31,8 +31,10 @@ static_assert(classifyImageState(ESP_OTA_IMG_INVALID) == HalOtaSlot::RunningImag
 static_assert(classifyImageState(ESP_OTA_IMG_ABORTED) == HalOtaSlot::RunningImageState::Unsafe);
 }  // namespace
 
-#ifdef CONFIG_APP_ROLLBACK_ENABLE
+#if defined(CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE) && CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
 extern "C" bool verifyRollbackLater() { return true; }
+#elif defined(CONFIG_APP_ROLLBACK_ENABLE)
+#error "Use CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE (legacy CONFIG_APP_ROLLBACK_ENABLE is unsupported)"
 #endif
 
 HalOtaSlot HalOtaSlot::inactive() {

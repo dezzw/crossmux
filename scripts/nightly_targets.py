@@ -8,8 +8,11 @@ TARGETS = {
         'boardTag': 'waveshare_epaper_397',
         'chip': 'ESP32-S3',
         'chipId': 0x0009,
-        'environments': {'nightly': 'waveshare_epaper_397_nightly'},
-        'supportedChannels': ['nightly'],
+        'environments': {
+            'nightly': 'waveshare_epaper_397_nightly',
+            'stable': 'waveshare_epaper_397',
+        },
+        'supportedChannels': ['nightly', 'stable'],
         'fullInstall': True,
     },
 }
@@ -30,7 +33,7 @@ def environment_for(target_id, channel, flavor):
     return TARGETS[target_id]['environments'][channel]
 
 
-def version_for(base_version, target_id, channel, flavor, short_sha):
+def version_for(base_version, target_id, channel, flavor, rc_run):
     target = TARGETS[target_id]
     if channel == 'stable':
         return base_version
@@ -39,7 +42,10 @@ def version_for(base_version, target_id, channel, flavor, short_sha):
     parts = [base_version, target['deviceSlug']]
     if flavor not in FLAVOR_TOKENS:
         raise KeyError(flavor)
-    return f"{'-'.join(parts)}-rc+{short_sha[:7]}"
+    run = str(rc_run).strip()
+    if not run.isdigit():
+        raise ValueError(f'nightly rc run must be numeric, got {rc_run!r}')
+    return f"{'-'.join(parts)}-rc.{run}"
 
 
 def asset_name(target_id, source_name):

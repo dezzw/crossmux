@@ -46,6 +46,11 @@ include(GoogleTest)
 
 add_subdirectory(streaming_json_parser)
 add_subdirectory(release_json_parser)
+add_subdirectory(semver)
+add_subdirectory(firmware_version_tag)
+add_subdirectory(ota_manifest)
+add_subdirectory(ota_signature)
+add_subdirectory(ota_signing_cross)
 add_subdirectory(differential_rounding)
 add_subdirectory(hyphenation_eval)
 add_subdirectory(utf8_compose)
@@ -126,3 +131,5 @@ add_test(NAME UiFontFallback
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ui_font_fallback.py)
 add_test(NAME WifiListNavRebuild
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wifi_list_nav_rebuild.py)
+add_test(NAME OtaSigningKnownAnswerPython
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ota_signing_cross.py)

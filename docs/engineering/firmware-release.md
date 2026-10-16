@@ -1,8 +1,9 @@
 # Firmware Release Architecture
 
 CrossMux has two release channels, `stable` and `nightly`, managed by one
-channel-aware pipeline. In this fork the canonical hardware target is
-**Waveshare ESP32-S3 ePaper 3.97**, published on the **Nightly** channel only.
+channel-aware pipeline. In the **dezzw/crossmux** fork the canonical hardware
+target is **Waveshare ESP32-S3 ePaper 3.97**, published on both **Stable**
+(tag `vX.Y.Z` on `main`) and **Nightly** channels from GitHub Releases only.
 
 ## Canonical targets
 
@@ -12,13 +13,26 @@ runtime models, artifact slug, embedded board tag, per-channel PlatformIO
 environment, chip, install capability, and supported channels. The workflow,
 packager, index builder, and tests import this table rather than copy it.
 
-The sole entry is `waveshare_epaper_397`, built with
-`waveshare_epaper_397_nightly`. Each published image is aliased by the
-compatibility `global` and `zh-CN` pointers.
+The sole entry is `waveshare_epaper_397`, built with `waveshare_epaper_397`
+(Stable) and `waveshare_epaper_397_nightly` (Nightly). Each published image is
+aliased by the compatibility `global` and `zh-CN` pointers.
 
-Version-tag **Stable** releases are not configured until a stable PlatformIO
-profile and target entry exist; the workflow fails closed when
-`targets_for('stable')` is empty.
+## dezzw fork OTA signing (maintainers)
+
+1. Run `python3 scripts/ota_keygen.py` locally. Commit the updated
+   `src/network/OtaSigningPublicKey.h` and keep the generated private PEM offline.
+2. Add the private PEM text to the repository secret **`OTA_SIGNING_KEY`**.
+3. Set GitHub **Settings → Actions → General → Workflow permissions** to
+   **Read and write**.
+4. Tag the first stable release on `main` as `vX.Y.Z` matching `platformio.ini`
+   `[crosspoint] version`.
+5. Flash one device over USB with the firmware that embeds the matching public key
+   before relying on OTA.
+
+Devices fetch Stable manifests from
+`https://github.com/dezzw/crossmux/releases/latest/download/waveshare-epaper-397-global-manifest.json`,
+verify SHA-256 and an ECDSA P-256 signature, require a matching board tag, and
+refuse downgrades. TLS uses the embedded CA bundle for GitHub and crossmux.com.
 
 ## Publishing
 

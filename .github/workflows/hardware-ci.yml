@@ -134,10 +134,12 @@ jobs:
           key: pio-cache-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-cache-${{ runner.os }}-
 
+      - name: Set monotonic nightly RC run number
+        run: echo "CROSSPOINT_RC_RUN=${{ github.run_number }}" >> "$GITHUB_ENV"
+
       - name: Build simulator and Waveshare 3.97 nightly
         run: |
           set -euo pipefail
-          export CROSSPOINT_RC_HASH="${GITHUB_SHA::7}"
           pio run \
             -e simulator \
             -e waveshare_epaper_397_nightly | tee pio.log
