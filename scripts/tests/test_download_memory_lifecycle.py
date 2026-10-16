@@ -83,6 +83,7 @@ struct OtaUpdateActivity : Activity {
   State state = State::Ready;
   bool readingStatsReleased = false;
   bool clockAutoSyncBeforeWifi_ = true;
+  bool autoSyncSaved_ = false;
   void beginWifiSelection();
   void onExit();
 };

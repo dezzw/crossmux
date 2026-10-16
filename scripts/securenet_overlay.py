@@ -76,7 +76,10 @@ def ensure_overlay(project_dir: Path) -> Path:
 
 def apply_patches(project_dir: Path) -> None:
     overlay_dir = ensure_overlay(project_dir)
-    patch_secure_client_cpp(overlay_dir / "src/SecureClient.cpp")
+    secure_client = overlay_dir / "src/SecureClient.cpp"
+    if secure_client.is_file() and MARKER in secure_client.read_text():
+        return
+    patch_secure_client_cpp(secure_client)
     patch_secure_client_h(overlay_dir / "include/SecureClient.h")
     patch_secure_http_h(overlay_dir / "include/SecureHttpClient.h")
 
