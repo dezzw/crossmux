@@ -34,6 +34,8 @@ MOZILLA_SPECS = [
      'sha256': '34:D8:A7:3E:E2:08:D9:BC:DB:0D:95:65:20:93:4B:4E:40:E6:94:82:59:6E:8B:6F:73:C8:42:6B:01:0A:6F:48'},
     {'label': 'GTS Root R4', 'cn': 'GTS Root R4',
      'sha256': '34:9D:FA:40:58:C5:E2:63:12:3B:39:8A:E7:95:57:3C:4E:13:13:C8:3F:E6:8F:93:55:6C:D5:E8:03:1B:3C:7D'},
+    {'label': 'TrustAsia TLS RSA Root CA', 'cn': 'TrustAsia TLS RSA Root CA',
+     'sha256': '06:C0:8D:7D:AF:D8:76:97:1E:B1:12:4F:E6:7F:84:7E:C0:C7:A1:58:D3:EA:53:CB:E9:40:E2:EA:97:91:F4:C3'},
 ]
 
 PINNED = [

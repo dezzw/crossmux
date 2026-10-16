@@ -6,6 +6,7 @@
 #include "FontInstaller.h"
 #include "SdCardFont.h"
 #include "activities/UiListActivity.h"
+#include "network/FontManifestCatalog.h"
 
 // JSON schema version of the fonts.json manifest. The canonical version for
 // the build tooling lives in lib/EpdFont/scripts/cpfont_version.py. This
@@ -81,24 +82,10 @@ class FontDownloadActivity final : public UiListActivity {
   };
   enum class ExitRoute : uint8_t { Home, Reader, ReaderSuppressPrompt, ReaderPreloadChineseFont };
 
-  struct ManifestFile {
-    size_t size = 0;
-    uint32_t crc32 = 0;
-    uint8_t pointSize = 0;
-  };
+  using ManifestFile = FontManifestCatalog::File;
+  using ManifestFamily = FontManifestCatalog::Family;
 
-  struct ManifestFamily {
-    std::string name;
-    std::string description;
-    size_t fileOffset = 0;
-    size_t fileCount = 0;
-    size_t totalSize = 0;
-    bool installed = false;
-    bool hasUpdate = false;
-    uint32_t scriptMask = 0;
-  };
-
-  static constexpr size_t MAX_SCRIPT_GROUPS = 32;
+  static constexpr size_t MAX_SCRIPT_GROUPS = FontManifestCatalog::Limits::kMaxScriptGroups;
 
   State state_ = WIFI_SELECTION;
   Purpose purpose_;
@@ -106,7 +93,6 @@ class FontDownloadActivity final : public UiListActivity {
   FontInstaller fontInstaller_;
 
   // Manifest data
-  std::string baseUrl_;
   std::vector<ManifestFamily> families_;
   std::vector<ManifestFile> files_;
   // Manifest-defined labels are dynamic; cap them at the 32-bit membership
