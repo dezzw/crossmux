@@ -155,7 +155,7 @@ bool planFamilies(JsonArrayConst familiesArr, const Catalog& catalog, IngestMode
 }
 
 bool countAfterIngest(const Catalog& scratch, JsonArrayConst familiesArr, IngestMode mode, size_t& outFamilies,
-                    size_t& outFiles) {
+                      size_t& outFiles) {
   outFamilies = scratch.families.size();
   outFiles = scratch.files.size();
   for (JsonObjectConst familyObject : familiesArr) {
@@ -223,9 +223,9 @@ bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, IngestMode mod
         LOG_ERR("FONT", "Malformed manifest file entry: %s", fileName);
         return false;
       }
-      const bool duplicatePointSize = std::any_of(
-          pendingFiles.begin(), pendingFiles.end(),
-          [&file](const File& existing) { return existing.pointSize == file.pointSize; });
+      const bool duplicatePointSize =
+          std::any_of(pendingFiles.begin(), pendingFiles.end(),
+                      [&file](const File& existing) { return existing.pointSize == file.pointSize; });
       if (duplicatePointSize) {
         LOG_ERR("FONT", "Duplicate manifest point size: %s", fileName);
         return false;
@@ -282,7 +282,8 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
       scratch.scriptGroupTags.reserve(groupCount);
       scratch.scriptGroupLabels.reserve(groupCount);
       if (groupsArr.size() > Limits::kMaxScriptGroups) {
-        LOG_ERR("FONT", "Manifest declares more than %zu script groups; extra groups ignored", Limits::kMaxScriptGroups);
+        LOG_ERR("FONT", "Manifest declares more than %zu script groups; extra groups ignored",
+                Limits::kMaxScriptGroups);
       }
       for (size_t groupIndex = 0; groupIndex < groupCount; groupIndex++) {
         JsonObjectConst groupObj = groupsArr[groupIndex].as<JsonObjectConst>();
