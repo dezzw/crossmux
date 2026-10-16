@@ -53,9 +53,10 @@ size_t findScriptGroupIndex(const std::vector<std::string>& tags, const char* ta
   return tags.size();
 }
 
-uint32_t scriptMaskForTags(const std::vector<std::string>& groupTags, const JsonArray& scripts) {
+uint32_t scriptMaskForTags(const std::vector<std::string>& groupTags, JsonArrayConst scripts) {
   uint32_t mask = 0;
-  for (JsonVariant script : scripts) {
+  if (scripts.isNull()) return mask;
+  for (JsonVariantConst script : scripts) {
     const char* familyTag = script.as<const char*>();
     if (!familyTag) continue;
     const size_t groupIndex = findScriptGroupIndex(groupTags, familyTag);
@@ -66,10 +67,11 @@ uint32_t scriptMaskForTags(const std::vector<std::string>& groupTags, const Json
   return mask;
 }
 
-bool mergeScriptGroups(const JsonArray& groupsArr, Catalog& catalog) {
+bool mergeScriptGroups(JsonArrayConst groupsArr, Catalog& catalog) {
+  if (groupsArr.isNull()) return true;
   const size_t incomingCount = groupsArr.size();
   for (size_t groupIndex = 0; groupIndex < incomingCount; groupIndex++) {
-    JsonObject groupObj = groupsArr[groupIndex].as<JsonObject>();
+    JsonObjectConst groupObj = groupsArr[groupIndex].as<JsonObjectConst>();
     const char* tag = groupObj["tag"] | "";
     const char* label = groupObj["label"] | "";
     if (*tag == '\0' || *label == '\0') {
@@ -94,15 +96,15 @@ bool familyNameExists(const Catalog& catalog, const std::string& name) {
                      [&name](const Family& existing) { return existing.name == name; });
 }
 
-bool ingestFamilies(const JsonArray& familiesArr, Catalog& catalog, const FontInstaller* installer, IngestMode mode,
+bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, const FontInstaller* installer, IngestMode mode,
                     const std::string& baseUrl) {
   size_t incomingFileCount = 0;
-  for (JsonObject familyObject : familiesArr) {
+  for (JsonObjectConst familyObject : familiesArr) {
     const char* familyName = familyObject["name"] | "";
     if (mode == IngestMode::MergeSkipDuplicateNames && familyNameExists(catalog, familyName)) {
       continue;
     }
-    const JsonArray familyFiles = familyObject["files"].as<JsonArray>();
+    const JsonArrayConst familyFiles = familyObject["files"].as<JsonArrayConst>();
     if (familyFiles.isNull() || familyFiles.size() == 0 || familyFiles.size() > Limits::kMaxFilesPerFamily) {
       LOG_ERR("FONT", "Manifest has invalid file count");
       return false;
@@ -122,7 +124,7 @@ bool ingestFamilies(const JsonArray& familiesArr, Catalog& catalog, const FontIn
   catalog.families.reserve(catalog.families.size() + familiesArr.size());
   catalog.files.reserve(catalog.files.size() + incomingFileCount);
 
-  for (JsonObject fObj : familiesArr) {
+  for (JsonObjectConst fObj : familiesArr) {
     Family family;
     family.name = fObj["name"] | "";
     family.description = fObj["description"] | "";
@@ -137,21 +139,20 @@ bool ingestFamilies(const JsonArray& familiesArr, Catalog& catalog, const FontIn
       return false;
     }
 
-    const JsonArray familyFiles = fObj["files"].as<JsonArray>();
+    const JsonArrayConst familyFiles = fObj["files"].as<JsonArrayConst>();
     family.fileOffset = catalog.files.size();
     family.fileCount = familyFiles.size();
-    family.scriptMask = scriptMaskForTags(catalog.scriptGroupTags, fObj["scripts"].as<JsonArray>());
+    family.scriptMask = scriptMaskForTags(catalog.scriptGroupTags, fObj["scripts"].as<JsonArrayConst>());
     family.totalSize = 0;
     family.installed = installer != nullptr && installer->isFamilyInstalled(family.name.c_str());
 
-    for (JsonObject fileObj : familyFiles) {
+    for (JsonObjectConst fileObj : familyFiles) {
       File file;
       const char* fileName = fileObj["name"] | "";
       file.size = fileObj["size"] | 0;
 
-      if (!isValidCpfontFilename(fileName) ||
-          !parsePointSize(family.name.c_str(), fileName, file.pointSize) || file.size == 0 ||
-          file.size >= Limits::kMaxFontFileBytes || !fileObj["crc32"].is<uint32_t>()) {
+      if (!isValidCpfontFilename(fileName) || !parsePointSize(family.name.c_str(), fileName, file.pointSize) ||
+          file.size == 0 || file.size >= Limits::kMaxFontFileBytes || !fileObj["crc32"].is<uint32_t>()) {
         LOG_ERR("FONT", "Malformed manifest file entry: %s", fileName);
         return false;
       }
@@ -224,15 +225,14 @@ IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, const Fon
     return IngestResult::Parse;
   }
 
-  const JsonVariantConst groupsVar = doc["scriptGroups"];
+  const JsonArrayConst groupsArr = doc["scriptGroups"];
   if (mode == IngestMode::Replace) {
     catalog.scriptGroupTags.clear();
     catalog.scriptGroupLabels.clear();
-    if (!groupsVar.is<JsonArray>()) {
+    if (groupsArr.isNull()) {
       LOG_ERR("FONT", "Manifest has invalid scriptGroups");
       return IngestResult::Parse;
     }
-    const JsonArray groupsArr = groupsVar.as<JsonArray>();
     const size_t groupCount = std::min(groupsArr.size(), Limits::kMaxScriptGroups);
     catalog.scriptGroupTags.reserve(groupCount);
     catalog.scriptGroupLabels.reserve(groupCount);
@@ -240,7 +240,7 @@ IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, const Fon
       LOG_ERR("FONT", "Manifest declares more than %zu script groups; extra groups ignored", Limits::kMaxScriptGroups);
     }
     for (size_t groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-      JsonObject groupObj = groupsArr[groupIndex].as<JsonObject>();
+      JsonObjectConst groupObj = groupsArr[groupIndex].as<JsonObjectConst>();
       const char* tag = groupObj["tag"] | "";
       const char* label = groupObj["label"] | "";
       if (*tag == '\0' || *label == '\0') {
@@ -250,19 +250,15 @@ IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, const Fon
       catalog.scriptGroupTags.emplace_back(tag);
       catalog.scriptGroupLabels.emplace_back(label);
     }
-  } else if (groupsVar.is<JsonArray>()) {
-    const JsonArray groupsArr = groupsVar.as<JsonArray>();
-    if (!mergeScriptGroups(groupsArr, catalog)) {
-      return IngestResult::Parse;
-    }
+  } else if (!mergeScriptGroups(groupsArr, catalog)) {
+    return IngestResult::Parse;
   }
 
-  const JsonVariantConst familiesVar = doc["families"];
-  if (!familiesVar.is<JsonArray>()) {
+  const JsonArrayConst familiesArr = doc["families"];
+  if (familiesArr.isNull()) {
     LOG_ERR("FONT", "Manifest has invalid family count: 0");
     return IngestResult::Parse;
   }
-  const JsonArray familiesArr = familiesVar.as<JsonArray>();
   if (familiesArr.size() == 0) {
     LOG_ERR("FONT", "Manifest has invalid family count: %zu", familiesArr.size());
     return IngestResult::Parse;
