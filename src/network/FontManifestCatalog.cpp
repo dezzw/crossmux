@@ -163,7 +163,6 @@ bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, IngestMode mod
 
       family.totalSize += file.size;
       catalog.files.push_back(file);
-
     }
 
     catalog.families.push_back(std::move(family));

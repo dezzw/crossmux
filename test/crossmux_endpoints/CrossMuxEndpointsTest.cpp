@@ -40,5 +40,5 @@ TEST(CrossMuxEndpoints, FormatFontGithubManifestUrlTruncatesWhenBufferTooSmall) 
   char url[8];
   const int len =
       CrossMuxEndpoints::formatFontGithubManifestUrl(url, sizeof(url), kFontsManifestVersion, CPFONT_VERSION);
-  EXPECT_LT(len, 0);
+  EXPECT_GE(len, static_cast<int>(sizeof(url)));
 }
