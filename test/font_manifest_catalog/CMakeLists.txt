@@ -9,7 +9,6 @@ FetchContent_MakeAvailable(ArduinoJson)
 add_executable(FontManifestCatalogTest
   FontManifestCatalogTest.cpp
   ${REPO_ROOT}/src/network/FontManifestCatalog.cpp
-  ${REPO_ROOT}/src/FontInstaller.cpp
 )
 
 target_compile_definitions(FontManifestCatalogTest PRIVATE CROSSPOINT_HOST_TEST)

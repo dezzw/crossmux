@@ -484,8 +484,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   bool loadedAny = false;
 
   for (const ManifestSource& source : sources) {
-    const auto downloadResult =
-        HttpDownloader::downloadToFile(source.url, MANIFEST_TMP, nullptr, nullptr, verifiedTls);
+    const auto downloadResult = HttpDownloader::downloadToFile(source.url, MANIFEST_TMP, nullptr, nullptr, verifiedTls);
     if (downloadResult != HttpDownloader::OK) {
       if (manifestFailure_ == ManifestFailure::None) {
         recordTransportFailure(manifestFailure_, lastHttpStatus_);
@@ -561,8 +560,8 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   const size_t rowCapacity = std::max(families_.size() + 2, scriptGroupLabels_.size() + 1);
   rowLabels_.reserve(rowCapacity);
   rowItems_.reserve(rowCapacity);
-  LOG_DBG("FONT", "Manifest loaded: %zu families, %zu files, %zu script groups, ~%zu B catalog heap",
-          families_.size(), files_.size(), scriptGroupLabels_.size(), catalogHeapBytes);
+  LOG_DBG("FONT", "Manifest loaded: %zu families, %zu files, %zu script groups, ~%zu B catalog heap", families_.size(),
+          files_.size(), scriptGroupLabels_.size(), catalogHeapBytes);
   return true;
 }
 

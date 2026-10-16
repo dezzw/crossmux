@@ -1,6 +1,5 @@
 #include "FontManifestCatalog.h"
 
-#include <HalFile.h>
 #include <HalStorage.h>
 #include <Logging.h>
 
@@ -16,6 +15,36 @@ namespace {
 
 // Must stay in sync with FONTS_MANIFEST_VERSION in FontDownloadActivity.h.
 constexpr int kExpectedManifestSchemaVersion = 1;
+
+bool isValidFamilyName(const char* name) {
+  if (name == nullptr || name[0] == '\0') return false;
+  if (strstr(name, "..") != nullptr) return false;
+  if (strchr(name, '/') != nullptr) return false;
+  if (strchr(name, '\\') != nullptr) return false;
+  for (const char* p = name; *p != '\0'; ++p) {
+    const char c = *p;
+    if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_') return false;
+  }
+  return true;
+}
+
+bool isValidCpfontFilename(const char* name) {
+  if (name == nullptr || name[0] == '\0') return false;
+  if (strstr(name, "..") != nullptr) return false;
+  if (strchr(name, '/') != nullptr) return false;
+  if (strchr(name, '\\') != nullptr) return false;
+  static constexpr char kExt[] = ".cpfont";
+  static constexpr size_t kExtLen = sizeof(kExt) - 1;
+  const size_t nameLen = strlen(name);
+  if (nameLen <= kExtLen) return false;
+  if (strcmp(name + nameLen - kExtLen, kExt) != 0) return false;
+  const size_t baseLen = nameLen - kExtLen;
+  for (size_t i = 0; i < baseLen; ++i) {
+    const char c = name[i];
+    if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_') return false;
+  }
+  return true;
+}
 
 size_t findScriptGroupIndex(const std::vector<std::string>& tags, const char* tag) {
   for (size_t index = 0; index < tags.size(); index++) {
@@ -102,7 +131,7 @@ bool ingestFamilies(const JsonArray& familiesArr, Catalog& catalog, const FontIn
       continue;
     }
     const bool duplicateFamily = familyNameExists(catalog, family.name);
-    if (!FontInstaller::isValidFamilyName(family.name.c_str()) || family.name.size() > Limits::kMaxFamilyNameBytes ||
+    if (!isValidFamilyName(family.name.c_str()) || family.name.size() > Limits::kMaxFamilyNameBytes ||
         family.description.empty() || family.description.size() > Limits::kMaxDescriptionBytes || duplicateFamily) {
       LOG_ERR("FONT", "Malformed manifest family name: %s", family.name.c_str());
       return false;
@@ -120,7 +149,7 @@ bool ingestFamilies(const JsonArray& familiesArr, Catalog& catalog, const FontIn
       const char* fileName = fileObj["name"] | "";
       file.size = fileObj["size"] | 0;
 
-      if (!FontInstaller::isValidCpfontFilename(fileName) ||
+      if (!isValidCpfontFilename(fileName) ||
           !parsePointSize(family.name.c_str(), fileName, file.pointSize) || file.size == 0 ||
           file.size >= Limits::kMaxFontFileBytes || !fileObj["crc32"].is<uint32_t>()) {
         LOG_ERR("FONT", "Malformed manifest file entry: %s", fileName);
@@ -195,10 +224,15 @@ IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, const Fon
     return IngestResult::Parse;
   }
 
-  const JsonArray groupsArr = doc["scriptGroups"].as<JsonArray>();
+  const JsonVariantConst groupsVar = doc["scriptGroups"];
   if (mode == IngestMode::Replace) {
     catalog.scriptGroupTags.clear();
     catalog.scriptGroupLabels.clear();
+    if (!groupsVar.is<JsonArray>()) {
+      LOG_ERR("FONT", "Manifest has invalid scriptGroups");
+      return IngestResult::Parse;
+    }
+    const JsonArray groupsArr = groupsVar.as<JsonArray>();
     const size_t groupCount = std::min(groupsArr.size(), Limits::kMaxScriptGroups);
     catalog.scriptGroupTags.reserve(groupCount);
     catalog.scriptGroupLabels.reserve(groupCount);
@@ -216,12 +250,20 @@ IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, const Fon
       catalog.scriptGroupTags.emplace_back(tag);
       catalog.scriptGroupLabels.emplace_back(label);
     }
-  } else if (!mergeScriptGroups(groupsArr, catalog)) {
-    return IngestResult::Parse;
+  } else if (groupsVar.is<JsonArray>()) {
+    const JsonArray groupsArr = groupsVar.as<JsonArray>();
+    if (!mergeScriptGroups(groupsArr, catalog)) {
+      return IngestResult::Parse;
+    }
   }
 
-  const JsonArray familiesArr = doc["families"].as<JsonArray>();
-  if (familiesArr.isNull() || familiesArr.size() == 0) {
+  const JsonVariantConst familiesVar = doc["families"];
+  if (!familiesVar.is<JsonArray>()) {
+    LOG_ERR("FONT", "Manifest has invalid family count: 0");
+    return IngestResult::Parse;
+  }
+  const JsonArray familiesArr = familiesVar.as<JsonArray>();
+  if (familiesArr.size() == 0) {
     LOG_ERR("FONT", "Manifest has invalid family count: %zu", familiesArr.size());
     return IngestResult::Parse;
   }
