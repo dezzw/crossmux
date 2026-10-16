@@ -7,8 +7,6 @@
 #include <string>
 #include <vector>
 
-class FontInstaller;
-
 namespace FontManifestCatalog {
 
 struct Limits {
@@ -54,7 +52,7 @@ enum class IngestMode { Replace, MergeSkipDuplicateNames };
 
 bool parsePointSize(const char* familyName, const char* fileName, uint8_t& pointSize);
 
-IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, const FontInstaller* installer, IngestMode mode);
+IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode);
 
 size_t estimateCatalogHeapBytes(const Catalog& catalog);
 

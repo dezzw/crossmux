@@ -1,13 +1,10 @@
 #include "FontManifestCatalog.h"
 
-#include <HalStorage.h>
 #include <Logging.h>
 
 #include <algorithm>
 #include <cctype>
 #include <cstring>
-
-#include "FontInstaller.h"
 
 namespace FontManifestCatalog {
 
@@ -96,8 +93,7 @@ bool familyNameExists(const Catalog& catalog, const std::string& name) {
                      [&name](const Family& existing) { return existing.name == name; });
 }
 
-bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, const FontInstaller* installer, IngestMode mode,
-                    const std::string& baseUrl) {
+bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, IngestMode mode, const std::string& baseUrl) {
   size_t incomingFileCount = 0;
   for (JsonObjectConst familyObject : familiesArr) {
     const char* familyName = familyObject["name"] | "";
@@ -144,7 +140,7 @@ bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, const FontInst
     family.fileCount = familyFiles.size();
     family.scriptMask = scriptMaskForTags(catalog.scriptGroupTags, fObj["scripts"].as<JsonArrayConst>());
     family.totalSize = 0;
-    family.installed = installer != nullptr && installer->isFamilyInstalled(family.name.c_str());
+    family.installed = false;
 
     for (JsonObjectConst fileObj : familyFiles) {
       File file;
@@ -168,16 +164,6 @@ bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, const FontInst
       family.totalSize += file.size;
       catalog.files.push_back(file);
 
-      if (installer != nullptr && family.installed && !family.hasUpdate) {
-        char path[128];
-        FontInstaller::buildFontPath(family.name.c_str(), fileName, path, sizeof(path));
-        HalFile f;
-        if (Storage.openFileForRead("FONT", path, f)) {
-          if (f.fileSize() != file.size) family.hasUpdate = true;
-        } else {
-          family.hasUpdate = true;
-        }
-      }
     }
 
     catalog.families.push_back(std::move(family));
@@ -209,8 +195,7 @@ bool parsePointSize(const char* familyName, const char* fileName, uint8_t& point
   return true;
 }
 
-IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, const FontInstaller* installer,
-                            IngestMode mode) {
+IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode) {
   const int version = doc["version"] | 0;
   if (version != kExpectedManifestSchemaVersion) {
     LOG_ERR("FONT", "Unsupported manifest version: %d", version);
@@ -268,7 +253,7 @@ IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, const Fon
     LOG_ERR("FONT", "Manifest has invalid family count: %zu", familiesArr.size());
     return IngestResult::Parse;
   }
-  if (!ingestFamilies(familiesArr, catalog, installer, mode, baseUrl)) {
+  if (!ingestFamilies(familiesArr, catalog, mode, baseUrl)) {
     return IngestResult::Parse;
   }
   if (catalog.families.size() > Limits::kMaxManifestFamilies) {

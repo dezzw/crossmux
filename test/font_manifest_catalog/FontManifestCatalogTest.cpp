@@ -32,9 +32,9 @@ TEST(FontManifestCatalog, MergeAddsMissingFamilyFromSecondaryManifest) {
   ASSERT_TRUE(loadManifest("https://assets.crossmux.cn/fonts/m1-b4/releases/test/", "NotoSansSC", legacyDoc));
 
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog, nullptr, FontManifestCatalog::IngestMode::Replace),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog, FontManifestCatalog::IngestMode::Replace),
             FontManifestCatalog::IngestResult::Ok);
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, nullptr,
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog,
                                                 FontManifestCatalog::IngestMode::MergeSkipDuplicateNames),
             FontManifestCatalog::IngestResult::Ok);
 
@@ -64,9 +64,9 @@ TEST(FontManifestCatalog, MergePrefersPrimaryOnDuplicateName) {
   ASSERT_TRUE(loadManifest("https://assets.crossmux.cn/legacy/", "Literata", legacyDoc));
 
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog, nullptr, FontManifestCatalog::IngestMode::Replace),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog, FontManifestCatalog::IngestMode::Replace),
             FontManifestCatalog::IngestResult::Ok);
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, nullptr,
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog,
                                                 FontManifestCatalog::IngestMode::MergeSkipDuplicateNames),
             FontManifestCatalog::IngestResult::Ok);
 

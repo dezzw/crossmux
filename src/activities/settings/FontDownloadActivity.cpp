@@ -533,7 +533,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     }
 
     const FontManifestCatalog::IngestResult ingestResult =
-        FontManifestCatalog::ingestDocument(doc, catalog, &fontInstaller_, source.mode);
+        FontManifestCatalog::ingestDocument(doc, catalog, source.mode);
     if (ingestResult != FontManifestCatalog::IngestResult::Ok) {
       LOG_ERR("FONT", "Manifest ingest failed from %s", source.url);
       if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
@@ -555,6 +555,24 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   scriptGroupLabels_ = std::move(catalog.scriptGroupLabels);
   families_ = std::move(catalog.families);
   files_ = std::move(catalog.files);
+  for (ManifestFamily& family : families_) {
+    family.installed = fontInstaller_.isFamilyInstalled(family.name.c_str());
+    family.hasUpdate = false;
+    if (!family.installed) continue;
+    for (size_t fileIndex = family.fileOffset; fileIndex < family.fileOffset + family.fileCount; fileIndex++) {
+      const ManifestFile& file = files_[fileIndex];
+      char fileName[128];
+      snprintf(fileName, sizeof(fileName), "%s_%u.cpfont", family.name.c_str(), static_cast<unsigned>(file.pointSize));
+      char path[128];
+      FontInstaller::buildFontPath(family.name.c_str(), fileName, path, sizeof(path));
+      HalFile fontFile;
+      if (Storage.openFileForRead("FONT", path, fontFile)) {
+        if (fontFile.fileSize() != file.size) family.hasUpdate = true;
+      } else {
+        family.hasUpdate = true;
+      }
+    }
+  }
   filteredIndices_.reserve(families_.size());
 
   const size_t rowCapacity = std::max(families_.size() + 2, scriptGroupLabels_.size() + 1);
