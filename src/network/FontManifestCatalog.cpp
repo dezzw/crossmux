@@ -405,7 +405,7 @@ void applyDefaultScriptGroupForUnscriptedFamilies(Catalog& catalog) {
     if (family.scriptMask != 0) continue;
     if (family.baseUrlIndex >= catalog.baseUrls.size() ||
         !isCrossMuxSourcedFamilyBaseUrl(catalog.baseUrls[family.baseUrlIndex])) {
-      LOG_WRN("FONT", "Unscripted GitHub family %s stays in All fonts", family.name.c_str());
+      LOG_INF("FONT", "WARN: unscripted GitHub family %s stays in All fonts", family.name.c_str());
       continue;
     }
     family.scriptMask = cjkBit;
