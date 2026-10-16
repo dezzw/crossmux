@@ -12,6 +12,7 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "NetworkStartup.h"
+#include "network/HttpTransportFailure.h"
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/SubpageLayout.h"
@@ -38,6 +39,7 @@ void ClockSyncActivity::onExit() {
   Activity::onExit();
 
   if (shouldTearDownWifiOnExit && WiFi.getMode() != WIFI_MODE_NULL) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
     silentRestart();

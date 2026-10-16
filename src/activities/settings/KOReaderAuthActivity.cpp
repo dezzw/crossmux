@@ -9,6 +9,7 @@
 #include "KOReaderSyncClient.h"
 #include "MappedInputManager.h"
 #include "NetworkStartup.h"
+#include "network/HttpTransportFailure.h"
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/SubpageLayout.h"
@@ -79,6 +80,7 @@ void KOReaderAuthActivity::onExit() {
   Activity::onExit();
 
   if (WiFi.getMode() != WIFI_MODE_NULL) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
     silentRestart();

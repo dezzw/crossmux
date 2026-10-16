@@ -203,6 +203,7 @@ void WifiSelectionActivity::startWifiScan(const bool autoScan) {
 
   // Set WiFi mode to station
   NetworkStartup::setMode(renderer, WIFI_STA);
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect();
   delay(100);
 
@@ -432,6 +433,7 @@ bool WifiSelectionActivity::tryNextSavedNetworkFromScan() {
 
 void WifiSelectionActivity::handleAutoConnectFailure() {
   LOG_DBG("WIFI", "Saved network failed: %s", selectedSSID.c_str());
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect();
 
   if (!networks.empty()) {
@@ -450,6 +452,7 @@ void WifiSelectionActivity::handleAutoConnectFailure() {
 
 void WifiSelectionActivity::showNetworkListFromAutoConnect() {
   LOG_DBG("WIFI", "User requested manual network list");
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect();
   autoConnecting = false;
   manualNetworkListRequested = true;
@@ -474,6 +477,7 @@ void WifiSelectionActivity::attemptConnection() {
 
   WiFi.persistent(false);  // Credentials are managed by WifiCredentialStore; suppress SDK NVS auto-connect
   NetworkStartup::setMode(renderer, WIFI_STA);
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect(true, true);  // Abort any in-progress SDK auto-connect and clear NVS-saved SSID
   delay(100);
 
@@ -600,6 +604,7 @@ void WifiSelectionActivity::loop() {
   if (state == WifiSelectionState::CONNECTING || state == WifiSelectionState::AUTO_CONNECTING) {
     if (state == WifiSelectionState::AUTO_CONNECTING) {
       if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+        HttpTransportFailure::onWifiDisconnected();
         WiFi.disconnect();
         onComplete(false);
         return;

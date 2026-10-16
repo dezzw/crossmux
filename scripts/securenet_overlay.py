@@ -75,6 +75,16 @@ def compute_file_stamp(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def compute_overlay_stamp(overlay_dir: Path) -> str:
+    digest = hashlib.sha256()
+    for rel in OVERLAY_SOURCES:
+        path = overlay_dir / rel
+        if not path.is_file():
+            raise RuntimeError(f"Missing overlay file {rel}")
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
 def read_stamp_file(stamp_path: Path) -> tuple[str, str] | None:
     if not stamp_path.is_file():
         return None
@@ -84,18 +94,18 @@ def read_stamp_file(stamp_path: Path) -> tuple[str, str] | None:
     return lines[0], lines[1]
 
 
-def write_stamp_file(stamp_path: Path, sdk_stamp: str, patched_cpp_stamp: str) -> None:
-    stamp_path.write_text(f"{sdk_stamp}\n{patched_cpp_stamp}\n")
+def write_stamp_file(stamp_path: Path, sdk_stamp: str, overlay_stamp: str) -> None:
+    stamp_path.write_text(f"{sdk_stamp}\n{overlay_stamp}\n")
 
 
 def format_overlay_sources(overlay_dir: Path) -> None:
     clang = shutil.which("clang-format-21") or shutil.which("clang-format")
     if not clang:
-        return
+        raise RuntimeError("clang-format-21 or clang-format required to format SecureNet overlay")
     for rel in OVERLAY_SOURCES:
         path = overlay_dir / rel
         if path.is_file():
-            subprocess.run([clang, "-i", str(path)], check=False)
+            subprocess.run([clang, "-i", str(path)], check=True)
 
 
 def ensure_overlay(project_dir: Path) -> Path:
@@ -113,7 +123,7 @@ def ensure_overlay(project_dir: Path) -> Path:
         and MARKER in secure_client.read_text()
         and stamps is not None
         and stamps[0] == sdk_stamp
-        and stamps[1] == compute_file_stamp(secure_client)
+        and stamps[1] == compute_overlay_stamp(overlay_dir)
     ):
         return overlay_dir
     if overlay_dir.is_dir():
@@ -132,14 +142,14 @@ def apply_patches(project_dir: Path) -> None:
 
     if secure_client.is_file() and MARKER in secure_client.read_text():
         stamps = read_stamp_file(stamp_path)
-        if stamps and stamps[0] == sdk_stamp and stamps[1] == compute_file_stamp(secure_client):
+        if stamps and stamps[0] == sdk_stamp and stamps[1] == compute_overlay_stamp(overlay_dir):
             return
 
     patch_secure_client_cpp(secure_client)
     patch_secure_client_h(overlay_dir / "include/SecureClient.h")
     patch_secure_http_h(overlay_dir / "include/SecureHttpClient.h")
     format_overlay_sources(overlay_dir)
-    write_stamp_file(stamp_path, sdk_stamp, compute_file_stamp(secure_client))
+    write_stamp_file(stamp_path, sdk_stamp, compute_overlay_stamp(overlay_dir))
 
 
 def check_overlay(project_dir: Path) -> None:
@@ -159,9 +169,10 @@ def check_overlay(project_dir: Path) -> None:
         )
     if MARKER not in secure_client.read_text():
         raise SystemExit("::error::SecureNet overlay missing CrossMux patch marker")
-    if stamps[1] != compute_file_stamp(secure_client):
+    if stamps[1] != compute_overlay_stamp(overlay_dir):
         raise SystemExit(
-            "::error::SecureNet overlay SecureClient.cpp drift. Run: python3 scripts/seed_securenet_overlay.py"
+            "::error::SecureNet overlay drift (SecureClient.cpp/.h or SecureHttpClient.h). "
+            "Run: python3 scripts/seed_securenet_overlay.py"
         )
 
 

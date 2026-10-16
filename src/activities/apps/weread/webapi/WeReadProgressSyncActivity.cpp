@@ -21,6 +21,7 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "NetworkStartup.h"
+#include "network/HttpTransportFailure.h"
 #include "ProgressMapper.h"
 #include "ReadingStatsStore.h"
 #include "SilentRestart.h"
@@ -109,6 +110,7 @@ void WeReadProgressSyncActivity::onExit() {
   operation_.reset();
   Activity::onExit();
   if (!wifiActivated_) return;
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect(false);
   delay(30);
   silentRestartToReader();

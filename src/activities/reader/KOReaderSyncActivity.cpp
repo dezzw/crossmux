@@ -19,6 +19,7 @@
 #include "KOReaderDocumentId.h"
 #include "MappedInputManager.h"
 #include "NetworkStartup.h"
+#include "network/HttpTransportFailure.h"
 #include "ReaderUtils.h"
 #include "SilentRestart.h"
 #include "activities/ActivityManager.h"
@@ -409,6 +410,7 @@ void KOReaderSyncActivity::onExit() {
   Activity::onExit();
 
   if (wifiActivated) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
     silentRestartToReader();

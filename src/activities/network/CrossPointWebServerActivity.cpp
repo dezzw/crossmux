@@ -14,6 +14,7 @@
 #include "MappedInputManager.h"
 #include "NetworkModeSelectionActivity.h"
 #include "NetworkStartup.h"
+#include "network/HttpTransportFailure.h"
 #include "SilentRestart.h"
 #include "WifiSelectionActivity.h"
 #include "activities/network/CalibreConnectActivity.h"
@@ -110,6 +111,7 @@ void CrossPointWebServerActivity::onExit() {
 
   // Skip reboot if WiFi was never activated (e.g. user backed out of mode selection).
   if (WiFi.getMode() != WIFI_MODE_NULL) {
+    HttpTransportFailure::onWifiDisconnected();
     if (isApMode) {
       WiFi.softAPdisconnect(true);
     } else {

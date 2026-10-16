@@ -1,4 +1,4 @@
-"""Build tls_chain_verify with device/legacy wolfSSL flags; exercise chain + live host checks."""
+"""Build tls_chain_verify with device/legacy wolfSSL flags; offline chain + live host checks."""
 
 import socket
 import subprocess
@@ -23,7 +23,6 @@ def _online() -> bool:
 def _bundle_without_pinned_globalsign() -> Path:
     """Device bundle includes legacy GlobalSign Root CA; omit it to test ALT chain selection."""
     import re
-    import subprocess
     import tempfile
 
     pem = (ROOT / "src/network/TlsCaBundle.pem").read_text()
@@ -44,35 +43,36 @@ def _bundle_without_pinned_globalsign() -> Path:
     return out
 
 
-class TlsWolfSslLegacyBuildTest(unittest.TestCase):
-    def _configure_build(self, build_dir: Path, sha384: bool, alt_chains: bool = True) -> None:
-        if build_dir.exists():
-            import shutil
+def _configure_build(build_dir: Path, sha384: bool, alt_chains: bool = True) -> None:
+    if build_dir.exists():
+        import shutil
 
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True, exist_ok=True)
-        sha_flag = "ON" if sha384 else "OFF"
-        alt_flag = "ON" if alt_chains else "OFF"
-        subprocess.check_call(
-            [
-                "cmake",
-                "-S",
-                str(ROOT / "test"),
-                "-B",
-                str(build_dir),
-                "-G",
-                "Ninja",
-                "-DCMAKE_BUILD_TYPE=Release",
-                f"-DTLS_WOLFSSL_SHA384={sha_flag}",
-                f"-DTLS_WOLFSSL_ALT_CHAINS={alt_flag}",
-            ]
-        )
-        subprocess.check_call(
-            ["cmake", "--build", str(build_dir), "--target", "TlsCaChainVerifyTest", "TlsHostVerify", "-j"]
-        )
+        shutil.rmtree(build_dir)
+    build_dir.mkdir(parents=True, exist_ok=True)
+    sha_flag = "ON" if sha384 else "OFF"
+    alt_flag = "ON" if alt_chains else "OFF"
+    subprocess.check_call(
+        [
+            "cmake",
+            "-S",
+            str(ROOT / "test"),
+            "-B",
+            str(build_dir),
+            "-G",
+            "Ninja",
+            "-DCMAKE_BUILD_TYPE=Release",
+            f"-DTLS_WOLFSSL_SHA384={sha_flag}",
+            f"-DTLS_WOLFSSL_ALT_CHAINS={alt_flag}",
+        ]
+    )
+    subprocess.check_call(
+        ["cmake", "--build", str(build_dir), "--target", "TlsCaChainVerifyTest", "TlsHostVerify", "-j"]
+    )
 
+
+class TlsWolfSslOfflineTests(unittest.TestCase):
     def test_github_chain_passes_with_device_sha384_config(self):
-        self._configure_build(BUILD_SHA, sha384=True)
+        _configure_build(BUILD_SHA, sha384=True)
         subprocess.check_call(
             [
                 str(BUILD_SHA / "tls_chain_verify/TlsCaChainVerifyTest"),
@@ -81,7 +81,7 @@ class TlsWolfSslLegacyBuildTest(unittest.TestCase):
         )
 
     def test_github_chain_fails_without_sha384(self):
-        self._configure_build(BUILD_LEGACY, sha384=False)
+        _configure_build(BUILD_LEGACY, sha384=False)
         proc = subprocess.run(
             [
                 str(BUILD_LEGACY / "tls_chain_verify/TlsCaChainVerifyTest"),
@@ -92,7 +92,7 @@ class TlsWolfSslLegacyBuildTest(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0, "expected GitHub intermediate verify to fail without SHA-384")
 
     def test_crossmux_pem_chain_documents_asn_no_signer_offline(self):
-        self._configure_build(BUILD_SHA, sha384=True)
+        _configure_build(BUILD_SHA, sha384=True)
         subprocess.check_call(
             [
                 str(BUILD_SHA / "tls_chain_verify/TlsCaChainVerifyTest"),
@@ -100,9 +100,11 @@ class TlsWolfSslLegacyBuildTest(unittest.TestCase):
             ]
         )
 
+
+class TlsWolfSslNetworkTests(unittest.TestCase):
     @unittest.skipUnless(_online(), "network required for live TLS host verification")
     def test_crossmux_live_host_fails_without_alt_cert_chains(self):
-        self._configure_build(BUILD_NO_ALT, sha384=True, alt_chains=False)
+        _configure_build(BUILD_NO_ALT, sha384=True, alt_chains=False)
         bundle = _bundle_without_pinned_globalsign()
         proc = subprocess.run(
             [
@@ -118,7 +120,7 @@ class TlsWolfSslLegacyBuildTest(unittest.TestCase):
 
     @unittest.skipUnless(_online(), "network required for live TLS host verification")
     def test_crossmux_live_host_passes_with_device_config(self):
-        self._configure_build(BUILD_SHA, sha384=True, alt_chains=True)
+        _configure_build(BUILD_SHA, sha384=True, alt_chains=True)
         bundle = ROOT / "src/network/TlsCaBundle.pem"
         subprocess.check_call(
             [str(BUILD_SHA / "tls_chain_verify/TlsHostVerify"), "crossmux.com", str(bundle)],

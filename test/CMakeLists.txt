@@ -139,8 +139,12 @@ add_test(NAME WifiListNavRebuild
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wifi_list_nav_rebuild.py)
 add_test(NAME OtaSigningKnownAnswerPython
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ota_signing_cross.py)
-add_test(NAME TlsWolfSslLegacyBuild
-  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_tls_wolfssl_legacy_build.py)
-set_tests_properties(TlsWolfSslLegacyBuild PROPERTIES LABELS "network")
+add_test(NAME TlsWolfSslLegacyBuildOffline
+  WORKING_DIRECTORY ${REPO_ROOT}/scripts/tests
+  COMMAND ${Python3_EXECUTABLE} -m unittest test_tls_wolfssl_legacy_build.TlsWolfSslOfflineTests -v)
+add_test(NAME TlsWolfSslLegacyBuildNetwork
+  WORKING_DIRECTORY ${REPO_ROOT}/scripts/tests
+  COMMAND ${Python3_EXECUTABLE} -m unittest test_tls_wolfssl_legacy_build.TlsWolfSslNetworkTests -v)
+set_tests_properties(TlsWolfSslLegacyBuildNetwork PROPERTIES LABELS "network")
 add_test(NAME WolfSslSha384Patch
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wolfssl_sha384_patch.py)

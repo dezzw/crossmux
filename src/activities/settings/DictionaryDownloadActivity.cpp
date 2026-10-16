@@ -23,6 +23,7 @@
 #include "fontIds.h"
 #include "network/CrossMuxEndpoints.h"
 #include "network/HttpDownloader.h"
+#include "network/HttpTransportFailure.h"
 
 namespace fui = freeink::ui;
 
@@ -91,6 +92,7 @@ void DictionaryDownloadActivity::onExit() {
   std::string().swap(baseUrl_);
   logHeap("exit");
   if (WiFi.getMode() != WIFI_MODE_NULL) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
     silentRestart();

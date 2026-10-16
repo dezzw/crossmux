@@ -132,6 +132,7 @@ jobs:
           git fetch origin main
           git worktree add --detach ../crossmux-main-flash origin/main
           pushd ../crossmux-main-flash >/dev/null
+          git submodule sync --recursive
           git submodule update --init --recursive
           if [[ -f scripts/seed_securenet_overlay.py ]]; then
             python3 scripts/seed_securenet_overlay.py --check
@@ -190,7 +191,9 @@ jobs:
           python3 scripts/generate_ota_signing_fixture.py
 
       - name: Generate host wolfSSL user settings
-        run: python3 scripts/tls/generate_host_user_settings.py
+        run: |
+          python3 scripts/tls/generate_host_user_settings.py
+          git diff --exit-code scripts/tls/wolfssl_device_user_settings.h
 
       - name: Configure
         run: cmake -S test -B build/test -G Ninja -DCMAKE_BUILD_TYPE=Release

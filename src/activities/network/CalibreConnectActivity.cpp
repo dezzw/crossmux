@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include "MappedInputManager.h"
+#include "network/HttpTransportFailure.h"
 #include "SilentRestart.h"
 #include "WifiSelectionActivity.h"
 #include "components/UITheme.h"
@@ -59,6 +60,7 @@ void CalibreConnectActivity::onExit() {
   MDNS.end();
 
   if (WiFi.getMode() != WIFI_MODE_NULL) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
     silentRestart();

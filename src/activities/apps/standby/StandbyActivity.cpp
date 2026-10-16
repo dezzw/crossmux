@@ -20,6 +20,7 @@
 
 #include "CrossPointSettings.h"
 #include "NetworkStartup.h"
+#include "network/HttpTransportFailure.h"
 #include "activities/ActivityResult.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "util/PaginationDots.h"
@@ -233,6 +234,7 @@ bool StandbyActivity::trySilentWifiConnect() {
   // from a previous session. The disconnect(false) form used by the teardown
   // paths is deliberately different — there we want to keep the AP cached
   // for the next silent-connect attempt.
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect(true, true);
   delay(100);
   if (pass.empty()) {
@@ -351,6 +353,7 @@ void StandbyActivity::pumpTimeSync() {
 }
 
 void StandbyActivity::stopTimeSyncWifi() {
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect(false);
   delay(100);
   WiFi.mode(WIFI_OFF);
