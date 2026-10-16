@@ -34,9 +34,9 @@ TEST(FontManifestCatalog, MergeAddsMissingFamilyFromSecondaryManifest) {
   FontManifestCatalog::Catalog catalog;
   ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog, FontManifestCatalog::IngestMode::Replace),
             FontManifestCatalog::IngestResult::Ok);
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog,
-                                                FontManifestCatalog::IngestMode::MergeSkipDuplicateNames),
-            FontManifestCatalog::IngestResult::Ok);
+  ASSERT_EQ(
+      FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::MergeSkipDuplicateNames),
+      FontManifestCatalog::IngestResult::Ok);
 
   bool hasLiterata = false;
   bool hasNotoSansSc = false;
@@ -66,9 +66,9 @@ TEST(FontManifestCatalog, MergePrefersPrimaryOnDuplicateName) {
   FontManifestCatalog::Catalog catalog;
   ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog, FontManifestCatalog::IngestMode::Replace),
             FontManifestCatalog::IngestResult::Ok);
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog,
-                                                FontManifestCatalog::IngestMode::MergeSkipDuplicateNames),
-            FontManifestCatalog::IngestResult::Ok);
+  ASSERT_EQ(
+      FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::MergeSkipDuplicateNames),
+      FontManifestCatalog::IngestResult::Ok);
 
   ASSERT_EQ(catalog.families.size(), 1u);
   EXPECT_EQ(catalog.families.front().baseUrl, "https://github.com/example/primary/");
