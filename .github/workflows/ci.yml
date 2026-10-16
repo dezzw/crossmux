@@ -73,6 +73,9 @@ jobs:
           key: pio-cache-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-cache-${{ runner.os }}-
 
+      - name: Seed SecureNet overlay
+        run: python3 scripts/seed_securenet_overlay.py
+
       - name: Run cppcheck
         run: pio check --fail-on-defect low --fail-on-defect medium --fail-on-defect high
 
@@ -108,6 +111,9 @@ jobs:
           path: ~/.platformio/.cache
           key: pio-cache-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-cache-${{ runner.os }}-
+
+      - name: Seed SecureNet overlay
+        run: python3 scripts/seed_securenet_overlay.py
 
       - name: Build Waveshare 3.97 nightly firmware
         env:

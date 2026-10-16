@@ -71,7 +71,7 @@ script or workflow changes, run the focused checks and report any limitations.
   (pins legacy GlobalSign Root CA by SHA-256; never substring-match `GlobalSign Root CA` or R6 is pulled in).
 * Host tests build wolfSSL from `scripts/tls/user_settings.h` (device TLS 1.3 flags + `scripts/tls/wolfssl_crossmux_overrides.h`).
   Chain fixtures live under `test/fixtures/tls/`; live OTA/font hosts are checked with `TlsHostVerify` via `scripts/ci_verify_tls_hosts.sh`.
-* `scripts/patch_secure_client.py` copies `freeink-sdk` SecureNet into `.pio/crossmux-patches/SecureNet` before patching so the submodule stays clean; PlatformIO links that overlay via `platformio.ini`.
+* `scripts/patch_secure_client.py` copies `freeink-sdk` SecureNet into `crossmux-patches/SecureNet` before patching so the submodule stays clean; PlatformIO links that overlay via `platformio.ini`.
 
 ## Debugging Crashes
 
