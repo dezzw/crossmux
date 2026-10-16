@@ -428,10 +428,11 @@ const char* FontDownloadActivity::failureDetailText() const {
         return tr(STR_FONT_ERR_TLS_HANDSHAKE);
       case ManifestFailure::Http:
         if (lastHttpStatus_ > 0) {
-          snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP), lastHttpStatus_);
+          snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP_MANIFEST),
+                   lastHttpStatus_);
           return httpDetailBuffer_;
         }
-        return tr(STR_FONT_ERR_HTTP);
+        return tr(STR_FONT_ERR_HTTP_MANIFEST);
       case ManifestFailure::Parse:
         return tr(STR_FONT_ERR_MANIFEST);
       case ManifestFailure::Version:
@@ -457,10 +458,10 @@ const char* FontDownloadActivity::failureDetailText() const {
       return tr(STR_FONT_ERR_TLS_HANDSHAKE);
     case FileFailure::Http:
       if (lastHttpStatus_ > 0) {
-        snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP), lastHttpStatus_);
+        snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP_FILE), lastHttpStatus_);
         return httpDetailBuffer_;
       }
-      return tr(STR_FONT_ERR_HTTP);
+      return tr(STR_FONT_ERR_HTTP_FILE);
     case FileFailure::Crc:
       return tr(STR_FONT_ERR_CRC);
     case FileFailure::Header:
@@ -508,8 +509,12 @@ bool FontDownloadActivity::fetchAndParseManifest() {
       LOG_INF("FONT", "Loaded manifest from %s", manifestUrl);
       break;
     }
-    LOG_ERR("FONT", "Manifest fetch failed: %s", manifestUrl);
     recordTransportFailure(manifestFailure_, lastHttpStatus_);
+    if (lastHttpStatus_ > 0) {
+      LOG_ERR("FONT", "Manifest fetch failed (manifest): %s HTTP %d", manifestUrl, lastHttpStatus_);
+    } else {
+      LOG_ERR("FONT", "Manifest fetch failed (manifest): %s", manifestUrl);
+    }
     Storage.remove(MANIFEST_TMP);
   }
   if (!downloaded) return false;
@@ -943,9 +948,14 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
     return DownloadResult::Cancelled;
   }
   if (result != HttpDownloader::OK) {
-    LOG_ERR("FONT", "Download failed: %s (%d)", fileName, result);
     Storage.remove(downloadPath);
     recordTransportFailure(fileFailure_, lastHttpStatus_);
+    if (lastHttpStatus_ > 0) {
+      LOG_ERR("FONT", "Download failed (file): %s HTTP %d (result %d)", fileName, lastHttpStatus_,
+              static_cast<int>(result));
+    } else {
+      LOG_ERR("FONT", "Download failed (file): %s (result %d)", fileName, static_cast<int>(result));
+    }
     return DownloadResult::Failed;
   }
 

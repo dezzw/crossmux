@@ -13,9 +13,6 @@
 // support a new manifest schema.
 #define FONTS_MANIFEST_VERSION 1
 
-#define FONT_MANIFEST_URL_STRINGIFY_INNER(x) #x
-#define FONT_MANIFEST_URL_STRINGIFY(x) FONT_MANIFEST_URL_STRINGIFY_INNER(x)
-
 class FontDownloadActivity final : public UiListActivity {
  public:
   enum class Purpose : uint8_t { Manage, PromptThenManage, ReaderAutoInstall };
