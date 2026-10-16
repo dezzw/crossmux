@@ -17,7 +17,6 @@ namespace {
 // Must stay in sync with FONTS_MANIFEST_VERSION in FontDownloadActivity.h.
 constexpr int kExpectedManifestSchemaVersion = 1;
 
-
 size_t findScriptGroupIndex(const std::vector<std::string>& tags, const char* tag) {
   for (size_t index = 0; index < tags.size(); index++) {
     if (tags[index] == tag) return index;
@@ -226,9 +225,8 @@ IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, const Fon
     LOG_ERR("FONT", "Manifest has invalid family count: %zu", familiesArr.size());
     return IngestResult::Parse;
   }
-  if (mode == IngestMode::Replace &&
-      (familiesArr.size() > Limits::kMaxManifestFamilies ||
-       catalog.families.size() + familiesArr.size() > Limits::kMaxManifestFamilies)) {
+  if (mode == IngestMode::Replace && (familiesArr.size() > Limits::kMaxManifestFamilies ||
+                                      catalog.families.size() + familiesArr.size() > Limits::kMaxManifestFamilies)) {
     LOG_ERR("FONT", "Manifest has invalid family count: %zu", familiesArr.size());
     return IngestResult::Parse;
   }
