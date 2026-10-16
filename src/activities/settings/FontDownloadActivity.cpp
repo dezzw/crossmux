@@ -452,6 +452,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   static constexpr const char* MANIFEST_TMP = "/fonts_manifest.tmp";
   families_.clear();
   files_.clear();
+  manifestBaseUrls_.clear();
   scriptGroupLabels_.clear();
   filteredIndices_.clear();
   downloadingFamilyIndex_ = -1;
@@ -479,8 +480,8 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     const char* url;
     FontManifestCatalog::IngestMode mode;
   };
-  const ManifestSource sources[] = {{githubUrl, FontManifestCatalog::IngestMode::Replace},
-                                    {legacyUrl, FontManifestCatalog::IngestMode::MergeSkipDuplicateNames}};
+  const ManifestSource sources[] = {{legacyUrl, FontManifestCatalog::IngestMode::Replace},
+                                    {githubUrl, FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames}};
   bool loadedAny = false;
 
   for (const ManifestSource& source : sources) {
@@ -533,12 +534,15 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     }
 
     const FontManifestCatalog::IngestResult ingestResult =
-        FontManifestCatalog::ingestDocument(doc, catalog, source.mode);
+        FontManifestCatalog::ingestDocument(doc, catalog, source.mode, source.url);
     if (ingestResult != FontManifestCatalog::IngestResult::Ok) {
       LOG_ERR("FONT", "Manifest ingest failed from %s", source.url);
       if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
-        manifestFailure_ = ingestResult == FontManifestCatalog::IngestResult::Version ? ManifestFailure::Version
-                                                                                      : ManifestFailure::Parse;
+        if (ingestResult == FontManifestCatalog::IngestResult::Version) {
+          manifestFailure_ = ManifestFailure::Version;
+        } else {
+          manifestFailure_ = ManifestFailure::Parse;
+        }
       }
       continue;
     }
@@ -549,9 +553,12 @@ bool FontDownloadActivity::fetchAndParseManifest() {
 
   if (!loadedAny) return false;
 
+  FontManifestCatalog::applyDefaultScriptGroupForUnscriptedFamilies(catalog);
+
   manifestFailure_ = ManifestFailure::None;
   lastHttpStatus_ = 0;
   const size_t catalogHeapBytes = FontManifestCatalog::estimateCatalogHeapBytes(catalog);
+  manifestBaseUrls_ = std::move(catalog.baseUrls);
   scriptGroupLabels_ = std::move(catalog.scriptGroupLabels);
   families_ = std::move(catalog.families);
   files_ = std::move(catalog.files);
@@ -813,7 +820,10 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
     return DownloadResult::Success;
   }
 
-  std::string url = family.baseUrl + fileName;
+  FontManifestCatalog::Catalog urlCatalog;
+  urlCatalog.baseUrls = manifestBaseUrls_;
+  std::string url = FontManifestCatalog::baseUrlForFamily(urlCatalog, family);
+  url += fileName;
   NetworkStartup::prepare(renderer);
   const HttpDownloader::FetchOptions verifiedTls{.verifyTlsPeer = true};
   const auto result = HttpDownloader::downloadToFile(

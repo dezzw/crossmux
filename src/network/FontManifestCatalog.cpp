@@ -10,8 +10,9 @@ namespace FontManifestCatalog {
 
 namespace {
 
-// Must stay in sync with FONTS_MANIFEST_VERSION in FontDownloadActivity.h.
 constexpr int kExpectedManifestSchemaVersion = 1;
+constexpr char kDefaultCjkScriptTag[] = "cjk";
+constexpr char kDefaultCjkScriptLabel[] = "CJK";
 
 bool isValidFamilyName(const char* name) {
   if (name == nullptr || name[0] == '\0') return false;
@@ -93,54 +94,128 @@ bool familyNameExists(const Catalog& catalog, const std::string& name) {
                      [&name](const Family& existing) { return existing.name == name; });
 }
 
-bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, IngestMode mode, const std::string& baseUrl) {
-  size_t incomingFileCount = 0;
+int findFamilyIndex(const Catalog& catalog, const std::string& name) {
+  for (size_t index = 0; index < catalog.families.size(); index++) {
+    if (catalog.families[index].name == name) return static_cast<int>(index);
+  }
+  return -1;
+}
+
+void removeFamilyAt(Catalog& catalog, size_t familyIndex) {
+  if (familyIndex >= catalog.families.size()) return;
+  const Family& victim = catalog.families[familyIndex];
+  const size_t removeStart = victim.fileOffset;
+  const size_t removeCount = victim.fileCount;
+  catalog.files.erase(catalog.files.begin() + static_cast<ptrdiff_t>(removeStart),
+                      catalog.files.begin() + static_cast<ptrdiff_t>(removeStart + removeCount));
+  catalog.families.erase(catalog.families.begin() + static_cast<ptrdiff_t>(familyIndex));
+  for (Family& family : catalog.families) {
+    if (family.fileOffset > removeStart) {
+      family.fileOffset -= removeCount;
+    }
+  }
+}
+
+bool internBaseUrl(Catalog& catalog, const std::string& baseUrl, uint8_t& outIndex) {
+  for (size_t index = 0; index < catalog.baseUrls.size(); index++) {
+    if (catalog.baseUrls[index] == baseUrl) {
+      outIndex = static_cast<uint8_t>(index);
+      return true;
+    }
+  }
+  if (catalog.baseUrls.size() >= Limits::kMaxBaseUrls) {
+    LOG_ERR("FONT", "Too many distinct manifest baseUrl values");
+    return false;
+  }
+  catalog.baseUrls.push_back(baseUrl);
+  outIndex = static_cast<uint8_t>(catalog.baseUrls.size() - 1);
+  return true;
+}
+
+struct IngestPlan {
+  size_t familiesToAdd = 0;
+  size_t filesToAdd = 0;
+  size_t familiesToReplace = 0;
+};
+
+bool planFamilies(JsonArrayConst familiesArr, const Catalog& catalog, IngestMode mode, IngestPlan& plan) {
   for (JsonObjectConst familyObject : familiesArr) {
     const char* familyName = familyObject["name"] | "";
+    const JsonArrayConst familyFiles = familyObject["files"].as<JsonArrayConst>();
+    if (familyFiles.isNull() || familyFiles.size() == 0 || familyFiles.size() > Limits::kMaxFilesPerFamily) {
+      return false;
+    }
+    const bool exists = familyNameExists(catalog, familyName);
+    if (mode == IngestMode::MergeSkipDuplicateNames && exists) {
+      continue;
+    }
+    if (mode == IngestMode::MergeReplaceDuplicateNames && exists) {
+      plan.familiesToReplace++;
+    }
+    plan.familiesToAdd++;
+    plan.filesToAdd += familyFiles.size();
+  }
+  return true;
+}
+
+bool countAfterIngest(const Catalog& scratch, JsonArrayConst familiesArr, IngestMode mode, size_t& outFamilies,
+                    size_t& outFiles) {
+  outFamilies = scratch.families.size();
+  outFiles = scratch.files.size();
+  for (JsonObjectConst familyObject : familiesArr) {
+    const char* familyName = familyObject["name"] | "";
+    const JsonArrayConst familyFiles = familyObject["files"].as<JsonArrayConst>();
+    if (familyFiles.isNull() || familyFiles.size() == 0) return false;
+    const int existingIndex = findFamilyIndex(scratch, familyName);
+    const bool exists = existingIndex >= 0;
+    if (mode == IngestMode::MergeSkipDuplicateNames && exists) {
+      continue;
+    }
+    if (mode == IngestMode::MergeReplaceDuplicateNames && exists) {
+      outFiles -= scratch.families[static_cast<size_t>(existingIndex)].fileCount;
+    }
+    if (!exists) {
+      outFamilies++;
+    }
+    outFiles += familyFiles.size();
+  }
+  return true;
+}
+
+bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, IngestMode mode, uint8_t baseUrlIndex) {
+  for (JsonObjectConst fObj : familiesArr) {
+    const char* familyName = fObj["name"] | "";
     if (mode == IngestMode::MergeSkipDuplicateNames && familyNameExists(catalog, familyName)) {
       continue;
     }
-    const JsonArrayConst familyFiles = familyObject["files"].as<JsonArrayConst>();
-    if (familyFiles.isNull() || familyFiles.size() == 0 || familyFiles.size() > Limits::kMaxFilesPerFamily) {
-      LOG_ERR("FONT", "Manifest has invalid file count");
-      return false;
+    if (mode == IngestMode::MergeReplaceDuplicateNames) {
+      const int existingIndex = findFamilyIndex(catalog, familyName);
+      if (existingIndex >= 0) {
+        removeFamilyAt(catalog, static_cast<size_t>(existingIndex));
+      }
     }
-    incomingFileCount += familyFiles.size();
-  }
-  if (catalog.files.size() + incomingFileCount > Limits::kMaxManifestFiles) {
-    LOG_ERR("FONT", "Manifest has invalid file count");
-    return false;
-  }
 
-  if (mode == IngestMode::Replace) {
-    catalog.families.clear();
-    catalog.files.clear();
-  }
-
-  catalog.families.reserve(catalog.families.size() + familiesArr.size());
-  catalog.files.reserve(catalog.files.size() + incomingFileCount);
-
-  for (JsonObjectConst fObj : familiesArr) {
     Family family;
-    family.name = fObj["name"] | "";
+    family.name = familyName;
     family.description = fObj["description"] | "";
-    family.baseUrl = baseUrl;
-    if (mode == IngestMode::MergeSkipDuplicateNames && familyNameExists(catalog, family.name)) {
-      continue;
-    }
-    const bool duplicateFamily = familyNameExists(catalog, family.name);
+    family.baseUrlIndex = baseUrlIndex;
     if (!isValidFamilyName(family.name.c_str()) || family.name.size() > Limits::kMaxFamilyNameBytes ||
-        family.description.empty() || family.description.size() > Limits::kMaxDescriptionBytes || duplicateFamily) {
+        family.description.empty() || family.description.size() > Limits::kMaxDescriptionBytes ||
+        familyNameExists(catalog, family.name)) {
       LOG_ERR("FONT", "Malformed manifest family name: %s", family.name.c_str());
       return false;
     }
 
     const JsonArrayConst familyFiles = fObj["files"].as<JsonArrayConst>();
-    family.fileOffset = catalog.files.size();
-    family.fileCount = familyFiles.size();
+    if (familyFiles.isNull() || familyFiles.size() == 0 || familyFiles.size() > Limits::kMaxFilesPerFamily) {
+      LOG_ERR("FONT", "Manifest has invalid file count");
+      return false;
+    }
+
+    std::vector<File> pendingFiles;
+    pendingFiles.reserve(familyFiles.size());
     family.scriptMask = scriptMaskForTags(catalog.scriptGroupTags, fObj["scripts"].as<JsonArrayConst>());
     family.totalSize = 0;
-    family.installed = false;
 
     for (JsonObjectConst fileObj : familyFiles) {
       File file;
@@ -152,23 +227,120 @@ bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, IngestMode mod
         LOG_ERR("FONT", "Malformed manifest file entry: %s", fileName);
         return false;
       }
-      const bool duplicatePointSize =
-          std::any_of(catalog.files.begin() + static_cast<ptrdiff_t>(family.fileOffset), catalog.files.end(),
-                      [&file](const File& existing) { return existing.pointSize == file.pointSize; });
+      const bool duplicatePointSize = std::any_of(
+          pendingFiles.begin(), pendingFiles.end(),
+          [&file](const File& existing) { return existing.pointSize == file.pointSize; });
       if (duplicatePointSize) {
         LOG_ERR("FONT", "Duplicate manifest point size: %s", fileName);
         return false;
       }
       file.crc32 = fileObj["crc32"].as<uint32_t>();
-
       family.totalSize += file.size;
-      catalog.files.push_back(file);
+      pendingFiles.push_back(file);
     }
 
+    family.fileOffset = catalog.files.size();
+    family.fileCount = pendingFiles.size();
+    catalog.files.insert(catalog.files.end(), pendingFiles.begin(), pendingFiles.end());
     catalog.families.push_back(std::move(family));
   }
 
   return true;
+}
+
+IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl) {
+  const int version = doc["version"] | 0;
+  if (version != kExpectedManifestSchemaVersion) {
+    LOG_ERR("FONT", "Unsupported manifest version: %d", version);
+    return IngestResult::Version;
+  }
+
+  const char* baseUrlCStr = doc["baseUrl"] | "";
+  const std::string baseUrl = baseUrlCStr;
+  if (baseUrl.empty() || baseUrl.size() > Limits::kMaxBaseUrlBytes || baseUrl.rfind("https://", 0) != 0 ||
+      baseUrl.back() != '/') {
+    LOG_ERR("FONT", "Manifest has invalid baseUrl");
+    return IngestResult::Parse;
+  }
+
+  const JsonArrayConst groupsArr = doc["scriptGroups"];
+  const JsonArrayConst familiesArr = doc["families"];
+  if (familiesArr.isNull() || familiesArr.size() == 0) {
+    LOG_ERR("FONT", "Manifest has invalid family count from %s", sourceUrl);
+    return IngestResult::Parse;
+  }
+
+  Catalog scratch = catalog;
+  if (mode == IngestMode::Replace) {
+    scratch = Catalog{};
+  }
+
+  if (mode == IngestMode::Replace) {
+    scratch.scriptGroupTags.clear();
+    scratch.scriptGroupLabels.clear();
+    scratch.families.clear();
+    scratch.files.clear();
+    scratch.baseUrls.clear();
+    if (!groupsArr.isNull()) {
+      const size_t groupCount = std::min(groupsArr.size(), Limits::kMaxScriptGroups);
+      scratch.scriptGroupTags.reserve(groupCount);
+      scratch.scriptGroupLabels.reserve(groupCount);
+      if (groupsArr.size() > Limits::kMaxScriptGroups) {
+        LOG_ERR("FONT", "Manifest declares more than %zu script groups; extra groups ignored", Limits::kMaxScriptGroups);
+      }
+      for (size_t groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+        JsonObjectConst groupObj = groupsArr[groupIndex].as<JsonObjectConst>();
+        const char* tag = groupObj["tag"] | "";
+        const char* label = groupObj["label"] | "";
+        if (*tag == '\0' || *label == '\0') {
+          LOG_ERR("FONT", "Malformed script group at index %zu", groupIndex);
+          return IngestResult::Parse;
+        }
+        scratch.scriptGroupTags.emplace_back(tag);
+        scratch.scriptGroupLabels.emplace_back(label);
+      }
+    }
+  } else if (!mergeScriptGroups(groupsArr, scratch)) {
+    return IngestResult::Parse;
+  }
+
+  IngestPlan plan;
+  if (!planFamilies(familiesArr, scratch, mode, plan)) {
+    LOG_ERR("FONT", "Manifest has invalid file count from %s", sourceUrl);
+    return IngestResult::Parse;
+  }
+
+  size_t finalFamilies = 0;
+  size_t finalFiles = 0;
+  if (mode == IngestMode::Replace) {
+    finalFamilies = plan.familiesToAdd;
+    finalFiles = plan.filesToAdd;
+  } else if (!countAfterIngest(scratch, familiesArr, mode, finalFamilies, finalFiles)) {
+    LOG_ERR("FONT", "Manifest has invalid file count from %s", sourceUrl);
+    return IngestResult::Parse;
+  }
+
+  if (finalFamilies > Limits::kMaxManifestFamilies) {
+    LOG_ERR("FONT", "Manifest from %s would exceed %zu families (%zu)", sourceUrl, Limits::kMaxManifestFamilies,
+            finalFamilies);
+    return IngestResult::Overflow;
+  }
+  if (finalFiles > Limits::kMaxManifestFiles) {
+    LOG_ERR("FONT", "Manifest from %s would exceed %zu files (%zu)", sourceUrl, Limits::kMaxManifestFiles, finalFiles);
+    return IngestResult::Overflow;
+  }
+
+  uint8_t baseUrlIndex = 0;
+  if (!internBaseUrl(scratch, baseUrl, baseUrlIndex)) {
+    return IngestResult::Parse;
+  }
+
+  if (!ingestFamilies(familiesArr, scratch, mode, baseUrlIndex)) {
+    return IngestResult::Parse;
+  }
+
+  catalog = std::move(scratch);
+  return IngestResult::Ok;
 }
 
 }  // namespace
@@ -194,77 +366,39 @@ bool parsePointSize(const char* familyName, const char* fileName, uint8_t& point
   return true;
 }
 
-IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode) {
-  const int version = doc["version"] | 0;
-  if (version != kExpectedManifestSchemaVersion) {
-    LOG_ERR("FONT", "Unsupported manifest version: %d", version);
-    return IngestResult::Version;
-  }
+IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl) {
+  if (sourceUrl == nullptr) sourceUrl = "(unknown)";
+  return applyDocumentToCatalog(doc, catalog, mode, sourceUrl);
+}
 
-  const char* baseUrlCStr = doc["baseUrl"] | "";
-  const std::string baseUrl = baseUrlCStr;
-  if (baseUrl.empty() || baseUrl.size() > Limits::kMaxBaseUrlBytes || baseUrl.rfind("https://", 0) != 0 ||
-      baseUrl.back() != '/') {
-    LOG_ERR("FONT", "Manifest has invalid baseUrl");
-    return IngestResult::Parse;
-  }
+void applyDefaultScriptGroupForUnscriptedFamilies(Catalog& catalog) {
+  if (catalog.families.empty()) return;
 
-  const JsonArrayConst groupsArr = doc["scriptGroups"];
-  if (mode == IngestMode::Replace) {
-    catalog.scriptGroupTags.clear();
-    catalog.scriptGroupLabels.clear();
-    if (groupsArr.isNull()) {
-      LOG_ERR("FONT", "Manifest has invalid scriptGroups");
-      return IngestResult::Parse;
+  size_t cjkIndex = findScriptGroupIndex(catalog.scriptGroupTags, kDefaultCjkScriptTag);
+  if (cjkIndex >= catalog.scriptGroupTags.size()) {
+    if (catalog.scriptGroupTags.size() >= Limits::kMaxScriptGroups) {
+      LOG_ERR("FONT", "Cannot add default CJK script group; catalog full");
+      return;
     }
-    const size_t groupCount = std::min(groupsArr.size(), Limits::kMaxScriptGroups);
-    catalog.scriptGroupTags.reserve(groupCount);
-    catalog.scriptGroupLabels.reserve(groupCount);
-    if (groupsArr.size() > Limits::kMaxScriptGroups) {
-      LOG_ERR("FONT", "Manifest declares more than %zu script groups; extra groups ignored", Limits::kMaxScriptGroups);
-    }
-    for (size_t groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-      JsonObjectConst groupObj = groupsArr[groupIndex].as<JsonObjectConst>();
-      const char* tag = groupObj["tag"] | "";
-      const char* label = groupObj["label"] | "";
-      if (*tag == '\0' || *label == '\0') {
-        LOG_ERR("FONT", "Malformed script group at index %zu", groupIndex);
-        return IngestResult::Parse;
-      }
-      catalog.scriptGroupTags.emplace_back(tag);
-      catalog.scriptGroupLabels.emplace_back(label);
-    }
-  } else if (!mergeScriptGroups(groupsArr, catalog)) {
-    return IngestResult::Parse;
+    catalog.scriptGroupTags.emplace_back(kDefaultCjkScriptTag);
+    catalog.scriptGroupLabels.emplace_back(kDefaultCjkScriptLabel);
+    cjkIndex = catalog.scriptGroupTags.size() - 1;
   }
 
-  const JsonArrayConst familiesArr = doc["families"];
-  if (familiesArr.isNull()) {
-    LOG_ERR("FONT", "Manifest has invalid family count: 0");
-    return IngestResult::Parse;
+  const uint32_t cjkBit = uint32_t{1} << cjkIndex;
+  for (Family& family : catalog.families) {
+    if (family.scriptMask == 0) {
+      family.scriptMask = cjkBit;
+    }
   }
-  if (familiesArr.size() == 0) {
-    LOG_ERR("FONT", "Manifest has invalid family count: %zu", familiesArr.size());
-    return IngestResult::Parse;
-  }
-  if (mode == IngestMode::Replace && (familiesArr.size() > Limits::kMaxManifestFamilies ||
-                                      catalog.families.size() + familiesArr.size() > Limits::kMaxManifestFamilies)) {
-    LOG_ERR("FONT", "Manifest has invalid family count: %zu", familiesArr.size());
-    return IngestResult::Parse;
-  }
-  if (!ingestFamilies(familiesArr, catalog, mode, baseUrl)) {
-    return IngestResult::Parse;
-  }
-  if (catalog.families.size() > Limits::kMaxManifestFamilies) {
-    LOG_ERR("FONT", "Merged manifest would exceed %zu families", Limits::kMaxManifestFamilies);
-    return IngestResult::Parse;
-  }
-
-  return IngestResult::Ok;
 }
 
 size_t estimateCatalogHeapBytes(const Catalog& catalog) {
-  size_t bytes = catalog.scriptGroupTags.capacity() * sizeof(std::string);
+  size_t bytes = catalog.baseUrls.capacity() * sizeof(std::string);
+  for (const auto& baseUrl : catalog.baseUrls) {
+    bytes += baseUrl.capacity();
+  }
+  bytes += catalog.scriptGroupTags.capacity() * sizeof(std::string);
   for (const auto& tag : catalog.scriptGroupTags) {
     bytes += tag.capacity();
   }
@@ -274,7 +408,7 @@ size_t estimateCatalogHeapBytes(const Catalog& catalog) {
   }
   bytes += catalog.families.capacity() * sizeof(Family);
   for (const auto& family : catalog.families) {
-    bytes += family.name.capacity() + family.description.capacity() + family.baseUrl.capacity();
+    bytes += family.name.capacity() + family.description.capacity();
   }
   bytes += catalog.files.capacity() * sizeof(File);
   return bytes;

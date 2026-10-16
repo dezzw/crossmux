@@ -11,14 +11,15 @@ namespace FontManifestCatalog {
 
 struct Limits {
   static constexpr size_t kMaxManifestBytes = 96 * 1024;
-  static constexpr size_t kMaxManifestFamilies = 40;
-  static constexpr size_t kMaxManifestFiles = 192;
+  static constexpr size_t kMaxManifestFamilies = 64;
+  static constexpr size_t kMaxManifestFiles = 256;
   static constexpr size_t kMaxFilesPerFamily = 16;
   static constexpr size_t kMaxFamilyNameBytes = 64;
   static constexpr size_t kMaxDescriptionBytes = 160;
   static constexpr size_t kMaxBaseUrlBytes = 256;
   static constexpr size_t kMaxFontFileBytes = 25 * 1024 * 1024;
   static constexpr size_t kMaxScriptGroups = 32;
+  static constexpr size_t kMaxBaseUrls = 4;
 };
 
 struct File {
@@ -30,7 +31,7 @@ struct File {
 struct Family {
   std::string name;
   std::string description;
-  std::string baseUrl;
+  uint8_t baseUrlIndex = 0;
   size_t fileOffset = 0;
   size_t fileCount = 0;
   size_t totalSize = 0;
@@ -40,19 +41,31 @@ struct Family {
 };
 
 struct Catalog {
+  std::vector<std::string> baseUrls;
   std::vector<std::string> scriptGroupTags;
   std::vector<std::string> scriptGroupLabels;
   std::vector<Family> families;
   std::vector<File> files;
 };
 
-enum class IngestResult { Ok, Parse, Version };
+enum class IngestResult { Ok, Parse, Version, Overflow };
 
-enum class IngestMode { Replace, MergeSkipDuplicateNames };
+enum class IngestMode {
+  Replace,
+  MergeSkipDuplicateNames,
+  MergeReplaceDuplicateNames,
+};
 
 bool parsePointSize(const char* familyName, const char* fileName, uint8_t& pointSize);
 
-IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode);
+IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl);
+
+void applyDefaultScriptGroupForUnscriptedFamilies(Catalog& catalog);
+
+inline const char* baseUrlForFamily(const Catalog& catalog, const Family& family) {
+  if (family.baseUrlIndex >= catalog.baseUrls.size()) return "";
+  return catalog.baseUrls[family.baseUrlIndex].c_str();
+}
 
 size_t estimateCatalogHeapBytes(const Catalog& catalog);
 

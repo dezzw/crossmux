@@ -93,6 +93,7 @@ class FontDownloadActivity final : public UiListActivity {
   FontInstaller fontInstaller_;
 
   // Manifest data
+  std::vector<std::string> manifestBaseUrls_;
   std::vector<ManifestFamily> families_;
   std::vector<ManifestFile> files_;
   // Manifest-defined labels are dynamic; cap them at the 32-bit membership
