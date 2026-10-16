@@ -129,7 +129,7 @@ jobs:
             grep -E 'Flash:.*used' "$1" | tail -1 | sed -n 's/.*used \([0-9,]*\).*/\1/p' | tr -d ','
           }
           PR_FLASH="$(extract_flash_used pio-waveshare.log)"
-          git fetch origin main
+          git fetch --no-recurse-submodules origin main
           git worktree add --detach ../crossmux-main-flash origin/main
           pushd ../crossmux-main-flash >/dev/null
           git submodule sync --recursive
