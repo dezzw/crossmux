@@ -6,8 +6,6 @@
 #include <cctype>
 #include <cstring>
 
-#include "network/CrossMuxEndpoints.h"
-
 namespace FontManifestCatalog {
 
 namespace {
@@ -17,7 +15,7 @@ constexpr char kDefaultCjkScriptTag[] = "cjk";
 
 bool isCrossMuxSourcedFamilyBaseUrl(const std::string& baseUrl) {
   if (baseUrl.find("assets.crossmux.cn") != std::string::npos) return true;
-  return baseUrl.find(CrossMuxEndpoints::LEGACY_HOST) != std::string::npos;
+  return baseUrl.find("crossmux.com") != std::string::npos;
 }
 
 bool isValidFamilyName(const char* name) {
