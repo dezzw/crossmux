@@ -1,6 +1,8 @@
 #pragma once
 #include <HalStorage.h>
 
+#include "HttpTransportTypes.h"
+
 #include <functional>
 #include <string>
 
@@ -19,14 +21,7 @@ class HttpDownloader {
     bool verifyTlsPeer = false;
   };
 
-  enum class TransportFailure : uint8_t {
-    None = 0,
-    Connect,
-    Tls,
-    HttpStatus,
-    Incomplete,
-    FileIo,
-  };
+  using TransportFailure = HttpTransportTypes::TransportFailure;
 
   using ProgressCallback = std::function<void(size_t downloaded, size_t total)>;
   // Called with each body chunk as it arrives; return false to abort. Lets a

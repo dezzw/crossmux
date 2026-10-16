@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(crosspoint_reader_tests C CXX)
 
+if(DEFINED TLS_WOLFSSL_SHA384)
+  set(TLS_WOLFSSL_SHA384 ${TLS_WOLFSSL_SHA384} CACHE BOOL "wolfSSL SHA-384 parity for tls_chain_verify" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -59,6 +63,8 @@ add_subdirectory(html_to_plain_text)
 add_subdirectory(minibidi_arabic)
 add_subdirectory(combining_marks)
 add_subdirectory(time_utils)
+add_subdirectory(http_transport)
+add_subdirectory(tls_chain_verify)
 add_subdirectory(weread_webapi)
 
 add_subdirectory(sd_card_font_cache_format)
@@ -133,3 +139,7 @@ add_test(NAME WifiListNavRebuild
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wifi_list_nav_rebuild.py)
 add_test(NAME OtaSigningKnownAnswerPython
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ota_signing_cross.py)
+add_test(NAME TlsWolfSslLegacyBuild
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_tls_wolfssl_legacy_build.py)
+add_test(NAME WolfSslSha384Patch
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wolfssl_sha384_patch.py)

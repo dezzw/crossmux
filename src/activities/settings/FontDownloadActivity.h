@@ -56,8 +56,32 @@ class FontDownloadActivity final : public UiListActivity {
   enum class DownloadOperation : uint8_t { None, Single, DownloadAll, UpdateAll };
   enum class DownloadResult : uint8_t { Success, Cancelled, Failed };
   enum class AutomaticError : uint8_t { Download, FamilyMissing, PointSizeMissing, SettingsSave, FontLoad };
-  enum class ManifestFailure : uint8_t { None, Network, Tls, Http, Parse, Version, SdWrite };
-  enum class FileFailure : uint8_t { None, Network, Tls, Http, Crc, Header, Sd };
+  enum class ManifestFailure : uint8_t {
+    None,
+    Network,
+    Clock,
+    TlsCert,
+    TlsDate,
+    TlsMemory,
+    TlsHandshake,
+    Http,
+    Parse,
+    Version,
+    SdWrite,
+  };
+  enum class FileFailure : uint8_t {
+    None,
+    Network,
+    Clock,
+    TlsCert,
+    TlsDate,
+    TlsMemory,
+    TlsHandshake,
+    Http,
+    Crc,
+    Header,
+    Sd,
+  };
   enum class ExitRoute : uint8_t { Home, Reader, ReaderSuppressPrompt, ReaderPreloadChineseFont };
 
   struct ManifestFile {

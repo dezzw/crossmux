@@ -16,7 +16,9 @@
 #include <string>
 #include <string_view>
 
+#include "HttpTransportFailure.h"
 #include "TlsCaBundle.h"
+
 
 #if defined(FREEINK_NET_WOLFSSL)
 #include <SecureHttpClient.h>
@@ -127,8 +129,9 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
 
     if (http.aborted()) return HttpDownloader::ABORTED;
     if (status < 0) {
-      LOG_ERR("HTTP", "wolfSSL request failed: status=%d url=%s", status, url.c_str());
-      gLastTransportFailure = HttpDownloader::TransportFailure::Tls;
+      const int wolfErr = http.lastWolfErrorCode();
+      LOG_ERR("HTTP", "wolfSSL request failed: status=%d wolfErr=%d url=%s", status, wolfErr, url.c_str());
+      gLastTransportFailure = HttpTransportFailure::fromWolfError(wolfErr);
       return HttpDownloader::HTTP_ERROR;
     }
     gLastHttpStatus = status;
@@ -270,6 +273,10 @@ HttpDownloader::DownloadError runGet(const std::string& url, const std::string& 
 HttpDownloader::DownloadError runGetSecure(const std::string& url, const std::string& username,
                                            const std::string& password, const Sink& sinkIn) {
   resetTransportDiagnostics();
+  if (sinkIn.verifyTlsPeer &&
+      !HttpTransportFailure::ensureClockForVerifiedTls(gLastTransportFailure)) {
+    return HttpDownloader::HTTP_ERROR;
+  }
   char userAgent[USER_AGENT_CAPACITY];
   const int userAgentLength =
       snprintf(userAgent, sizeof(userAgent), "CrossMux-%s-" CROSSPOINT_VERSION, HalSystem::getDeviceModel());

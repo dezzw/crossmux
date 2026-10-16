@@ -8,6 +8,15 @@ MARKER = "/* CrossPoint wolfSSL compatibility overrides */"
 OVERRIDES = f"""
 
 {MARKER}
+#ifndef WOLFSSL_SHA384
+#define WOLFSSL_SHA384
+#endif
+#ifndef WOLFSSL_SHA512
+#define WOLFSSL_SHA512
+#endif
+#ifndef WOLFSSL_SP_384
+#define WOLFSSL_SP_384
+#endif
 #undef NO_DH
 #ifndef HAVE_FFDHE_2048
 #define HAVE_FFDHE_2048
