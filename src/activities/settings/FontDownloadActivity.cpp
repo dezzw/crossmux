@@ -554,6 +554,12 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   if (!loadedAny) return false;
 
   FontManifestCatalog::applyDefaultScriptGroupForUnscriptedFamilies(catalog);
+  for (size_t groupIndex = 0; groupIndex < catalog.scriptGroupTags.size(); groupIndex++) {
+    if (catalog.scriptGroupTags[groupIndex] == "cjk") {
+      catalog.scriptGroupLabels[groupIndex] = tr(STR_FONT_SCRIPT_GROUP_CJK);
+      break;
+    }
+  }
 
   manifestFailure_ = ManifestFailure::None;
   lastHttpStatus_ = 0;
@@ -820,9 +826,12 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
     return DownloadResult::Success;
   }
 
-  FontManifestCatalog::Catalog urlCatalog;
-  urlCatalog.baseUrls = manifestBaseUrls_;
-  std::string url = FontManifestCatalog::baseUrlForFamily(urlCatalog, family);
+  if (family.baseUrlIndex >= manifestBaseUrls_.size()) {
+    LOG_ERR("FONT", "Manifest baseUrl index out of range for %s", family.name.c_str());
+    fileFailure_ = FileFailure::Header;
+    return DownloadResult::Failed;
+  }
+  std::string url = manifestBaseUrls_[family.baseUrlIndex];
   url += fileName;
   NetworkStartup::prepare(renderer);
   const HttpDownloader::FetchOptions verifiedTls{.verifyTlsPeer = true};

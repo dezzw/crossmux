@@ -231,8 +231,94 @@ TEST(FontManifestCatalog, UnscriptedFamiliesDefaultToCjkGroup) {
   EXPECT_EQ(catalog.families.front().scriptMask, 0u);
   FontManifestCatalog::applyDefaultScriptGroupForUnscriptedFamilies(catalog);
   ASSERT_FALSE(catalog.scriptGroupTags.empty());
-  EXPECT_EQ(catalog.scriptGroupTags.front(), "cjk");
+  EXPECT_EQ(catalog.scriptGroupTags.back(), "cjk");
   EXPECT_NE(catalog.families.front().scriptMask, 0u);
+}
+
+TEST(FontManifestCatalog, UnscriptedGithubFamilyStaysInAllGroup) {
+  JsonDocument githubDoc;
+  githubDoc["version"] = 1;
+  githubDoc["baseUrl"] = "https://github.com/example/sd-fonts-m1-b4/";
+  JsonArray families = githubDoc["families"].to<JsonArray>();
+  JsonObject family = families.add<JsonObject>();
+  family["name"] = "UnscriptedGithub";
+  family["description"] = "No scripts field";
+  JsonArray files = family["files"].to<JsonArray>();
+  JsonObject file = files.add<JsonObject>();
+  file["name"] = "UnscriptedGithub_12.cpfont";
+  file["size"] = 1000;
+  file["crc32"] = 305419896;
+
+  FontManifestCatalog::Catalog catalog;
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog, FontManifestCatalog::IngestMode::Replace, "github"),
+            FontManifestCatalog::IngestResult::Ok);
+  FontManifestCatalog::applyDefaultScriptGroupForUnscriptedFamilies(catalog);
+  EXPECT_EQ(catalog.families.front().scriptMask, 0u);
+  EXPECT_TRUE(catalog.scriptGroupTags.empty());
+}
+
+TEST(FontManifestCatalog, MergeReplaceDuplicateInMiddleShiftsFileOffsets) {
+  JsonDocument legacyDoc;
+  legacyDoc["version"] = 1;
+  legacyDoc["baseUrl"] = "https://assets.crossmux.cn/legacy/";
+  JsonArray legacyFamilies = legacyDoc["families"].to<JsonArray>();
+  for (const char* name : {"Alpha", "DupMiddle", "Omega"}) {
+    JsonObject family = legacyFamilies.add<JsonObject>();
+    family["name"] = name;
+    family["description"] = "legacy";
+    JsonArray files = family["files"].to<JsonArray>();
+    JsonObject file = files.add<JsonObject>();
+    char fileName[32];
+    snprintf(fileName, sizeof(fileName), "%s_12.cpfont", name);
+    file["name"] = fileName;
+    file["size"] = 1000;
+    file["crc32"] = 305419896;
+  }
+
+  JsonDocument githubDoc;
+  githubDoc["version"] = 1;
+  githubDoc["baseUrl"] = "https://github.com/example/replace/";
+  JsonArray githubFamilies = githubDoc["families"].to<JsonArray>();
+  JsonObject replaced = githubFamilies.add<JsonObject>();
+  replaced["name"] = "DupMiddle";
+  replaced["description"] = "github";
+  JsonArray scripts = replaced["scripts"].to<JsonArray>();
+  scripts.add("latn");
+  JsonArray replacedFiles = replaced["files"].to<JsonArray>();
+  for (unsigned pointSize : {12u, 14u}) {
+    JsonObject file = replacedFiles.add<JsonObject>();
+    char fileName[32];
+    snprintf(fileName, sizeof(fileName), "DupMiddle_%u.cpfont", pointSize);
+    file["name"] = fileName;
+    file["size"] = 1000 + pointSize;
+    file["crc32"] = 305419896;
+  }
+  JsonArray groups = githubDoc["scriptGroups"].to<JsonArray>();
+  JsonObject group = groups.add<JsonObject>();
+  group["tag"] = "latn";
+  group["label"] = "Latin";
+
+  FontManifestCatalog::Catalog catalog;
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy"),
+            FontManifestCatalog::IngestResult::Ok);
+  ASSERT_EQ(catalog.families.size(), 3u);
+  ASSERT_EQ(catalog.files.size(), 3u);
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog,
+                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github"),
+            FontManifestCatalog::IngestResult::Ok);
+
+  ASSERT_EQ(catalog.families.size(), 3u);
+  ASSERT_EQ(catalog.files.size(), 4u);
+  EXPECT_EQ(catalog.families[0].name, "Alpha");
+  EXPECT_EQ(catalog.families[0].fileOffset, 0u);
+  EXPECT_EQ(catalog.families[0].fileCount, 1u);
+  EXPECT_EQ(catalog.families[1].name, "DupMiddle");
+  EXPECT_EQ(catalog.families[1].fileOffset, 1u);
+  EXPECT_EQ(catalog.families[1].fileCount, 2u);
+  EXPECT_EQ(catalog.families[2].name, "Omega");
+  EXPECT_EQ(catalog.families[2].fileOffset, 3u);
+  EXPECT_EQ(catalog.families[2].fileCount, 1u);
+  EXPECT_EQ(catalog.files[3].pointSize, 12);
 }
 
 TEST(FontManifestCatalog, SharesBaseUrlAcrossFamiliesFromSameSource) {

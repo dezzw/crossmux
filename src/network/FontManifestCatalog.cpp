@@ -6,13 +6,19 @@
 #include <cctype>
 #include <cstring>
 
+#include "network/CrossMuxEndpoints.h"
+
 namespace FontManifestCatalog {
 
 namespace {
 
 constexpr int kExpectedManifestSchemaVersion = 1;
 constexpr char kDefaultCjkScriptTag[] = "cjk";
-constexpr char kDefaultCjkScriptLabel[] = "CJK";
+
+bool isCrossMuxSourcedFamilyBaseUrl(const std::string& baseUrl) {
+  if (baseUrl.find("assets.crossmux.cn") != std::string::npos) return true;
+  return baseUrl.find(CrossMuxEndpoints::LEGACY_HOST) != std::string::npos;
+}
 
 bool isValidFamilyName(const char* name) {
   if (name == nullptr || name[0] == '\0') return false;
@@ -266,10 +272,19 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
     return IngestResult::Parse;
   }
 
-  Catalog scratch = catalog;
+  Catalog scratch;
+  const bool restoreCatalogOnFailure = mode != IngestMode::Replace;
   if (mode == IngestMode::Replace) {
     scratch = Catalog{};
+  } else {
+    scratch = std::move(catalog);
   }
+  const auto failIngest = [&](IngestResult result) -> IngestResult {
+    if (restoreCatalogOnFailure) {
+      catalog = std::move(scratch);
+    }
+    return result;
+  };
 
   if (mode == IngestMode::Replace) {
     scratch.scriptGroupTags.clear();
@@ -291,20 +306,20 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
         const char* label = groupObj["label"] | "";
         if (*tag == '\0' || *label == '\0') {
           LOG_ERR("FONT", "Malformed script group at index %zu", groupIndex);
-          return IngestResult::Parse;
+          return failIngest(IngestResult::Parse);
         }
         scratch.scriptGroupTags.emplace_back(tag);
         scratch.scriptGroupLabels.emplace_back(label);
       }
     }
   } else if (!mergeScriptGroups(groupsArr, scratch)) {
-    return IngestResult::Parse;
+    return failIngest(IngestResult::Parse);
   }
 
   IngestPlan plan;
   if (!planFamilies(familiesArr, scratch, mode, plan)) {
     LOG_ERR("FONT", "Manifest has invalid file count from %s", sourceUrl);
-    return IngestResult::Parse;
+    return failIngest(IngestResult::Parse);
   }
 
   size_t finalFamilies = 0;
@@ -314,26 +329,26 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
     finalFiles = plan.filesToAdd;
   } else if (!countAfterIngest(scratch, familiesArr, mode, finalFamilies, finalFiles)) {
     LOG_ERR("FONT", "Manifest has invalid file count from %s", sourceUrl);
-    return IngestResult::Parse;
+    return failIngest(IngestResult::Parse);
   }
 
   if (finalFamilies > Limits::kMaxManifestFamilies) {
     LOG_ERR("FONT", "Manifest from %s would exceed %zu families (%zu)", sourceUrl, Limits::kMaxManifestFamilies,
             finalFamilies);
-    return IngestResult::Overflow;
+    return failIngest(IngestResult::Overflow);
   }
   if (finalFiles > Limits::kMaxManifestFiles) {
     LOG_ERR("FONT", "Manifest from %s would exceed %zu files (%zu)", sourceUrl, Limits::kMaxManifestFiles, finalFiles);
-    return IngestResult::Overflow;
+    return failIngest(IngestResult::Overflow);
   }
 
   uint8_t baseUrlIndex = 0;
   if (!internBaseUrl(scratch, baseUrl, baseUrlIndex)) {
-    return IngestResult::Parse;
+    return failIngest(IngestResult::Parse);
   }
 
   if (!ingestFamilies(familiesArr, scratch, mode, baseUrlIndex)) {
-    return IngestResult::Parse;
+    return failIngest(IngestResult::Parse);
   }
 
   catalog = std::move(scratch);
@@ -372,21 +387,34 @@ void applyDefaultScriptGroupForUnscriptedFamilies(Catalog& catalog) {
   if (catalog.families.empty()) return;
 
   size_t cjkIndex = findScriptGroupIndex(catalog.scriptGroupTags, kDefaultCjkScriptTag);
+  bool addedCjkGroup = false;
   if (cjkIndex >= catalog.scriptGroupTags.size()) {
     if (catalog.scriptGroupTags.size() >= Limits::kMaxScriptGroups) {
       LOG_ERR("FONT", "Cannot add default CJK script group; catalog full");
       return;
     }
     catalog.scriptGroupTags.emplace_back(kDefaultCjkScriptTag);
-    catalog.scriptGroupLabels.emplace_back(kDefaultCjkScriptLabel);
+    catalog.scriptGroupLabels.emplace_back("");
     cjkIndex = catalog.scriptGroupTags.size() - 1;
+    addedCjkGroup = true;
   }
 
   const uint32_t cjkBit = uint32_t{1} << cjkIndex;
+  bool appliedCjkDefault = false;
   for (Family& family : catalog.families) {
-    if (family.scriptMask == 0) {
-      family.scriptMask = cjkBit;
+    if (family.scriptMask != 0) continue;
+    if (family.baseUrlIndex >= catalog.baseUrls.size() ||
+        !isCrossMuxSourcedFamilyBaseUrl(catalog.baseUrls[family.baseUrlIndex])) {
+      LOG_WRN("FONT", "Unscripted GitHub family %s stays in All fonts", family.name.c_str());
+      continue;
     }
+    family.scriptMask = cjkBit;
+    appliedCjkDefault = true;
+  }
+
+  if (addedCjkGroup && !appliedCjkDefault) {
+    catalog.scriptGroupTags.pop_back();
+    catalog.scriptGroupLabels.pop_back();
   }
 }
 
