@@ -70,6 +70,8 @@ struct {
   void disconnect(bool) { ++disconnects; }
 } WiFi;
 struct { void setAutoSyncEnabled(bool) {} } halClock;
+struct { uint8_t clockAutoSync = 1; } settings;
+#define SETTINGS settings
 void delay(int) {}
 void silentRestart() { restartRoute = 0; }
 void silentRestartToReader(bool suppress = false) { restartRoute = suppress ? 2 : 1; }
@@ -80,6 +82,7 @@ struct OtaUpdateActivity : Activity {
   enum class State { Ready, Failed, WifiSelection };
   State state = State::Ready;
   bool readingStatsReleased = false;
+  bool clockAutoSyncBeforeWifi_ = true;
   void beginWifiSelection();
   void onExit();
 };

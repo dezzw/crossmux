@@ -30,6 +30,7 @@ class OtaUpdateActivity : public Activity, private UiAppHost {
   int selectedReadyRow = 0;
   bool waitForConfirmRelease = false;
   bool readingStatsReleased = false;
+  bool clockAutoSyncBeforeWifi_ = true;
   unsigned int lastUpdaterPercentage = UNINITIALIZED_PERCENTAGE;
   OtaUpdater updater;
   OptionPopup updateConfirmation;
