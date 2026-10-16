@@ -135,7 +135,6 @@ bool internBaseUrl(Catalog& catalog, const std::string& baseUrl, uint8_t& outInd
 struct IngestPlan {
   size_t familiesToAdd = 0;
   size_t filesToAdd = 0;
-  size_t familiesToReplace = 0;
 };
 
 bool planFamilies(JsonArrayConst familiesArr, const Catalog& catalog, IngestMode mode, IngestPlan& plan) {
@@ -148,9 +147,6 @@ bool planFamilies(JsonArrayConst familiesArr, const Catalog& catalog, IngestMode
     const bool exists = familyNameExists(catalog, familyName);
     if (mode == IngestMode::MergeSkipDuplicateNames && exists) {
       continue;
-    }
-    if (mode == IngestMode::MergeReplaceDuplicateNames && exists) {
-      plan.familiesToReplace++;
     }
     plan.familiesToAdd++;
     plan.filesToAdd += familyFiles.size();
