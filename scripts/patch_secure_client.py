@@ -3,9 +3,11 @@ from pathlib import Path
 
 Import("env")
 
-from securenet_overlay import apply_patches
-
 PROJECT_DIR = Path(env.subst("$PROJECT_DIR"))
+import sys
+
+sys.path.insert(0, str(PROJECT_DIR / "scripts"))
+from securenet_overlay import apply_patches
 
 build_flags = env.get("BUILD_FLAGS", [])
 uses_wolf = any("FREEINK_NET_WOLFSSL" in str(flag) for flag in build_flags)

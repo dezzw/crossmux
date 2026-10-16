@@ -15,7 +15,7 @@ class WolfSslSha384PatchTest(unittest.TestCase):
         self.assertIn("#error", text)
 
     def test_secure_client_patch_checks_ca_load(self):
-        source = (ROOT / "scripts/patch_secure_client.py").read_text()
+        source = (ROOT / "scripts/securenet_overlay.py").read_text()
         self.assertIn("wolfSSL_CTX_load_verify_buffer", source)
         self.assertIn("loadRc != WOLFSSL_SUCCESS", source)
         self.assertIn("roots_in_pem", source)
