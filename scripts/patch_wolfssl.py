@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -47,6 +48,9 @@ def patch_user_settings(path: Path) -> None:
 libdeps_root = PROJECT_DIR / ".pio/libdeps"
 matches = list(libdeps_root.glob("*/Arduino-wolfSSL/src/user_settings.h"))
 if not matches:
+    if os.environ.get("CI") == "true":
+        print("::error::No Arduino-wolfSSL user_settings.h under .pio/libdeps (CI requires wolfSSL patch)")
+        sys.exit(1)
     if libdeps_root.is_dir() and any(libdeps_root.glob("*")):
         print("::error::No Arduino-wolfSSL user_settings.h under .pio/libdeps")
         sys.exit(1)

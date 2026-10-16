@@ -1,5 +1,6 @@
 """Build tls_chain_verify with device/legacy wolfSSL flags; exercise chain + live host checks."""
 
+import socket
 import subprocess
 import unittest
 from pathlib import Path
@@ -9,6 +10,14 @@ ROOT = Path(__file__).resolve().parents[2]
 BUILD_SHA = ROOT / "build/tls_chain_verify_sha384"
 BUILD_LEGACY = ROOT / "build/tls_chain_verify_legacy"
 BUILD_NO_ALT = ROOT / "build/tls_chain_verify_no_alt"
+
+
+def _online() -> bool:
+    try:
+        with socket.create_connection(("github.com", 443), timeout=5):
+            return True
+    except OSError:
+        return False
 
 
 def _bundle_without_pinned_globalsign() -> Path:
@@ -91,6 +100,7 @@ class TlsWolfSslLegacyBuildTest(unittest.TestCase):
             ]
         )
 
+    @unittest.skipUnless(_online(), "network required for live TLS host verification")
     def test_crossmux_live_host_fails_without_alt_cert_chains(self):
         self._configure_build(BUILD_NO_ALT, sha384=True, alt_chains=False)
         bundle = _bundle_without_pinned_globalsign()
@@ -106,6 +116,7 @@ class TlsWolfSslLegacyBuildTest(unittest.TestCase):
         )
         self.assertNotEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
+    @unittest.skipUnless(_online(), "network required for live TLS host verification")
     def test_crossmux_live_host_passes_with_device_config(self):
         self._configure_build(BUILD_SHA, sha384=True, alt_chains=True)
         bundle = ROOT / "src/network/TlsCaBundle.pem"

@@ -3,16 +3,25 @@
 #include <HalClock.h>
 #include <Logging.h>
 
-#if defined(ESP_PLATFORM)
-#include <WiFi.h>
-#endif
-
 namespace HttpTransportFailure {
 namespace {
 
 // wolfCrypt (error-crypt.h)
-constexpr int kHashTypeE = -232;
+constexpr int kMemoryE = -125;
+constexpr int kDateE = -135;
+constexpr int kAsnDateSzE = -149;
+constexpr int kAsnBeforeDateE = -150;
+constexpr int kAsnAfterDateE = -151;
+constexpr int kAsnSigOidE = -152;
+constexpr int kAsnSigConfirmE = -155;
+constexpr int kAsnSigHashE = -156;
+constexpr int kAsnSigKeyE = -157;
+constexpr int kCrlCertDateErr = -179;
 constexpr int kAsnNoSignerE = -188;
+constexpr int kAsnCrlNoSignerE = -190;
+constexpr int kSigVerifyE = -229;
+constexpr int kHashTypeE = -232;
+constexpr int kAsnSelfSignedE = -275;
 
 // wolfSSL (error-ssl.h)
 constexpr int kSocketErrorE = -308;
@@ -20,31 +29,21 @@ constexpr int kDomainNameMismatchE = -322;
 constexpr int kVerifyCertErrorE = -329;
 constexpr int kPeerClosedErrorE = -343;
 
-#if defined(ESP_PLATFORM)
-wl_status_t gWifiStatusAtClockGate = WL_NO_SHIELD;
-#endif
 bool gClockNotSetLatchedForWifiSession = false;
 
-bool isDateError(const int err) { return err == -135 || err == -149 || err == -150 || err == -151 || err == -179; }
+bool isDateError(const int err) {
+  return err == kDateE || err == kAsnDateSzE || err == kAsnBeforeDateE || err == kAsnAfterDateE ||
+         err == kCrlCertDateErr;
+}
 
-bool isMemoryError(const int err) { return err == -125; }
+bool isMemoryError(const int err) { return err == kMemoryE; }
 
 bool isConnectError(const int err) { return err == kSocketErrorE || err == kPeerClosedErrorE; }
 
 bool isCertError(const int err) {
-  return err == kSecureClientCaLoadError || err == kHashTypeE || err == -152 || err == -155 || err == -156 ||
-         err == -157 || err == kAsnNoSignerE || err == -190 || err == -229 || err == -275 ||
-         err == kDomainNameMismatchE || err == kVerifyCertErrorE;
-}
-
-void syncWifiSessionClockGate() {
-#if defined(ESP_PLATFORM)
-  const wl_status_t status = WiFi.status();
-  if (status != gWifiStatusAtClockGate) {
-    gWifiStatusAtClockGate = status;
-    gClockNotSetLatchedForWifiSession = false;
-  }
-#endif
+  return err == kSecureClientCaLoadError || err == kHashTypeE || err == kAsnSigOidE || err == kAsnSigConfirmE ||
+         err == kAsnSigHashE || err == kAsnSigKeyE || err == kAsnNoSignerE || err == kAsnCrlNoSignerE ||
+         err == kSigVerifyE || err == kAsnSelfSignedE || err == kDomainNameMismatchE || err == kVerifyCertErrorE;
 }
 
 }  // namespace
@@ -58,22 +57,22 @@ HttpTransportTypes::TransportFailure fromWolfError(const int wolfErrorCode) {
   return HttpTransportTypes::TransportFailure::TlsHandshake;
 }
 
-void resetVerifiedTlsClockGate() {
-  gClockNotSetLatchedForWifiSession = false;
-#if defined(ESP_PLATFORM)
-  gWifiStatusAtClockGate = WiFi.status();
-#endif
-}
+void resetVerifiedTlsClockGate() { gClockNotSetLatchedForWifiSession = false; }
 
 bool ensureClockForVerifiedTls(HttpTransportTypes::TransportFailure& outFailure) {
-  syncWifiSessionClockGate();
-  if (halClock.hasValidTime()) return true;
+  if (halClock.hasValidTime()) {
+    outFailure = HttpTransportTypes::TransportFailure::None;
+    return true;
+  }
   if (gClockNotSetLatchedForWifiSession) {
     outFailure = HttpTransportTypes::TransportFailure::ClockNotSet;
     return false;
   }
   LOG_INF("HTTP", "Clock invalid before verified TLS; attempting SNTP sync");
-  if (halClock.syncNow() && halClock.hasValidTime()) return true;
+  if (halClock.syncNow() && halClock.hasValidTime()) {
+    outFailure = HttpTransportTypes::TransportFailure::None;
+    return true;
+  }
   LOG_ERR("HTTP", "Verified TLS blocked: clock not set");
   gClockNotSetLatchedForWifiSession = true;
   outFailure = HttpTransportTypes::TransportFailure::ClockNotSet;

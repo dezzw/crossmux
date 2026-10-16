@@ -50,3 +50,16 @@ TEST(HttpTransportFailureClock, LatchesClockNotSetUntilReset) {
   HttpTransportFailure::resetVerifiedTlsClockGate();
   EXPECT_TRUE(HttpTransportFailure::ensureClockForVerifiedTls(failure));
 }
+
+TEST(HttpTransportFailureClock, DisconnectThenReconnectRetriesSntp) {
+  halClock.now = 0;
+  halClock.syncNowResult = false;
+  HttpTransportTypes::TransportFailure failure = HttpTransportTypes::TransportFailure::None;
+  EXPECT_FALSE(HttpTransportFailure::ensureClockForVerifiedTls(failure));
+  halClock.syncNowResult = true;
+  EXPECT_FALSE(HttpTransportFailure::ensureClockForVerifiedTls(failure));
+  HttpTransportFailure::onWifiDisconnected();
+  HttpTransportFailure::onWifiConnected();
+  EXPECT_TRUE(HttpTransportFailure::ensureClockForVerifiedTls(failure));
+  EXPECT_EQ(failure, HttpTransportTypes::TransportFailure::None);
+}

@@ -28,6 +28,7 @@
 #include "fontIds.h"
 #include "network/CrossMuxEndpoints.h"
 #include "network/HttpDownloader.h"
+#include "network/HttpTransportFailure.h"
 
 namespace fui = freeink::ui;
 
@@ -226,6 +227,7 @@ void FontDownloadActivity::onExit() {
 
   const bool wifiWasEnabled = WiFi.getMode() != WIFI_MODE_NULL;
   if (wifiWasEnabled) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
   }

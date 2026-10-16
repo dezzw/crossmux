@@ -141,5 +141,6 @@ add_test(NAME OtaSigningKnownAnswerPython
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ota_signing_cross.py)
 add_test(NAME TlsWolfSslLegacyBuild
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_tls_wolfssl_legacy_build.py)
+set_tests_properties(TlsWolfSslLegacyBuild PROPERTIES LABELS "network")
 add_test(NAME WolfSslSha384Patch
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wolfssl_sha384_patch.py)

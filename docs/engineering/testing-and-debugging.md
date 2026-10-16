@@ -69,9 +69,11 @@ script or workflow changes, run the focused checks and report any limitations.
 
 * Regenerate the embedded Mozilla + pinned roots bundle: `python3 scripts/export_tls_ca_bundle.py`
   (pins legacy GlobalSign Root CA by SHA-256; never substring-match `GlobalSign Root CA` or R6 is pulled in).
-* Host tests build wolfSSL from `scripts/tls/user_settings.h` (device TLS 1.3 flags + `scripts/tls/wolfssl_crossmux_overrides.h`).
+* Host tests build wolfSSL from `scripts/tls/user_settings.h`, which includes a generated
+  `wolfssl_device_user_settings.h` (Arduino-wolfSSL 5.7.2 snapshot + CrossMux `platformio.ini` TLS flags +
+  `scripts/tls/wolfssl_crossmux_overrides.h`). Regenerate with `python3 scripts/tls/generate_host_user_settings.py`.
   Chain fixtures live under `test/fixtures/tls/`; live OTA/font hosts are checked with `TlsHostVerify` via `scripts/ci_verify_tls_hosts.sh`.
-* `scripts/patch_secure_client.py` copies `freeink-sdk` SecureNet into `crossmux-patches/SecureNet` before patching so the submodule stays clean; PlatformIO links that overlay via `platformio.ini`.
+* `scripts/seed_securenet_overlay.py` copies/patches `freeink-sdk` SecureNet into `crossmux-patches/SecureNet` (submodule stays clean). CI runs `python3 scripts/seed_securenet_overlay.py --check` to catch overlay drift.
 
 ## Debugging Crashes
 

@@ -22,6 +22,7 @@
 #include "components/UIThemeTokens.h"
 #include "fontIds.h"
 #include "network/HttpDownloader.h"
+#include "network/HttpTransportFailure.h"
 #include "network/HttpTransportFailureText.h"
 #include "network/OtaUpdater.h"
 #include "util/ButtonNavigator.h"
@@ -216,6 +217,7 @@ void OtaUpdateActivity::onExit() {
 
   const bool wifiWasEnabled = WiFi.getMode() != WIFI_MODE_NULL;
   if (wifiWasEnabled) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
   }

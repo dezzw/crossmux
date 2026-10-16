@@ -58,3 +58,13 @@ add_executable(TlsHostVerify TlsHostVerify.cpp)
 target_include_directories(TlsHostVerify PRIVATE ${REPO_ROOT}/src/network ${REPO_ROOT}/scripts/tls ${wolfssl_SOURCE_DIR})
 target_link_libraries(TlsHostVerify PRIVATE wolfssl)
 target_compile_definitions(TlsHostVerify PRIVATE REPO_ROOT="${REPO_ROOT}")
+
+add_test(
+  NAME TlsHostVerifyGithub
+  COMMAND TlsHostVerify github.com ${REPO_ROOT}/src/network/TlsCaBundle.pem
+)
+add_test(
+  NAME TlsHostVerifyCrossmux
+  COMMAND TlsHostVerify crossmux.com ${REPO_ROOT}/src/network/TlsCaBundle.pem
+)
+set_tests_properties(TlsHostVerifyGithub TlsHostVerifyCrossmux PROPERTIES LABELS "network")

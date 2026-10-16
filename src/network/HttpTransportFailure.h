@@ -6,16 +6,17 @@
 namespace HttpTransportFailure {
 
 constexpr int kSecureClientCaLoadError = WolfSslTransportErrors::kSecureClientCaLoadError;
-static_assert(kSecureClientCaLoadError == WolfSslTransportErrors::kSecureClientCaLoadError);
 
-// Maps a wolfSSL/wolfCrypt error from SecureClient to a transport category.
 HttpTransportTypes::TransportFailure fromWolfError(int wolfErrorCode);
 
-// Ensures UTC time is valid before verified TLS (one SNTP attempt per Wi-Fi session). Returns false and sets
+// Ensures UTC time is valid before verified TLS (one SNTP attempt until the Wi-Fi link resets). Returns false and sets
 // `outFailure` to ClockNotSet when the clock cannot be trusted.
 bool ensureClockForVerifiedTls(HttpTransportTypes::TransportFailure& outFailure);
 
-// Clears the per-Wi-Fi-session ClockNotSet latch (call when the link drops or reconnects).
+// Clears the ClockNotSet latch (call when Wi-Fi connects, disconnects, or network activities exit).
 void resetVerifiedTlsClockGate();
+
+inline void onWifiConnected() { resetVerifiedTlsClockGate(); }
+inline void onWifiDisconnected() { resetVerifiedTlsClockGate(); }
 
 }  // namespace HttpTransportFailure

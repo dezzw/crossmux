@@ -11,19 +11,29 @@ PINNED_DIR = ROOT / 'scripts/tls/pinned'
 PEM_OUT = ROOT / 'src/network/TlsCaBundle.pem'
 CPP_OUT = ROOT / 'src/network/TlsCaBundle.cpp'
 
-# Exact CN match (openssl subject CN=); avoids substring hits like "GlobalSign Root CA - R6".
 MOZILLA_SPECS = [
-    {'label': 'ISRG Root X1', 'cn': 'ISRG Root X1'},
-    {'label': 'DigiCert Global Root G2', 'cn': 'DigiCert Global Root G2'},
-    {'label': 'Amazon Root CA 1', 'cn': 'Amazon Root CA 1'},
-    {'label': 'Sectigo Public Server Authentication Root E46', 'cn': 'Sectigo Public Server Authentication Root E46'},
-    {'label': 'Sectigo Public Server Authentication Root R46', 'cn': 'Sectigo Public Server Authentication Root R46'},
-    {'label': 'USERTrust RSA Certification Authority', 'cn': 'USERTrust RSA Certification Authority'},
-    {'label': 'USERTrust ECC Certification Authority', 'cn': 'USERTrust ECC Certification Authority'},
-    {'label': 'GlobalSign Root CA - R3', 'ou': 'GlobalSign Root CA - R3'},
-    {'label': 'GTS Root R1', 'cn': 'GTS Root R1'},
-    {'label': 'GTS Root R3', 'cn': 'GTS Root R3'},
-    {'label': 'GTS Root R4', 'cn': 'GTS Root R4'},
+    {'label': 'ISRG Root X1', 'cn': 'ISRG Root X1',
+     'sha256': '96:BC:EC:06:26:49:76:F3:74:60:77:9A:CF:28:C5:A7:CF:E8:A3:C0:AA:E1:1A:8F:FC:EE:05:C0:BD:DF:08:C6'},
+    {'label': 'DigiCert Global Root G2', 'cn': 'DigiCert Global Root G2',
+     'sha256': 'CB:3C:CB:B7:60:31:E5:E0:13:8F:8D:D3:9A:23:F9:DE:47:FF:C3:5E:43:C1:14:4C:EA:27:D4:6A:5A:B1:CB:5F'},
+    {'label': 'Amazon Root CA 1', 'cn': 'Amazon Root CA 1',
+     'sha256': '8E:CD:E6:88:4F:3D:87:B1:12:5B:A3:1A:C3:FC:B1:3D:70:16:DE:7F:57:CC:90:4F:E1:CB:97:C6:AE:98:19:6E'},
+    {'label': 'Sectigo Public Server Authentication Root E46', 'cn': 'Sectigo Public Server Authentication Root E46',
+     'sha256': 'C9:0F:26:F0:FB:1B:40:18:B2:22:27:51:9B:5C:A2:B5:3E:2C:A5:B3:BE:5C:F1:8E:FE:1B:EF:47:38:0C:53:83'},
+    {'label': 'Sectigo Public Server Authentication Root R46', 'cn': 'Sectigo Public Server Authentication Root R46',
+     'sha256': '7B:B6:47:A6:2A:EE:AC:88:BF:25:7A:A5:22:D0:1F:FE:A3:95:E0:AB:45:C7:3F:93:F6:56:54:EC:38:F2:5A:06'},
+    {'label': 'USERTrust RSA Certification Authority', 'cn': 'USERTrust RSA Certification Authority',
+     'sha256': 'E7:93:C9:B0:2F:D8:AA:13:E2:1C:31:22:8A:CC:B0:81:19:64:3B:74:9C:89:89:64:B1:74:6D:46:C3:D4:CB:D2'},
+    {'label': 'USERTrust ECC Certification Authority', 'cn': 'USERTrust ECC Certification Authority',
+     'sha256': '4F:F4:60:D5:4B:9C:86:DA:BF:BC:FC:57:12:E0:40:0D:2B:ED:3F:BC:4D:4F:BD:AA:86:E0:6A:DC:D2:A9:AD:7A'},
+    {'label': 'GlobalSign Root CA - R3', 'ou': 'GlobalSign Root CA - R3',
+     'sha256': 'CB:B5:22:D7:B7:F1:27:AD:6A:01:13:86:5B:DF:1C:D4:10:2E:7D:07:59:AF:63:5A:7C:F4:72:0D:C9:63:C5:3B'},
+    {'label': 'GTS Root R1', 'cn': 'GTS Root R1',
+     'sha256': 'D9:47:43:2A:BD:E7:B7:FA:90:FC:2E:6B:59:10:1B:12:80:E0:E1:C7:E4:E4:0F:A3:C6:88:7F:FF:57:A7:F4:CF'},
+    {'label': 'GTS Root R3', 'cn': 'GTS Root R3',
+     'sha256': '34:D8:A7:3E:E2:08:D9:BC:DB:0D:95:65:20:93:4B:4E:40:E6:94:82:59:6E:8B:6F:73:C8:42:6B:01:0A:6F:48'},
+    {'label': 'GTS Root R4', 'cn': 'GTS Root R4',
+     'sha256': '34:9D:FA:40:58:C5:E2:63:12:3B:39:8A:E7:95:57:3C:4E:13:13:C8:3F:E6:8F:93:55:6C:D5:E8:03:1B:3C:7D'},
 ]
 
 PINNED = [
@@ -84,6 +94,10 @@ def main():
                 continue
             if 'ou' in spec and cert_ou(subject) != spec['ou']:
                 continue
+            fp = cert_fingerprint_sha256(cert)
+            expected = normalize_fp(spec['sha256'])
+            if fp != expected:
+                raise SystemExit(f"Fingerprint mismatch for {spec['label']}: got {fp}, expected {expected}")
             found = cert.strip()
             break
         if not found:

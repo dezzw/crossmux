@@ -18,9 +18,13 @@
 
 #include "HttpTransportFailure.h"
 #include "TlsCaBundle.h"
+#include "WolfSslTransportErrors.h"
 
 #if defined(FREEINK_NET_WOLFSSL)
+#include <SecureClient.h>
 #include <SecureHttpClient.h>
+
+static_assert(freeink::SecureClient::kCaLoadError == WolfSslTransportErrors::kSecureClientCaLoadError);
 
 extern "C" void wolfSSL_Arduino_Serial_Print(const char* const msg) { LOG_DBG("WOLFSSL", "%s", msg); }
 #endif
