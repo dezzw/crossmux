@@ -21,7 +21,6 @@
 
 #include "CrossPointState.h"
 #include "NetworkStartup.h"
-#include "network/HttpTransportFailure.h"
 #include "SilentRestart.h"
 #include "WeReadBrowseActivity.h"
 #include "activities/apps/weread/WeReadTouchGeometry.h"
@@ -32,6 +31,7 @@
 #include "components/UIThemeTokens.h"
 #include "components/icons/cover.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 #include "util/QrUtils.h"
 
 namespace {

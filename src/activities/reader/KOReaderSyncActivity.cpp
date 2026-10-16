@@ -19,7 +19,6 @@
 #include "KOReaderDocumentId.h"
 #include "MappedInputManager.h"
 #include "NetworkStartup.h"
-#include "network/HttpTransportFailure.h"
 #include "ReaderUtils.h"
 #include "SilentRestart.h"
 #include "activities/ActivityManager.h"
@@ -27,6 +26,7 @@
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"  // list icons for the compare rows
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 
 namespace fui = freeink::ui;
 

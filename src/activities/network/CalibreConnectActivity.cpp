@@ -10,11 +10,11 @@
 #include <algorithm>
 
 #include "MappedInputManager.h"
-#include "network/HttpTransportFailure.h"
 #include "SilentRestart.h"
 #include "WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 #include "util/TaskWatchdog.h"
 
 namespace {

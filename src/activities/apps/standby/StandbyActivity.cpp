@@ -20,9 +20,9 @@
 
 #include "CrossPointSettings.h"
 #include "NetworkStartup.h"
-#include "network/HttpTransportFailure.h"
 #include "activities/ActivityResult.h"
 #include "activities/network/WifiSelectionActivity.h"
+#include "network/HttpTransportFailure.h"
 #include "util/PaginationDots.h"
 #include "util/TimeUtils.h"
 #ifdef ENABLE_CHINESE_VERSION

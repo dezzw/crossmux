@@ -12,12 +12,12 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "NetworkStartup.h"
-#include "network/HttpTransportFailure.h"
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/SubpageLayout.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 #include "util/TimeUtils.h"
 
 void ClockSyncActivity::onEnter() {

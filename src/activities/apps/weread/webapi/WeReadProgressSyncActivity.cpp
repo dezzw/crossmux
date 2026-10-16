@@ -21,7 +21,6 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "NetworkStartup.h"
-#include "network/HttpTransportFailure.h"
 #include "ProgressMapper.h"
 #include "ReadingStatsStore.h"
 #include "SilentRestart.h"
@@ -33,6 +32,7 @@
 #include "components/SubpageLayout.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 #include "util/TimeUtils.h"
 
 namespace {
