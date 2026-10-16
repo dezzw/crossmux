@@ -1,13 +1,13 @@
+#include <netdb.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include <wolfssl/error-ssl.h>
 #include <wolfssl/ssl.h>
 
 #include <cstdio>
 #include <cstring>
 #include <fstream>
-#include <netdb.h>
 #include <string>
-#include <sys/socket.h>
-#include <unistd.h>
 
 namespace {
 
@@ -18,7 +18,7 @@ std::string readFile(const char* path) {
 }
 
 int tcpConnect(const char* host, uint16_t port) {
-  addrinfo hints {};
+  addrinfo hints{};
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   addrinfo* res = nullptr;
@@ -83,7 +83,8 @@ int main(int argc, char** argv) {
     return 1;
   }
   wolfSSL_set_fd(ssl, sock);
-  if (wolfSSL_UseSNI(ssl, WOLFSSL_SNI_HOST_NAME, host, static_cast<unsigned short>(std::strlen(host))) != WOLFSSL_SUCCESS) {
+  if (wolfSSL_UseSNI(ssl, WOLFSSL_SNI_HOST_NAME, host, static_cast<unsigned short>(std::strlen(host))) !=
+      WOLFSSL_SUCCESS) {
     std::fprintf(stderr, "SNI failed for %s\n", host);
     wolfSSL_free(ssl);
     close(sock);

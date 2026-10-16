@@ -185,10 +185,10 @@ uses_wolf = any("FREEINK_NET_WOLFSSL" in str(flag) for flag in build_flags)
 
 if not uses_wolf:
     print("Skipping SecureClient patch (FREEINK_NET_WOLFSSL not enabled)")
+elif not SOURCE_DIR.is_dir():
+    print(f"::error::SecureNet missing at {SOURCE_DIR} with FREEINK_NET_WOLFSSL=1")
+    sys.exit(1)
 else:
-    if not SOURCE_DIR.is_dir():
-        print(f"::error::SecureNet missing at {SOURCE_DIR} with FREEINK_NET_WOLFSSL=1")
-        sys.exit(1)
     ensure_overlay()
     if not SECURE_CLIENT.is_file():
         print(f"::error::Overlay SecureClient missing at {SECURE_CLIENT}")

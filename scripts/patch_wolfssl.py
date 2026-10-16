@@ -44,10 +44,13 @@ def patch_user_settings(path: Path) -> None:
     print(f"Patched wolfSSL settings: {path.relative_to(PROJECT_DIR)}")
 
 
-matches = list(PROJECT_DIR.glob(".pio/libdeps/*/Arduino-wolfSSL/src/user_settings.h"))
+libdeps_root = PROJECT_DIR / ".pio/libdeps"
+matches = list(libdeps_root.glob("*/Arduino-wolfSSL/src/user_settings.h"))
 if not matches:
-    print("::error::No Arduino-wolfSSL user_settings.h under .pio/libdeps (run lib install first)")
-    sys.exit(1)
-
-for settings in matches:
-    patch_user_settings(settings)
+    if libdeps_root.is_dir() and any(libdeps_root.glob("*")):
+        print("::error::No Arduino-wolfSSL user_settings.h under .pio/libdeps")
+        sys.exit(1)
+    print("Skipping wolfSSL patch until libdeps are installed")
+else:
+    for settings in matches:
+        patch_user_settings(settings)
