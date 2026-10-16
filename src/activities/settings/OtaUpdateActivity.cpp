@@ -192,6 +192,7 @@ void OtaUpdateActivity::beginWifiSelection() {
 
   // halClock.update() runs before ActivityManager::loop(); disable auto-sync before WiFi can start and race TLS.
   clockAutoSyncBeforeWifi_ = SETTINGS.clockAutoSync != 0;
+  autoSyncSaved_ = true;
   halClock.setAutoSyncEnabled(false);
 
   {
@@ -207,7 +208,11 @@ void OtaUpdateActivity::beginWifiSelection() {
 void OtaUpdateActivity::onExit() {
   Activity::onExit();
 
-  halClock.setAutoSyncEnabled(clockAutoSyncBeforeWifi_);
+  if (autoSyncSaved_) {
+    halClock.setAutoSyncEnabled(clockAutoSyncBeforeWifi_);
+  } else {
+    halClock.setAutoSyncEnabled(SETTINGS.clockAutoSync != 0);
+  }
 
   const bool wifiWasEnabled = WiFi.getMode() != WIFI_MODE_NULL;
   if (wifiWasEnabled) {

@@ -3,15 +3,22 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUNDLE="${ROOT}/src/network/TlsCaBundle.pem"
+VERIFY_BIN="${1:-${ROOT}/build/test/tls_chain_verify/TlsHostVerify}"
+
 if [[ ! -f "$BUNDLE" ]]; then
   echo "::error::Missing TLS bundle at $BUNDLE"
   exit 1
 fi
 
+if [[ ! -x "$VERIFY_BIN" ]]; then
+  echo "::error::Missing wolfSSL host verifier at $VERIFY_BIN (build TlsHostVerify first)"
+  exit 1
+fi
+
 verify_host() {
   local host="$1"
-  echo "TLS verify: ${host}"
-  openssl s_client -connect "${host}:443" -servername "$host" -verify_hostname "$host" -CAfile "$BUNDLE" -brief </dev/null 2>&1 | grep -q 'Verification: OK'
+  echo "TLS verify (wolfSSL): ${host}"
+  "$VERIFY_BIN" "$host" "$BUNDLE"
 }
 
 verify_host github.com

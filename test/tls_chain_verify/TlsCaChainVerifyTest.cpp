@@ -5,7 +5,6 @@
 #include <cstdio>
 #include <fstream>
 #include <string>
-#include <vector>
 
 namespace {
 
@@ -26,6 +25,24 @@ int verifyIntermediateAgainstBundle(const std::string& rootsPem, const std::stri
   }
   const int verify = wolfSSL_CertManagerVerifyBuffer(cm, reinterpret_cast<const unsigned char*>(intermediatePem.data()),
                                                      static_cast<long>(intermediatePem.size()), WOLFSSL_FILETYPE_PEM);
+  wolfSSL_CertManagerFree(cm);
+  return verify;
+}
+
+int verifyServedChainAgainstBundle(const std::string& rootsPem, const std::string& chainPem) {
+  if (chainPem.empty()) return BAD_FUNC_ARG;
+
+  WOLFSSL_CERT_MANAGER* cm = wolfSSL_CertManagerNew();
+  if (!cm) return MEMORY_E;
+  const int loadCa = wolfSSL_CertManagerLoadCABuffer(cm, reinterpret_cast<const unsigned char*>(rootsPem.data()),
+                                                     static_cast<long>(rootsPem.size()), WOLFSSL_FILETYPE_PEM);
+  if (loadCa != WOLFSSL_SUCCESS) {
+    wolfSSL_CertManagerFree(cm);
+    return loadCa;
+  }
+
+  const int verify = wolfSSL_CertManagerVerifyBuffer(cm, reinterpret_cast<const unsigned char*>(chainPem.data()),
+                                                     static_cast<long>(chainPem.size()), WOLFSSL_FILETYPE_PEM);
   wolfSSL_CertManagerFree(cm);
   return verify;
 }
@@ -62,5 +79,20 @@ TEST_F(TlsCaChainVerifyTest, CrossmuxGtsWe1Intermediate) {
   EXPECT_EQ(rc, WOLFSSL_SUCCESS) << "wolfCrypt rc=" << rc;
 #else
   EXPECT_NE(rc, WOLFSSL_SUCCESS) << "legacy wolfSSL config rc=" << rc;
+#endif
+}
+
+TEST_F(TlsCaChainVerifyTest, CrossmuxServedChainPemNeedsAltChainsAtHandshake) {
+  // CertManagerVerifyBuffer on a multi-cert PEM does not apply TLS alternate-chain
+  // selection; live verification is covered by TlsHostVerify in CI.
+  const std::string roots = readFile(REPO_ROOT "/src/network/TlsCaBundle.pem");
+  const std::string chain = readFile(REPO_ROOT "/test/fixtures/tls/crossmux_com_chain.pem");
+  ASSERT_FALSE(roots.empty());
+  ASSERT_FALSE(chain.empty());
+  const int rc = verifyServedChainAgainstBundle(roots, chain);
+#if TLS_WOLFSSL_SHA384_ENABLED
+  EXPECT_EQ(rc, ASN_NO_SIGNER_E) << "offline PEM verify rc=" << rc;
+#else
+  (void)rc;
 #endif
 }

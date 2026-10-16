@@ -13,6 +13,15 @@ TEST(HttpTransportFailureMap, MapsCertMemoryDateAndHandshake) {
   EXPECT_EQ(HttpTransportFailure::fromWolfError(0), HttpTransportTypes::TransportFailure::Connect);
 }
 
+TEST(HttpTransportFailureMap, MapsNamedWolfSslErrors) {
+  EXPECT_EQ(HttpTransportFailure::fromWolfError(-232), HttpTransportTypes::TransportFailure::TlsCert);
+  EXPECT_EQ(HttpTransportFailure::fromWolfError(-188), HttpTransportTypes::TransportFailure::TlsCert);
+  EXPECT_EQ(HttpTransportFailure::fromWolfError(-322), HttpTransportTypes::TransportFailure::TlsCert);
+  EXPECT_EQ(HttpTransportFailure::fromWolfError(-308), HttpTransportTypes::TransportFailure::Connect);
+  EXPECT_EQ(HttpTransportFailure::fromWolfError(-343), HttpTransportTypes::TransportFailure::Connect);
+  EXPECT_EQ(HttpTransportFailure::fromWolfError(-132), HttpTransportTypes::TransportFailure::TlsHandshake);
+}
+
 TEST(HttpTransportFailureClock, BlocksVerifiedTlsWhenClockInvalid) {
   halClock.now = 0;
   halClock.syncNowResult = false;
@@ -28,4 +37,16 @@ TEST(HttpTransportFailureClock, SyncsOnceWhenClockInvalidThenAllowsTls) {
   EXPECT_TRUE(HttpTransportFailure::ensureClockForVerifiedTls(failure));
   EXPECT_EQ(failure, HttpTransportTypes::TransportFailure::None);
   EXPECT_NE(halClock.now, 0);
+}
+
+TEST(HttpTransportFailureClock, LatchesClockNotSetUntilReset) {
+  halClock.now = 0;
+  halClock.syncNowResult = false;
+  HttpTransportTypes::TransportFailure failure = HttpTransportTypes::TransportFailure::None;
+  EXPECT_FALSE(HttpTransportFailure::ensureClockForVerifiedTls(failure));
+  halClock.syncNowResult = true;
+  EXPECT_FALSE(HttpTransportFailure::ensureClockForVerifiedTls(failure));
+  EXPECT_EQ(failure, HttpTransportTypes::TransportFailure::ClockNotSet);
+  HttpTransportFailure::resetVerifiedTlsClockGate();
+  EXPECT_TRUE(HttpTransportFailure::ensureClockForVerifiedTls(failure));
 }

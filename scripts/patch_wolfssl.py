@@ -1,7 +1,7 @@
+import sys
 from pathlib import Path
 
 Import("env")
-
 
 PROJECT_DIR = Path(env.subst("$PROJECT_DIR"))
 MARKER = "/* CrossPoint wolfSSL compatibility overrides */"
@@ -17,6 +17,9 @@ OVERRIDES = f"""
 #ifndef WOLFSSL_SP_384
 #define WOLFSSL_SP_384
 #endif
+#ifndef WOLFSSL_ALT_CERT_CHAINS
+#define WOLFSSL_ALT_CERT_CHAINS
+#endif
 #undef NO_DH
 #ifndef HAVE_FFDHE_2048
 #define HAVE_FFDHE_2048
@@ -27,6 +30,9 @@ OVERRIDES = f"""
    heap, and TLS cert verification allocates dozens at once. */
 #undef FP_MAX_BITS
 #define FP_MAX_BITS 8192
+#ifndef WOLFSSL_SHA384
+#error "CrossMux wolfSSL overrides require WOLFSSL_SHA384"
+#endif
 """
 
 
@@ -38,5 +44,10 @@ def patch_user_settings(path: Path) -> None:
     print(f"Patched wolfSSL settings: {path.relative_to(PROJECT_DIR)}")
 
 
-for settings in PROJECT_DIR.glob(".pio/libdeps/*/Arduino-wolfSSL/src/user_settings.h"):
+matches = list(PROJECT_DIR.glob(".pio/libdeps/*/Arduino-wolfSSL/src/user_settings.h"))
+if not matches:
+    print("::error::No Arduino-wolfSSL user_settings.h under .pio/libdeps (run lib install first)")
+    sys.exit(1)
+
+for settings in matches:
     patch_user_settings(settings)

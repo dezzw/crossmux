@@ -76,9 +76,6 @@ jobs:
       - name: Run cppcheck
         run: pio check --fail-on-defect low --fail-on-defect medium --fail-on-defect high
 
-      - name: Verify TLS bundle against OTA/font hosts
-        run: bash scripts/ci_verify_tls_hosts.sh
-
   build-waveshare-397-nightly:
     name: Build Waveshare 3.97 nightly (ESP32-S3)
     needs: select_runner
@@ -122,12 +119,30 @@ jobs:
       - name: Extract firmware stats
         run: |
           set -euo pipefail
+          extract_flash_used() {
+            grep -E 'Flash:.*used' "$1" | tail -1 | sed -n 's/.*used \([0-9,]*\).*/\1/p' | tr -d ','
+          }
+          PR_FLASH="$(extract_flash_used pio-waveshare.log || true)"
+          git fetch origin main
+          git worktree add --detach ../crossmux-main-flash origin/main
+          pushd ../crossmux-main-flash >/dev/null
+          pio run -e waveshare_epaper_397_nightly 2>&1 | tee ../crossmux-main-flash.log || true
+          popd >/dev/null
+          MAIN_FLASH="$(extract_flash_used ../crossmux-main-flash.log || true)"
+          DELTA=""
+          if [[ -n "$PR_FLASH" && -n "$MAIN_FLASH" ]]; then
+            DELTA=$((PR_FLASH - MAIN_FLASH))
+          fi
           {
             echo "## Waveshare 3.97 nightly firmware build stats"
             echo '```text'
             grep -E '^Processing |RAM:\\s|Flash:\\s' pio-waveshare.log || true
+            if [[ -n "$DELTA" ]]; then
+              echo "Flash used delta vs origin/main: ${DELTA} bytes (PR ${PR_FLASH}, main ${MAIN_FLASH})"
+            fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          git worktree remove ../crossmux-main-flash --force || true
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -160,6 +175,9 @@ jobs:
 
       - name: Run tests
         run: ctest --test-dir build/test --output-on-failure -j
+
+      - name: Verify TLS bundle against OTA/font hosts (wolfSSL)
+        run: bash scripts/ci_verify_tls_hosts.sh build/test/tls_chain_verify/TlsHostVerify
 
       - name: Run FreeInk SDK host tests
         run: |
