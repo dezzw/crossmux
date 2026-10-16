@@ -69,6 +69,9 @@ struct {
   int getMode() { return mode; }
   void disconnect(bool) { ++disconnects; }
 } WiFi;
+namespace HttpTransportFailure {
+void onWifiDisconnected() {}
+}  // namespace HttpTransportFailure
 struct { void setAutoSyncEnabled(bool) {} } halClock;
 struct { uint8_t clockAutoSync = 1; } settings;
 #define SETTINGS settings
