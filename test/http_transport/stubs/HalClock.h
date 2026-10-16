@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <ctime>
 
 enum class ClockSyncState : uint8_t { Idle, Syncing, Succeeded, Failed };
