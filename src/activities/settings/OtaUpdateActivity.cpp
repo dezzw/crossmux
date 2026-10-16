@@ -21,6 +21,9 @@
 #include "components/UITheme.h"
 #include "components/UIThemeTokens.h"
 #include "fontIds.h"
+#include "network/HttpDownloader.h"
+#include "network/HttpTransportFailure.h"
+#include "network/HttpTransportFailureText.h"
 #include "network/OtaUpdater.h"
 #include "util/ButtonNavigator.h"
 
@@ -99,7 +102,13 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
     LOG_DBG("OTA", "Update check failed: %d", res);
     {
       RenderLock lock(*this);
-      failedDetail = res == OtaUpdater::UNSUPPORTED_CHANNEL ? tr(STR_OTA_CHANNEL_UNSUPPORTED) : nullptr;
+      if (res == OtaUpdater::UNSUPPORTED_CHANNEL) {
+        failedDetail = tr(STR_OTA_CHANNEL_UNSUPPORTED);
+      } else if (res == OtaUpdater::HTTP_ERROR) {
+        failedDetail = otaTransportFailureText(HttpDownloader::lastTransportFailure());
+      } else {
+        failedDetail = nullptr;
+      }
       state = State::Failed;
     }
     requestUpdate();
@@ -183,6 +192,8 @@ void OtaUpdateActivity::beginWifiSelection() {
   }
 
   // halClock.update() runs before ActivityManager::loop(); disable auto-sync before WiFi can start and race TLS.
+  clockAutoSyncBeforeWifi_ = SETTINGS.clockAutoSync != 0;
+  autoSyncSaved_ = true;
   halClock.setAutoSyncEnabled(false);
 
   {
@@ -198,8 +209,15 @@ void OtaUpdateActivity::beginWifiSelection() {
 void OtaUpdateActivity::onExit() {
   Activity::onExit();
 
+  if (autoSyncSaved_) {
+    halClock.setAutoSyncEnabled(clockAutoSyncBeforeWifi_);
+  } else {
+    halClock.setAutoSyncEnabled(SETTINGS.clockAutoSync != 0);
+  }
+
   const bool wifiWasEnabled = WiFi.getMode() != WIFI_MODE_NULL;
   if (wifiWasEnabled) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
   }
@@ -513,7 +531,13 @@ void OtaUpdateActivity::runUpdateInstall() {
     {
       RenderLock lock(*this);
       sdFontSystem.ensureLoaded(renderer, false);
-      failedDetail = res == OtaUpdater::WRONG_DEVICE_ERROR ? tr(STR_FIRMWARE_WRONG_DEVICE) : nullptr;
+      if (res == OtaUpdater::WRONG_DEVICE_ERROR) {
+        failedDetail = tr(STR_FIRMWARE_WRONG_DEVICE);
+      } else if (res == OtaUpdater::HTTP_ERROR) {
+        failedDetail = otaTransportFailureText(HttpDownloader::lastTransportFailure());
+      } else {
+        failedDetail = nullptr;
+      }
       state = State::Failed;
     }
     requestUpdate();

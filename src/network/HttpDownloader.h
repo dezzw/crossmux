@@ -4,6 +4,8 @@
 #include <functional>
 #include <string>
 
+#include "HttpTransportTypes.h"
+
 // Forward-declared: fetchUrl() takes a Stream& by reference. On-device this name
 // arrives transitively via the SdFat/Arduino chain in <HalStorage.h>; declaring
 // it here keeps the header self-sufficient (the host build's SdFat shim doesn't
@@ -19,14 +21,7 @@ class HttpDownloader {
     bool verifyTlsPeer = false;
   };
 
-  enum class TransportFailure : uint8_t {
-    None = 0,
-    Connect,
-    Tls,
-    HttpStatus,
-    Incomplete,
-    FileIo,
-  };
+  using TransportFailure = HttpTransportTypes::TransportFailure;
 
   using ProgressCallback = std::function<void(size_t downloaded, size_t total)>;
   // Called with each body chunk as it arrives; return false to abort. Lets a

@@ -32,6 +32,7 @@
 #include "components/SubpageLayout.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 #include "util/TimeUtils.h"
 
 namespace {
@@ -109,6 +110,7 @@ void WeReadProgressSyncActivity::onExit() {
   operation_.reset();
   Activity::onExit();
   if (!wifiActivated_) return;
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect(false);
   delay(30);
   silentRestartToReader();

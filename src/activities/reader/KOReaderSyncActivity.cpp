@@ -26,6 +26,7 @@
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"  // list icons for the compare rows
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 
 namespace fui = freeink::ui;
 
@@ -349,6 +350,7 @@ void KOReaderSyncActivity::performUpload() {
   const auto result = KOReaderSyncClient::updateProgress(progress);
 
   // Drop the radio while user reads the result; full teardown happens at silent reboot.
+  HttpTransportFailure::onWifiDisconnected();
   esp_wifi_stop();
 
   if (result != KOReaderSyncClient::OK) {
@@ -409,6 +411,7 @@ void KOReaderSyncActivity::onExit() {
   Activity::onExit();
 
   if (wifiActivated) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
     silentRestartToReader();

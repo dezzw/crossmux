@@ -17,6 +17,7 @@
 #include "components/SubpageLayout.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 #include "util/TimeUtils.h"
 
 void ClockSyncActivity::onEnter() {
@@ -38,6 +39,7 @@ void ClockSyncActivity::onExit() {
   Activity::onExit();
 
   if (shouldTearDownWifiOnExit && WiFi.getMode() != WIFI_MODE_NULL) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
     silentRestart();

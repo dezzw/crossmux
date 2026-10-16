@@ -73,11 +73,11 @@ jobs:
           key: pio-cache-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-cache-${{ runner.os }}-
 
+      - name: Verify SecureNet overlay
+        run: python3 scripts/seed_securenet_overlay.py --check
+
       - name: Run cppcheck
         run: pio check --fail-on-defect low --fail-on-defect medium --fail-on-defect high
-
-      - name: Verify TLS bundle against OTA/font hosts
-        run: bash scripts/ci_verify_tls_hosts.sh
 
   build-waveshare-397-nightly:
     name: Build Waveshare 3.97 nightly (ESP32-S3)
@@ -112,6 +112,9 @@ jobs:
           key: pio-cache-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-cache-${{ runner.os }}-
 
+      - name: Verify SecureNet overlay
+        run: python3 scripts/seed_securenet_overlay.py --check
+
       - name: Build Waveshare 3.97 nightly firmware
         env:
           CROSSPOINT_RC_RUN: ${{ github.run_number }}
@@ -122,12 +125,47 @@ jobs:
       - name: Extract firmware stats
         run: |
           set -euo pipefail
+          extract_flash_used() {
+            grep -E 'Flash:.*used' "$1" | tail -1 | sed -n 's/.*used \([0-9,]*\).*/\1/p' | tr -d ','
+          }
+          PR_FLASH="$(extract_flash_used pio-waveshare.log)"
+          git fetch --no-recurse-submodules origin main
+          git worktree add --detach ../crossmux-main-flash origin/main
+          pushd ../crossmux-main-flash >/dev/null
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          if [[ -f scripts/seed_securenet_overlay.py ]]; then
+            python3 scripts/seed_securenet_overlay.py --check
+          fi
+          pio run -e waveshare_epaper_397_nightly 2>&1 | tee ../crossmux-main-flash.log
+          popd >/dev/null
+          MAIN_FLASH="$(extract_flash_used ../crossmux-main-flash.log)"
+          if [[ -z "$MAIN_FLASH" ]]; then
+            echo "::warning::Could not extract main-branch flash size from ../crossmux-main-flash.log"
+          fi
+          DELTA=""
+          if [[ -n "$PR_FLASH" && -n "$MAIN_FLASH" ]]; then
+            DELTA=$((PR_FLASH - MAIN_FLASH))
+          fi
           {
             echo "## Waveshare 3.97 nightly firmware build stats"
             echo '```text'
             grep -E '^Processing |RAM:\\s|Flash:\\s' pio-waveshare.log || true
+            echo "Flash used (PR): ${PR_FLASH} bytes"
+            echo "Flash used (origin/main): ${MAIN_FLASH:-unknown} bytes"
+            if [[ -n "$DELTA" ]]; then
+              echo "Flash used delta vs origin/main: ${DELTA} bytes"
+            else
+              echo "Flash used delta vs origin/main: unavailable (main=${MAIN_FLASH:-empty}, pr=${PR_FLASH})"
+            fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -z "$DELTA" ]]; then
+            echo "::warning::Flash delta vs origin/main unavailable (PR=${PR_FLASH}, main=${MAIN_FLASH:-empty})"
+          else
+            echo "Flash used delta vs origin/main: ${DELTA} bytes (PR ${PR_FLASH}, main ${MAIN_FLASH})"
+          fi
+          git worktree remove ../crossmux-main-flash --force
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -152,6 +190,11 @@ jobs:
           pip install 'cryptography==44.0.2'
           python3 scripts/generate_ota_signing_fixture.py
 
+      - name: Generate host wolfSSL user settings
+        run: |
+          python3 scripts/tls/generate_host_user_settings.py
+          git diff --exit-code scripts/tls/wolfssl_device_user_settings.h
+
       - name: Configure
         run: cmake -S test -B build/test -G Ninja -DCMAKE_BUILD_TYPE=Release
 
@@ -159,7 +202,25 @@ jobs:
         run: cmake --build build/test
 
       - name: Run tests
-        run: ctest --test-dir build/test --output-on-failure -j
+        run: ctest --test-dir build/test --output-on-failure -j -LE network
+
+      - name: Verify TLS bundle against OTA/font hosts (wolfSSL)
+        run: |
+          set -euo pipefail
+          if ! curl -fsSL --connect-timeout 5 --max-time 10 https://github.com >/dev/null; then
+            echo "::warning::Skipping network TLS host checks (offline)"
+            exit 0
+          fi
+          bash scripts/ci_verify_tls_hosts.sh build/test/tls_chain_verify/TlsHostVerify
+
+      - name: Run network-tagged tests
+        run: |
+          set -euo pipefail
+          if ! curl -fsSL --connect-timeout 5 --max-time 10 https://github.com >/dev/null; then
+            echo "::warning::Skipping network-tagged ctests (offline)"
+            exit 0
+          fi
+          ctest --test-dir build/test --output-on-failure -j -L network --repeat until-pass:2
 
       - name: Run FreeInk SDK host tests
         run: |

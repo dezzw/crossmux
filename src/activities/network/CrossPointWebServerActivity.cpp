@@ -20,6 +20,7 @@
 #include "components/SubpageLayout.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 #include "util/QrUtils.h"
 #include "util/TaskWatchdog.h"
 
@@ -110,6 +111,7 @@ void CrossPointWebServerActivity::onExit() {
 
   // Skip reboot if WiFi was never activated (e.g. user backed out of mode selection).
   if (WiFi.getMode() != WIFI_MODE_NULL) {
+    HttpTransportFailure::onWifiDisconnected();
     if (isApMode) {
       WiFi.softAPdisconnect(true);
     } else {

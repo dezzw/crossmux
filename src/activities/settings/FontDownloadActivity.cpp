@@ -28,6 +28,7 @@
 #include "fontIds.h"
 #include "network/CrossMuxEndpoints.h"
 #include "network/HttpDownloader.h"
+#include "network/HttpTransportFailure.h"
 
 namespace fui = freeink::ui;
 
@@ -226,6 +227,7 @@ void FontDownloadActivity::onExit() {
 
   const bool wifiWasEnabled = WiFi.getMode() != WIFI_MODE_NULL;
   if (wifiWasEnabled) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
   }
@@ -346,8 +348,20 @@ void FontDownloadActivity::finishAutomaticFlow(const ExitRoute route) {
 void FontDownloadActivity::recordTransportFailure(ManifestFailure& target, int& httpStatus) {
   httpStatus = HttpDownloader::lastHttpStatusCode();
   switch (HttpDownloader::lastTransportFailure()) {
-    case HttpDownloader::TransportFailure::Tls:
-      target = ManifestFailure::Tls;
+    case HttpDownloader::TransportFailure::ClockNotSet:
+      target = ManifestFailure::Clock;
+      break;
+    case HttpDownloader::TransportFailure::TlsCert:
+      target = ManifestFailure::TlsCert;
+      break;
+    case HttpDownloader::TransportFailure::TlsDate:
+      target = ManifestFailure::TlsDate;
+      break;
+    case HttpDownloader::TransportFailure::TlsMemory:
+      target = ManifestFailure::TlsMemory;
+      break;
+    case HttpDownloader::TransportFailure::TlsHandshake:
+      target = ManifestFailure::TlsHandshake;
       break;
     case HttpDownloader::TransportFailure::HttpStatus:
       target = ManifestFailure::Http;
@@ -367,8 +381,20 @@ void FontDownloadActivity::recordTransportFailure(ManifestFailure& target, int& 
 void FontDownloadActivity::recordTransportFailure(FileFailure& target, int& httpStatus) {
   httpStatus = HttpDownloader::lastHttpStatusCode();
   switch (HttpDownloader::lastTransportFailure()) {
-    case HttpDownloader::TransportFailure::Tls:
-      target = FileFailure::Tls;
+    case HttpDownloader::TransportFailure::ClockNotSet:
+      target = FileFailure::Clock;
+      break;
+    case HttpDownloader::TransportFailure::TlsCert:
+      target = FileFailure::TlsCert;
+      break;
+    case HttpDownloader::TransportFailure::TlsDate:
+      target = FileFailure::TlsDate;
+      break;
+    case HttpDownloader::TransportFailure::TlsMemory:
+      target = FileFailure::TlsMemory;
+      break;
+    case HttpDownloader::TransportFailure::TlsHandshake:
+      target = FileFailure::TlsHandshake;
       break;
     case HttpDownloader::TransportFailure::HttpStatus:
       target = FileFailure::Http;
@@ -390,8 +416,16 @@ const char* FontDownloadActivity::failureDetailText() const {
     switch (manifestFailure_) {
       case ManifestFailure::Network:
         return tr(STR_FONT_ERR_NETWORK);
-      case ManifestFailure::Tls:
-        return tr(STR_FONT_ERR_TLS);
+      case ManifestFailure::Clock:
+        return tr(STR_FONT_ERR_CLOCK);
+      case ManifestFailure::TlsCert:
+        return tr(STR_FONT_ERR_TLS_CERT);
+      case ManifestFailure::TlsDate:
+        return tr(STR_FONT_ERR_TLS_DATE);
+      case ManifestFailure::TlsMemory:
+        return tr(STR_FONT_ERR_TLS_MEMORY);
+      case ManifestFailure::TlsHandshake:
+        return tr(STR_FONT_ERR_TLS_HANDSHAKE);
       case ManifestFailure::Http:
         if (lastHttpStatus_ > 0) {
           snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP), lastHttpStatus_);
@@ -411,8 +445,16 @@ const char* FontDownloadActivity::failureDetailText() const {
   switch (fileFailure_) {
     case FileFailure::Network:
       return tr(STR_FONT_ERR_NETWORK);
-    case FileFailure::Tls:
-      return tr(STR_FONT_ERR_TLS);
+    case FileFailure::Clock:
+      return tr(STR_FONT_ERR_CLOCK);
+    case FileFailure::TlsCert:
+      return tr(STR_FONT_ERR_TLS_CERT);
+    case FileFailure::TlsDate:
+      return tr(STR_FONT_ERR_TLS_DATE);
+    case FileFailure::TlsMemory:
+      return tr(STR_FONT_ERR_TLS_MEMORY);
+    case FileFailure::TlsHandshake:
+      return tr(STR_FONT_ERR_TLS_HANDSHAKE);
     case FileFailure::Http:
       if (lastHttpStatus_ > 0) {
         snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP), lastHttpStatus_);

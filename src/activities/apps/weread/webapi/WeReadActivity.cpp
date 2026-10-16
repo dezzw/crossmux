@@ -31,6 +31,7 @@
 #include "components/UIThemeTokens.h"
 #include "components/icons/cover.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 #include "util/QrUtils.h"
 
 namespace {
@@ -537,6 +538,7 @@ void WeReadActivity::onExit() {
   if (shelfFile_.isOpen()) shelfFile_.close();
   std::vector<TabInfo>().swap(mainTabs_);
   if (wifiSessionActive_ && WiFi.getMode() != WIFI_MODE_NULL) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(100);
     WiFi.mode(WIFI_OFF);
@@ -1372,6 +1374,7 @@ void WeReadActivity::openBook(const char* path) {
     return;
   }
 
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect(false);
   delay(30);
   silentRestartToReader();

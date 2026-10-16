@@ -18,6 +18,7 @@
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 
 namespace fui = freeink::ui;
 
@@ -173,6 +174,7 @@ void WifiSelectionActivity::onEnter() {
 
 void WifiSelectionActivity::onExit() {
   Activity::onExit();
+  HttpTransportFailure::onWifiDisconnected();
 
   LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", ESP.getFreeHeap());
 
@@ -201,6 +203,7 @@ void WifiSelectionActivity::startWifiScan(const bool autoScan) {
 
   // Set WiFi mode to station
   NetworkStartup::setMode(renderer, WIFI_STA);
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect();
   delay(100);
 
@@ -430,6 +433,7 @@ bool WifiSelectionActivity::tryNextSavedNetworkFromScan() {
 
 void WifiSelectionActivity::handleAutoConnectFailure() {
   LOG_DBG("WIFI", "Saved network failed: %s", selectedSSID.c_str());
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect();
 
   if (!networks.empty()) {
@@ -448,6 +452,7 @@ void WifiSelectionActivity::handleAutoConnectFailure() {
 
 void WifiSelectionActivity::showNetworkListFromAutoConnect() {
   LOG_DBG("WIFI", "User requested manual network list");
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect();
   autoConnecting = false;
   manualNetworkListRequested = true;
@@ -472,6 +477,7 @@ void WifiSelectionActivity::attemptConnection() {
 
   WiFi.persistent(false);  // Credentials are managed by WifiCredentialStore; suppress SDK NVS auto-connect
   NetworkStartup::setMode(renderer, WIFI_STA);
+  HttpTransportFailure::onWifiDisconnected();
   WiFi.disconnect(true, true);  // Abort any in-progress SDK auto-connect and clear NVS-saved SSID
   delay(100);
 
@@ -506,6 +512,7 @@ void WifiSelectionActivity::checkConnectionStatus() {
   const wl_status_t status = WiFi.status();
 
   if (status == WL_CONNECTED) {
+    HttpTransportFailure::onWifiConnected();
     // Successfully connected
     IPAddress ip = WiFi.localIP();
     char ipStr[16];
@@ -563,6 +570,7 @@ void WifiSelectionActivity::checkConnectionStatus() {
   // Check for timeout
   const unsigned long timeoutMs = autoConnecting ? AUTO_CONNECTION_TIMEOUT_MS : CONNECTION_TIMEOUT_MS;
   if (millis() - connectionStartTime > timeoutMs) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect();
     connectionError = tr(STR_ERROR_CONNECTION_TIMEOUT);
     if (autoConnecting) {
@@ -596,6 +604,7 @@ void WifiSelectionActivity::loop() {
   if (state == WifiSelectionState::CONNECTING || state == WifiSelectionState::AUTO_CONNECTING) {
     if (state == WifiSelectionState::AUTO_CONNECTING) {
       if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+        HttpTransportFailure::onWifiDisconnected();
         WiFi.disconnect();
         onComplete(false);
         return;

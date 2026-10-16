@@ -14,6 +14,7 @@
 #include "components/SubpageLayout.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
 
 void KOReaderAuthActivity::onWifiSelectionComplete(const bool success) {
   if (!success) {
@@ -79,6 +80,7 @@ void KOReaderAuthActivity::onExit() {
   Activity::onExit();
 
   if (WiFi.getMode() != WIFI_MODE_NULL) {
+    HttpTransportFailure::onWifiDisconnected();
     WiFi.disconnect(false);
     delay(30);
     silentRestart();
