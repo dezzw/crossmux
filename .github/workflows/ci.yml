@@ -133,7 +133,9 @@ jobs:
           git worktree add --detach ../crossmux-main-flash origin/main
           pushd ../crossmux-main-flash >/dev/null
           git submodule update --init --recursive
-          python3 scripts/seed_securenet_overlay.py --check
+          if [[ -f scripts/seed_securenet_overlay.py ]]; then
+            python3 scripts/seed_securenet_overlay.py --check
+          fi
           pio run -e waveshare_epaper_397_nightly 2>&1 | tee ../crossmux-main-flash.log
           popd >/dev/null
           MAIN_FLASH="$(extract_flash_used ../crossmux-main-flash.log)"
