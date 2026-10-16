@@ -6,15 +6,13 @@
 namespace HttpTransportFailure {
 namespace {
 
-bool isDateError(const int err) {
-  return err == -135 || err == -149 || err == -150 || err == -151 || err == -179;
-}
+bool isDateError(const int err) { return err == -135 || err == -149 || err == -150 || err == -151 || err == -179; }
 
 bool isMemoryError(const int err) { return err == -125 || err == -132; }
 
 bool isCertError(const int err) {
-  return err == kSecureClientCaLoadError || err == -152 || err == -155 || err == -156 || err == -157 ||
-         err == -188 || err == -190 || err == -229 || err == -275;
+  return err == kSecureClientCaLoadError || err == -152 || err == -155 || err == -156 || err == -157 || err == -188 ||
+         err == -190 || err == -229 || err == -275;
 }
 
 }  // namespace

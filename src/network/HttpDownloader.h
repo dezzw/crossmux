@@ -1,10 +1,10 @@
 #pragma once
 #include <HalStorage.h>
 
-#include "HttpTransportTypes.h"
-
 #include <functional>
 #include <string>
+
+#include "HttpTransportTypes.h"
 
 // Forward-declared: fetchUrl() takes a Stream& by reference. On-device this name
 // arrives transitively via the SdFat/Arduino chain in <HalStorage.h>; declaring

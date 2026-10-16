@@ -1,6 +1,5 @@
-#include <gtest/gtest.h>
-
 #include <HalClock.h>
+#include <gtest/gtest.h>
 
 #include "HttpTransportFailure.h"
 

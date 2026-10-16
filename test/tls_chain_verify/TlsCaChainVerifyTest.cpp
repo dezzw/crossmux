@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-
 #include <wolfssl/ssl.h>
 #include <wolfssl/wolfcrypt/error-crypt.h>
 
@@ -19,16 +18,14 @@ std::string readFile(const char* path) {
 int verifyIntermediateAgainstBundle(const std::string& rootsPem, const std::string& intermediatePem) {
   WOLFSSL_CERT_MANAGER* cm = wolfSSL_CertManagerNew();
   if (!cm) return MEMORY_E;
-  const int loadCa =
-      wolfSSL_CertManagerLoadCABuffer(cm, reinterpret_cast<const unsigned char*>(rootsPem.data()),
-                                      static_cast<long>(rootsPem.size()), WOLFSSL_FILETYPE_PEM);
+  const int loadCa = wolfSSL_CertManagerLoadCABuffer(cm, reinterpret_cast<const unsigned char*>(rootsPem.data()),
+                                                     static_cast<long>(rootsPem.size()), WOLFSSL_FILETYPE_PEM);
   if (loadCa != WOLFSSL_SUCCESS) {
     wolfSSL_CertManagerFree(cm);
     return loadCa;
   }
-  const int verify =
-      wolfSSL_CertManagerVerifyBuffer(cm, reinterpret_cast<const unsigned char*>(intermediatePem.data()),
-                                      static_cast<long>(intermediatePem.size()), WOLFSSL_FILETYPE_PEM);
+  const int verify = wolfSSL_CertManagerVerifyBuffer(cm, reinterpret_cast<const unsigned char*>(intermediatePem.data()),
+                                                     static_cast<long>(intermediatePem.size()), WOLFSSL_FILETYPE_PEM);
   wolfSSL_CertManagerFree(cm);
   return verify;
 }
@@ -51,8 +48,7 @@ TEST_F(TlsCaChainVerifyTest, GithubSectigoE36Intermediate) {
   EXPECT_EQ(rc, WOLFSSL_SUCCESS) << "wolfCrypt rc=" << rc;
 #else
   EXPECT_NE(rc, WOLFSSL_SUCCESS) << "expected SHA-384 disabled verify failure, got rc=" << rc;
-  EXPECT_TRUE(rc == ASN_SIG_HASH_E || rc == ASN_SIG_CONFIRM_E || rc == SIG_VERIFY_E)
-      << "unexpected rc=" << rc;
+  EXPECT_TRUE(rc == ASN_SIG_HASH_E || rc == ASN_SIG_CONFIRM_E || rc == SIG_VERIFY_E) << "unexpected rc=" << rc;
 #endif
 }
 

@@ -19,7 +19,6 @@
 #include "HttpTransportFailure.h"
 #include "TlsCaBundle.h"
 
-
 #if defined(FREEINK_NET_WOLFSSL)
 #include <SecureHttpClient.h>
 
@@ -273,8 +272,7 @@ HttpDownloader::DownloadError runGet(const std::string& url, const std::string& 
 HttpDownloader::DownloadError runGetSecure(const std::string& url, const std::string& username,
                                            const std::string& password, const Sink& sinkIn) {
   resetTransportDiagnostics();
-  if (sinkIn.verifyTlsPeer &&
-      !HttpTransportFailure::ensureClockForVerifiedTls(gLastTransportFailure)) {
+  if (sinkIn.verifyTlsPeer && !HttpTransportFailure::ensureClockForVerifiedTls(gLastTransportFailure)) {
     return HttpDownloader::HTTP_ERROR;
   }
   char userAgent[USER_AGENT_CAPACITY];
