@@ -34,6 +34,15 @@ FetchContent_MakeAvailable(googletest crosspoint_simulator)
 
 set(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
+execute_process(
+  COMMAND python3 ${REPO_ROOT}/scripts/gen_i18n.py
+  WORKING_DIRECTORY ${REPO_ROOT}
+  RESULT_VARIABLE GEN_I18N_RESULT
+)
+if(NOT GEN_I18N_RESULT EQUAL 0)
+  message(FATAL_ERROR "gen_i18n.py failed (exit ${GEN_I18N_RESULT})")
+endif()
+
 add_library(crosspoint_test_common INTERFACE)
 target_include_directories(crosspoint_test_common INTERFACE
   ${REPO_ROOT}
