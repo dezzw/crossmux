@@ -91,6 +91,23 @@ bool rejectsCleartextRedirect(const std::string& secureStartUrl, const std::stri
   return false;
 }
 
+#if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF) || defined(FREEINK_NET_WOLFSSL)
+struct WolfHttpBodyContext {
+  int httpStatus = 0;
+  bool hasContentLength = false;
+  size_t contentLength = 0;
+};
+
+bool deliverWolfHttpBody(Sink& sink, const WolfHttpBodyContext& ctx, const uint8_t* data, size_t len) {
+  if (ctx.httpStatus != 200) return true;
+  if (sink.total == 0 && ctx.hasContentLength) sink.total = ctx.contentLength;
+  if (!sink.write(data, len)) return false;
+  sink.downloaded += len;
+  if (sink.progress && sink.total > 0) sink.progress(sink.downloaded, sink.total);
+  return true;
+}
+#endif
+
 #if !defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
 struct WifiPowerSaveGuard {
   WifiPowerSaveGuard() {
@@ -107,30 +124,27 @@ struct WifiPowerSaveGuard {};
 #endif
 
 #if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
-bool mockWolfDeliverBody(Sink& sink, int httpStatus, const uint8_t* data, size_t len) {
-  if (httpStatus != 200) return true;
-  if (!sink.write(data, len)) return false;
-  sink.downloaded += len;
-  return true;
-}
-
 HttpDownloader::DownloadError runGetWolf(const std::string& /*startUrl*/, const std::string& /*username*/,
                                          const std::string& /*password*/, const char* /*userAgent*/, Sink& sink) {
   const int httpStatus = HttpDownloaderMockWolf::gMockWolfHttpStatus;
   gLastHttpStatus = httpStatus;
   if (httpStatus != 200) {
     static const std::string kErrorBody(256, 'E');
-    (void)mockWolfDeliverBody(sink, httpStatus, reinterpret_cast<const uint8_t*>(kErrorBody.data()), kErrorBody.size());
+    const WolfHttpBodyContext errCtx{httpStatus, true, kErrorBody.size()};
+    if (!deliverWolfHttpBody(sink, errCtx, reinterpret_cast<const uint8_t*>(kErrorBody.data()), kErrorBody.size())) {
+      gLastTransportFailure = HttpDownloader::TransportFailure::FileIo;
+      return HttpDownloader::FILE_ERROR;
+    }
     gLastTransportFailure = HttpDownloader::TransportFailure::HttpStatus;
     return HttpDownloader::HTTP_ERROR;
   }
   static constexpr size_t kMockPayloadBytes = 2882;
   static const std::string kBody(kMockPayloadBytes, 'F');
-  if (!mockWolfDeliverBody(sink, httpStatus, reinterpret_cast<const uint8_t*>(kBody.data()), kBody.size())) {
+  const WolfHttpBodyContext okCtx{httpStatus, true, kBody.size()};
+  if (!deliverWolfHttpBody(sink, okCtx, reinterpret_cast<const uint8_t*>(kBody.data()), kBody.size())) {
     gLastTransportFailure = HttpDownloader::TransportFailure::FileIo;
     return HttpDownloader::FILE_ERROR;
   }
-  sink.total = kBody.size();
   return HttpDownloader::OK;
 }
 #elif defined(FREEINK_NET_WOLFSSL)
@@ -189,12 +203,8 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
     LOG_DBG("HTTP", "wolfSSL GET: %s", url.c_str());
     const int status = http.GET(
         [&http, &sink](const uint8_t* data, size_t len) {
-          if (http.getStatus() != 200) return true;
-          if (sink.total == 0 && http.hasContentLength()) sink.total = http.getContentLength();
-          if (!sink.write(data, len)) return false;
-          sink.downloaded += len;
-          if (sink.progress && sink.total > 0) sink.progress(sink.downloaded, sink.total);
-          return true;
+          const WolfHttpBodyContext ctx{http.getStatus(), http.hasContentLength(), http.getContentLength()};
+          return deliverWolfHttpBody(sink, ctx, data, len);
         },
         [&sink]() { return sink.cancelFlag && *sink.cancelFlag; });
 
