@@ -25,8 +25,7 @@ size_t fileSizeBytes(const std::string& path) {
 
 TEST(HttpDownloaderDownloadToFile, WolfMock2882BytesOkAndFileKept) {
   const std::string path = tempPath();
-  const HttpDownloader::DownloadError result =
-      HttpDownloader::downloadToFile("https://example.test/fonts.json", path);
+  const HttpDownloader::DownloadError result = HttpDownloader::downloadToFile("https://example.test/fonts.json", path);
   EXPECT_EQ(result, HttpDownloader::OK);
   EXPECT_EQ(fileSizeBytes(path), 2882u);
   std::remove(path.c_str());
