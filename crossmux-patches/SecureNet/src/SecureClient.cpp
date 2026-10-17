@@ -293,7 +293,10 @@ uint8_t SecureClient::connected() { return 0; }
 size_t SecureClient::write(uint8_t b) { return write(&b, 1); }
 int SecureClient::read() {
   uint8_t b;
-  return read(&b, 1) == 1 ? b : -1;
+  const int n = read(&b, 1);
+  if (n == 1) return static_cast<int>(b);
+  if (n == 0) return 0;
+  return -1;
 }
 int SecureClient::peek() { return -1; }
 void SecureClient::flush() {}

@@ -1,7 +1,9 @@
 #include <HalClock.h>
+#include <I18n.h>
 #include <gtest/gtest.h>
 
 #include "HttpTransportFailure.h"
+#include "HttpTransportFailureText.h"
 
 TEST(HttpTransportFailureMap, MapsCertMemoryDateAndHandshake) {
   EXPECT_EQ(HttpTransportFailure::fromWolfError(HttpTransportFailure::kSecureClientCaLoadError),
@@ -23,6 +25,7 @@ TEST(HttpTransportFailureMap, MapsNamedWolfSslErrors) {
 }
 
 TEST(HttpTransportFailureClock, BlocksVerifiedTlsWhenClockInvalid) {
+  HttpTransportFailure::resetVerifiedTlsClockGate();
   halClock.now = 0;
   halClock.syncNowResult = false;
   HttpTransportTypes::TransportFailure failure = HttpTransportTypes::TransportFailure::None;
@@ -31,6 +34,7 @@ TEST(HttpTransportFailureClock, BlocksVerifiedTlsWhenClockInvalid) {
 }
 
 TEST(HttpTransportFailureClock, SyncsOnceWhenClockInvalidThenAllowsTls) {
+  HttpTransportFailure::resetVerifiedTlsClockGate();
   halClock.now = 0;
   halClock.syncNowResult = true;
   HttpTransportTypes::TransportFailure failure = HttpTransportTypes::TransportFailure::None;
@@ -49,6 +53,22 @@ TEST(HttpTransportFailureClock, LatchesClockNotSetUntilReset) {
   EXPECT_EQ(failure, HttpTransportTypes::TransportFailure::ClockNotSet);
   HttpTransportFailure::resetVerifiedTlsClockGate();
   EXPECT_TRUE(HttpTransportFailure::ensureClockForVerifiedTls(failure));
+}
+
+TEST(HttpTransportFailureMapping, NetworkOnlyForConnect) {
+  I18n::getInstance().setLanguage(Language::EN);
+  EXPECT_STREQ(fontTransportFailureText(HttpTransportTypes::TransportFailure::Connect), "Network or DNS error");
+}
+
+TEST(HttpTransportFailureMapping, EmptyResponseUsesDedicatedString) {
+  I18n::getInstance().setLanguage(Language::EN);
+  EXPECT_STREQ(fontTransportFailureText(HttpTransportTypes::TransportFailure::EmptyResponse),
+                "Empty response from server");
+}
+
+TEST(HttpTransportFailureMapping, IncompleteIsNotNetwork) {
+  I18n::getInstance().setLanguage(Language::EN);
+  EXPECT_STRNE(fontTransportFailureText(HttpTransportTypes::TransportFailure::Incomplete), "Network or DNS error");
 }
 
 TEST(HttpTransportFailureClock, DisconnectThenReconnectRetriesSntp) {

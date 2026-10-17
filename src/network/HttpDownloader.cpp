@@ -92,6 +92,31 @@ struct WifiPowerSaveGuard {
 };
 
 #if defined(FREEINK_NET_WOLFSSL)
+const char* bodyFramingLabel(const freeink::SecureHttpClient::BodyFraming mode) {
+  switch (mode) {
+    case freeink::SecureHttpClient::BodyFraming::Fixed:
+      return "fixed";
+    case freeink::SecureHttpClient::BodyFraming::UntilClose:
+      return "until-close";
+    case freeink::SecureHttpClient::BodyFraming::Chunked:
+      return "chunked";
+    case freeink::SecureHttpClient::BodyFraming::None:
+      break;
+  }
+  return "none";
+}
+
+void logHttpBodyOutcome(const freeink::SecureHttpClient& http, const bool failed) {
+  const char* mode = bodyFramingLabel(http.lastBodyFraming());
+  const size_t contentLength = http.hasContentLength() ? http.getContentLength() : 0;
+  if (failed) {
+    LOG_ERR("HTTP", "body %s cl=%zu got=%zu wolfErr=%d", mode, contentLength, http.bodyBytesDelivered(),
+            http.lastWolfErrorCode());
+  } else {
+    LOG_DBG("HTTP", "body %s cl=%zu got=%zu", mode, contentLength, http.bodyBytesDelivered());
+  }
+}
+
 HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std::string& username,
                                          const std::string& password, const char* userAgent, Sink& sink) {
   WifiPowerSaveGuard psGuard;
@@ -101,6 +126,7 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
   for (int hop = 0; hop <= MAX_REDIRECTS; ++hop) {
     freeink::SecureHttpClient http;
     http.setTimeout(HTTP_TIMEOUT_MS);
+    http.setDrainRedirectResponseBodies(true);
     if (sink.verifyTlsPeer) {
       http.setCACert(TlsCaBundle::pemRoots());
     } else {
@@ -121,7 +147,6 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
     LOG_DBG("HTTP", "wolfSSL GET: %s", url.c_str());
     const int status = http.GET(
         [&http, &sink](const uint8_t* data, size_t len) {
-          if (http.getStatus() != 200) return true;
           if (sink.total == 0 && http.hasContentLength()) sink.total = http.getContentLength();
           if (!sink.write(data, len)) return false;
           sink.downloaded += len;
@@ -163,10 +188,18 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
       return HttpDownloader::FILE_ERROR;
     }
     if (!http.responseComplete()) {
+      logHttpBodyOutcome(http, true);
       LOG_ERR("HTTP", "wolfSSL incomplete: got %zu of %zu bytes", sink.downloaded, sink.total);
       gLastTransportFailure = HttpDownloader::TransportFailure::Incomplete;
       return HttpDownloader::HTTP_ERROR;
     }
+    const bool explicitEmpty = http.hasContentLength() && http.getContentLength() == 0;
+    if (sink.downloaded == 0 && !explicitEmpty) {
+      logHttpBodyOutcome(http, true);
+      gLastTransportFailure = HttpDownloader::TransportFailure::EmptyResponse;
+      return HttpDownloader::HTTP_ERROR;
+    }
+    logHttpBodyOutcome(http, false);
     return HttpDownloader::OK;
   }
   LOG_ERR("HTTP", "too many redirects");
@@ -383,7 +416,7 @@ HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& 
   if (sink.downloaded == 0) {
     LOG_ERR("HTTP", "no data received");
     Storage.remove(destPath.c_str());
-    gLastTransportFailure = TransportFailure::Incomplete;
+    gLastTransportFailure = TransportFailure::EmptyResponse;
     return HTTP_ERROR;
   }
   LOG_DBG("HTTP", "Downloaded %zu bytes", sink.downloaded);

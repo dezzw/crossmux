@@ -341,8 +341,13 @@ void FontDownloadActivity::recordTransportFailure(ManifestFailure& target, int& 
     case HttpDownloader::TransportFailure::FileIo:
       target = ManifestFailure::SdWrite;
       break;
-    case HttpDownloader::TransportFailure::Connect:
+    case HttpDownloader::TransportFailure::EmptyResponse:
+      target = ManifestFailure::EmptyResponse;
+      break;
     case HttpDownloader::TransportFailure::Incomplete:
+      target = ManifestFailure::Http;
+      break;
+    case HttpDownloader::TransportFailure::Connect:
     case HttpDownloader::TransportFailure::None:
     default:
       target = ManifestFailure::Network;
@@ -374,8 +379,13 @@ void FontDownloadActivity::recordTransportFailure(FileFailure& target, int& http
     case HttpDownloader::TransportFailure::FileIo:
       target = FileFailure::Sd;
       break;
-    case HttpDownloader::TransportFailure::Connect:
+    case HttpDownloader::TransportFailure::EmptyResponse:
+      target = FileFailure::EmptyResponse;
+      break;
     case HttpDownloader::TransportFailure::Incomplete:
+      target = FileFailure::Http;
+      break;
+    case HttpDownloader::TransportFailure::Connect:
     case HttpDownloader::TransportFailure::None:
     default:
       target = FileFailure::Network;
@@ -411,6 +421,8 @@ const char* FontDownloadActivity::failureDetailText() const {
         return tr(STR_FONT_ERR_MANIFEST);
       case ManifestFailure::SdWrite:
         return tr(STR_FONT_ERR_SD);
+      case ManifestFailure::EmptyResponse:
+        return tr(STR_FONT_ERR_EMPTY_RESPONSE);
       case ManifestFailure::None:
         break;
     }
@@ -440,6 +452,8 @@ const char* FontDownloadActivity::failureDetailText() const {
       return tr(STR_FONT_ERR_HEADER);
     case FileFailure::Sd:
       return tr(STR_FONT_ERR_SD);
+    case FileFailure::EmptyResponse:
+      return tr(STR_FONT_ERR_EMPTY_RESPONSE);
     case FileFailure::None:
       break;
   }

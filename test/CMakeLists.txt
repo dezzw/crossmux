@@ -66,6 +66,7 @@ add_subdirectory(minibidi_arabic)
 add_subdirectory(combining_marks)
 add_subdirectory(time_utils)
 add_subdirectory(http_transport)
+add_subdirectory(secure_http_client)
 add_subdirectory(tls_chain_verify)
 add_subdirectory(weread_webapi)
 

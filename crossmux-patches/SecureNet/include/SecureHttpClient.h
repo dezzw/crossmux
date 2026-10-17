@@ -51,6 +51,8 @@ namespace freeink {
 
 class SecureHttpClient {
  public:
+  enum class BodyFraming : uint8_t { None, Fixed, UntilClose, Chunked };
+
   using DataCallback = std::function<bool(const uint8_t* data, size_t len)>;
   using AbortCallback = std::function<bool()>;
   // (bytes so far, total from Content-Length or 0 when unknown).
@@ -84,6 +86,9 @@ class SecureHttpClient {
   // 301/302 after a POST — continue as GET without the request body; 307/308
   // preserve method and body.
   void setFollowRedirects(int maxHops) { _followRedirects = maxHops < 0 ? 0 : maxHops; }
+  // When true, 3xx response bodies are drained without invoking the caller's sink
+  // (for callers that follow redirects manually).
+  void setDrainRedirectResponseBodies(bool drain) { _drainRedirectBodies = drain; }
   // Allow a redirect to step down from https to http. Off by default, because
   // the downgrade silently drops transport security; when refused, following
   // stops and the caller sees the 3xx.
@@ -269,23 +274,32 @@ class SecureHttpClient {
       // A 3xx body that is about to be followed is protocol plumbing, not
       // payload: drain it (keeping the connection reusable for the next hop)
       // without touching the caller's sink.
-      const bool discardBody = _followRedirects > 0 && isRedirectStatus(_status);
+      const bool discardBody =
+          isRedirectStatus(_status) && (_followRedirects > 0 || _drainRedirectBodies);
       const DataCallback discard = [](const uint8_t*, size_t) { return true; };
       const DataCallback& bodySink = discardBody ? discard : onData;
       _downloaded = 0;
+      _bodyFraming = BodyFraming::None;
       _reportProgress = !discardBody && static_cast<bool>(_progress);
 
       bool reusableFraming = true;
       if (transferEncoding.find("chunked") != std::string::npos) {
+        _bodyFraming = BodyFraming::Chunked;
         _bodyComplete = readChunked(*_conn, bodySink, shouldAbort);
       } else if (transferEncoding.empty() || transferEncoding == "identity") {
         if (_haveContentLength) {
+          _bodyFraming = BodyFraming::Fixed;
           _bodyComplete = readFixed(*_conn, _contentLength, bodySink, shouldAbort);
         } else {
+          _bodyFraming = BodyFraming::UntilClose;
           _bodyComplete = readUntilClose(*_conn, bodySink, shouldAbort);
           reusableFraming = false;
         }
       } else {
+        _bodyComplete = false;
+      }
+
+      if (!discardBody && _bodyComplete && !isExplicitEmptyBody() && _downloaded == 0) {
         _bodyComplete = false;
       }
 
@@ -354,6 +368,13 @@ class SecureHttpClient {
 
   int lastWolfErrorCode() const { return _secure.lastWolfErrorCode(); }
 
+  BodyFraming lastBodyFraming() const { return _bodyFraming; }
+  size_t bodyBytesDelivered() const { return _downloaded; }
+
+#if defined(CROSSPOINT_SECURE_HTTP_CLIENT_TEST)
+  void setTestTransport(Client* client) { _testTransport = client; }
+#endif
+
  private:
   struct Header {
     std::string name;
@@ -363,6 +384,8 @@ class SecureHttpClient {
   static bool isRedirectStatus(int status) {
     return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
   }
+
+  bool isExplicitEmptyBody() const { return _haveContentLength && _contentLength == 0; }
 
   static bool parseUrl(const std::string& url, std::string& scheme, std::string& host, std::string& path,
                        uint16_t& port) {
@@ -407,6 +430,15 @@ class SecureHttpClient {
 
   // Reuse the kept-alive connection when it matches, else (re)connect.
   bool ensureConnected() {
+#if defined(CROSSPOINT_SECURE_HTTP_CLIENT_TEST)
+    if (_testTransport) {
+      _conn = _testTransport;
+      _connHost = _host;
+      _connPort = _port;
+      _connHttps = (_scheme == "https");
+      return true;
+    }
+#endif
     if (connectionMatches()) return true;
     closeConnection();
     if (_scheme == "https") {
@@ -432,6 +464,12 @@ class SecureHttpClient {
   }
 
   void closeConnection() {
+#if defined(CROSSPOINT_SECURE_HTTP_CLIENT_TEST)
+    if (_testTransport) {
+      _conn = nullptr;
+      return;
+    }
+#endif
     if (_conn) {
       _conn->stop();
       _conn = nullptr;
@@ -487,14 +525,16 @@ class SecureHttpClient {
     while (static_cast<int32_t>(millis() - deadline) < 0) {
       if (isAborted(shouldAbort)) return false;
       while (c.available() > 0) {
-        const int ch = c.read();
-        if (ch < 0) break;
+        uint8_t byte = 0;
+        const int got = c.read(&byte, 1);
+        if (got <= 0) break;
+        const char ch = static_cast<char>(byte);
         if (ch == '\n') {
           if (!line.empty() && line.back() == '\r') line.pop_back();
           return true;
         }
         if (line.size() >= MAX_LINE) return false;
-        line += static_cast<char>(ch);
+        line += ch;
       }
       if (!c.connected() && c.available() == 0) return false;
       delay(1);
@@ -504,6 +544,7 @@ class SecureHttpClient {
 
   // Streams exactly `count` body bytes.
   bool readFixed(Client& c, size_t count, const DataCallback& onData, const AbortCallback& shouldAbort = nullptr) {
+    if (count == 0) return isExplicitEmptyBody();
     uint8_t buf[READ_CHUNK];
     size_t remaining = count;
     unsigned long deadline = millis() + _timeoutMs;
@@ -528,11 +569,12 @@ class SecureHttpClient {
   bool readUntilClose(Client& c, const DataCallback& onData, const AbortCallback& shouldAbort = nullptr) {
     uint8_t buf[READ_CHUNK];
     unsigned long deadline = millis() + _timeoutMs;
+    const size_t bytesAtStart = _downloaded;
     for (;;) {
       if (isAborted(shouldAbort)) return false;
       const int n = c.read(buf, sizeof(buf));
       if (n <= 0) {
-        if (!c.connected() && c.available() == 0) return true;
+        if (!c.connected() && c.available() == 0) return _downloaded > bytesAtStart;
         if (static_cast<int32_t>(millis() - deadline) >= 0) return false;
         delay(2);
         continue;
@@ -595,8 +637,13 @@ class SecureHttpClient {
   std::string _authPass;
   bool _insecure = false;
   int _followRedirects = 0;
+  bool _drainRedirectBodies = false;
   bool _allowRedirectDowngrade = false;
   ProgressCallback _progress;
+  BodyFraming _bodyFraming = BodyFraming::None;
+#if defined(CROSSPOINT_SECURE_HTTP_CLIENT_TEST)
+  Client* _testTransport = nullptr;
+#endif
   size_t _downloaded = 0;
   bool _reportProgress = false;
   bool _haveContentLength = false;
