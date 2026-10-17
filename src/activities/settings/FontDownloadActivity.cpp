@@ -463,7 +463,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
 
   char manifestUrl[192];
   const int manifestUrlLen = CrossMuxEndpoints::formatFontGithubManifestUrl(manifestUrl, sizeof(manifestUrl),
-                                                                          FONTS_MANIFEST_VERSION, CPFONT_VERSION);
+                                                                            FONTS_MANIFEST_VERSION, CPFONT_VERSION);
   if (manifestUrlLen < 0 || static_cast<size_t>(manifestUrlLen) >= sizeof(manifestUrl)) {
     LOG_ERR("FONT", "Manifest URL exceeds buffer");
     manifestFailure_ = ManifestFailure::Network;
@@ -512,8 +512,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     return false;
   }
 
-  const FontManifestCatalog::IngestResult ingestResult =
-      FontManifestCatalog::ingestDocument(doc, catalog, manifestUrl);
+  const FontManifestCatalog::IngestResult ingestResult = FontManifestCatalog::ingestDocument(doc, catalog, manifestUrl);
   if (ingestResult != FontManifestCatalog::IngestResult::Ok) {
     LOG_ERR("FONT", "Manifest ingest failed from %s", manifestUrl);
     if (ingestResult == FontManifestCatalog::IngestResult::Version) {

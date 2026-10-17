@@ -69,8 +69,7 @@ TEST(FontManifestCatalog, OverflowRejectsBeforeMutatingCatalog) {
   JsonDocument doc;
   ASSERT_TRUE(loadManyFamiliesManifest(FontManifestCatalog::Limits::kMaxManifestFamilies + 1, doc));
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(doc, catalog, "overflow"),
-            FontManifestCatalog::IngestResult::Overflow);
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(doc, catalog, "overflow"), FontManifestCatalog::IngestResult::Overflow);
   EXPECT_TRUE(catalog.families.empty());
 }
 

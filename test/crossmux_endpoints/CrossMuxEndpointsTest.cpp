@@ -16,9 +16,8 @@ TEST(CrossMuxEndpoints, FormatFontGithubManifestUrlUsesBuildConstants) {
   EXPECT_LT(static_cast<size_t>(len), sizeof(url));
 
   char expected[256];
-  snprintf(expected, sizeof(expected),
-           "https://github.com/dezzw/crossmux/releases/download/fonts-m%d-b%d/fonts.json", kFontsManifestVersion,
-           CPFONT_VERSION);
+  snprintf(expected, sizeof(expected), "https://github.com/dezzw/crossmux/releases/download/fonts-m%d-b%d/fonts.json",
+           kFontsManifestVersion, CPFONT_VERSION);
   EXPECT_STREQ(url, expected);
 }
 
