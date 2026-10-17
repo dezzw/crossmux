@@ -55,10 +55,11 @@ class CpFontStyle:
         idx = self.find_glyph_index(codepoint)
         if idx is None or idx >= len(self.glyphs):
             return None
-        g = self.glyphs[idx]
-        if g.data_length == 0 or g.width == 0:
-            return None
-        return g
+        return self.glyphs[idx]
+
+    @staticmethod
+    def glyph_has_bitmap(g: CpGlyph) -> bool:
+        return g.data_length > 0 and g.width > 0 and g.height > 0
 
     def kern_class_left(self, cp: int) -> int:
         return self.kern_left.get(cp, 0)
@@ -104,7 +105,23 @@ def _coverage_2bit(bitmap: bytes, pixel_index: int) -> int:
     return (byte >> shift) & 0x3
 
 
-def draw_glyph_1bit(pixels: bytearray, width: int, height: int, glyph: CpGlyph, cursor_x: int, baseline_y: int) -> None:
+def coverage_draws_bw(coverage: int) -> bool:
+    """Match GfxRenderer::mapTwoBitGlyphCoverage(BW): font 0=white..3=black."""
+    return coverage > 0
+
+
+def pack_pil_mode1(pixels: bytearray, width: int, height: int) -> bytes:
+    """Pack 0/1 byte-per-pixel buffer (1=white, 0=black) for PIL mode \"1\" (MSB-first)."""
+    out = bytearray((width * height + 7) // 8)
+    for i, value in enumerate(pixels):
+        if value:
+            out[i >> 3] |= 128 >> (i & 7)
+    return bytes(out)
+
+
+def draw_glyph_2bit_bw(
+    pixels: bytearray, width: int, height: int, glyph: CpGlyph, cursor_x: int, baseline_y: int
+) -> None:
     if not glyph.bitmap:
         return
     base_x = cursor_x + glyph.left
@@ -112,7 +129,7 @@ def draw_glyph_1bit(pixels: bytearray, width: int, height: int, glyph: CpGlyph, 
     for gy in range(glyph.height):
         for gx in range(glyph.width):
             pos = gy * glyph.width + gx
-            if _coverage_2bit(glyph.bitmap, pos) >= 2:
+            if coverage_draws_bw(_coverage_2bit(glyph.bitmap, pos)):
                 x = base_x + gx
                 y = base_y + gy
                 if 0 <= x < width and 0 <= y < height:
@@ -140,7 +157,8 @@ def draw_text_line(
         elif have_prev:
             cursor_x += fp4_to_pixel(prev_advance)
         if glyph:
-            draw_glyph_1bit(pixels, screen_w, screen_h, glyph, cursor_x, baseline_y)
+            if CpFontStyle.glyph_has_bitmap(glyph):
+                draw_glyph_2bit_bw(pixels, screen_w, screen_h, glyph, cursor_x, baseline_y)
             prev_advance = glyph.advance_x
         else:
             prev_advance = fp4_to_pixel(style.ascender) << 4
@@ -228,10 +246,13 @@ def load_cpfont_style(path: Path, style_id: int = 0) -> CpFontStyle:
     pos += matrix_len
     pos += ligature_count * 8
 
-    bitmap_blob = data[pos:]
+    bitmap_base = pos
     glyphs: list[CpGlyph] = []
     for w, h, ax, left, top, dl, doff in glyphs_raw:
-        bmp = bitmap_blob[doff : doff + dl] if dl else b""
+        if dl:
+            bmp = data[bitmap_base + doff : bitmap_base + doff + dl]
+        else:
+            bmp = b""
         glyphs.append(CpGlyph(w, h, ax, left, top, dl, doff, bmp))
 
     return CpFontStyle(

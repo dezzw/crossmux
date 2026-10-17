@@ -49,8 +49,8 @@ DOWNLOAD_DIR = SCRIPT_DIR / "downloaded_fonts"
 INSTANCE_DIR = SCRIPT_DIR / "instanced_fonts"
 DEFAULT_FALLBACK_FONT = EPDFONTS_DIR / "builtinFonts/source/NotoSans/NotoSans-Regular.ttf"
 REPO_ROOT = SCRIPT_DIR.parent.parent.parent
-LEGACY_NOTO_FIXTURE = REPO_ROOT / "test/fixtures/legacy/NotoSansSC_12.cpfont"
 NOTO_HANZI_ALLOWLIST = SCRIPT_DIR / "noto_m1_b4_hanzi_coverage.txt"
+LEGACY_NOTO_CACHE = SCRIPT_DIR / ".cache/NotoSansSC_12.cpfont"
 HANZI_FILTER_RANGES = (
     (0x3400, 0x4DBF),
     (0x4E00, 0x9FFF),
@@ -64,17 +64,19 @@ def _in_hanzi_range(codepoint: int) -> bool:
 
 
 def ensure_noto_hanzi_allowlist() -> None:
-    """Regenerate hanzi allowlist from vendored legacy m1-b4 fixture (not committed)."""
-    if not LEGACY_NOTO_FIXTURE.is_file():
+    """Use committed allowlist; optional refresh from pinned legacy .cpfont (--refresh-hanzi-allowlist)."""
+    if NOTO_HANZI_ALLOWLIST.is_file():
         return
     import sys
 
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     from cpfont_codepoints import cpfont_codepoints  # noqa: WPS433
+    from legacy_noto_m1_b4 import download_legacy_noto  # noqa: WPS433
 
-    bitmap_cps = cpfont_codepoints(LEGACY_NOTO_FIXTURE, require_bitmap=True)
+    download_legacy_noto(LEGACY_NOTO_CACHE)
+    bitmap_cps = cpfont_codepoints(LEGACY_NOTO_CACHE, require_bitmap=True)
     hanzi = sorted({cp for cp in bitmap_cps if _in_hanzi_range(cp)})
-    lines = []
+    lines = [f"# Derived from {LEGACY_NOTO_CACHE.name} (crossmux.com m1-b4); see scripts/legacy_noto_m1_b4.py"]
     for cp in hanzi:
         lines.append(f"{cp:X}" if cp <= 0xFFFF else f"{cp:06X}")
     NOTO_HANZI_ALLOWLIST.write_text("\n".join(lines) + "\n", encoding="utf-8")

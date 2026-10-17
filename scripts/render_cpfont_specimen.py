@@ -14,7 +14,7 @@ OUT = ROOT / "docs/screenshots/pr23"
 OUTPUT_DIR = ROOT / "lib/EpdFont/scripts/output"
 
 sys.path.insert(0, str(ROOT / "scripts"))
-from cpfont_reader import draw_text_line, load_cpfont_style, wrap_text  # noqa: E402
+from cpfont_reader import draw_text_line, load_cpfont_style, pack_pil_mode1, wrap_text  # noqa: E402
 
 SCREEN_W, SCREEN_H = 800, 480
 MARGIN = 16
@@ -55,7 +55,7 @@ def render_page(sections: list[tuple[str, object, str]], title: str, pt: int, ou
             baseline += style.advance_y
         y = baseline + 10
 
-    img = Image.frombytes("1", (SCREEN_W, SCREEN_H), bytes(pixels))
+    img = Image.frombytes("1", (SCREEN_W, SCREEN_H), pack_pil_mode1(pixels, SCREEN_W, SCREEN_H))
     draw = ImageDraw.Draw(img)
     draw.text((MARGIN, MARGIN), f"{title} @ {pt}pt — .cpfont specimen", fill=0, font=label)
     for ly, caption in label_lines:

@@ -22,9 +22,8 @@ build
 **/.venv/
 *.local*
 *.cpfont
-!test/fixtures/legacy/NotoSansSC_12.cpfont
 lib/EpdFont/scripts/downloaded_fonts/
-lib/EpdFont/scripts/noto_m1_b4_hanzi_coverage.txt
+lib/EpdFont/scripts/.cache/
 lib/EpdFont/scripts/instanced_fonts/
 lib/EpdFont/scripts/output/
 # Legacy WeRead API key files may still contain secrets — never commit them.

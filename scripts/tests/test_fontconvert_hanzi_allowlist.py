@@ -19,13 +19,16 @@ def _load_build_sd_fonts():
 
 
 class HanziAllowlistTest(unittest.TestCase):
-    def test_generated_noto_allowlist_from_fixture(self):
-        build = _load_build_sd_fonts()
-        build.ensure_noto_hanzi_allowlist()
+    def test_committed_noto_allowlist(self):
         path = SCRIPTS / "noto_m1_b4_hanzi_coverage.txt"
-        self.assertTrue(path.is_file(), "legacy fixture should generate allowlist")
+        self.assertTrue(path.is_file(), "committed hanzi allowlist missing")
         allow = fc.load_hanzi_allowlist([path])
         self.assertGreater(len(allow), 8000)
+
+    def test_ensure_noto_allowlist_noop_when_present(self):
+        build = _load_build_sd_fonts()
+        build.ensure_noto_hanzi_allowlist()
+        self.assertTrue(build.NOTO_HANZI_ALLOWLIST.is_file())
 
     def test_hex_and_utf8_lines(self):
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as handle:
