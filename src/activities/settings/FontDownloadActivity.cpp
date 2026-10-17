@@ -27,6 +27,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "network/CrossMuxEndpoints.h"
+#include "network/FontManifestCatalog.h"
 #include "network/HttpDownloader.h"
 #include "network/HttpTransportFailure.h"
 
@@ -34,14 +35,6 @@ namespace fui = freeink::ui;
 
 namespace {
 
-constexpr size_t kMaxManifestBytes = 96 * 1024;
-constexpr size_t kMaxManifestFamilies = 32;
-constexpr size_t kMaxManifestFiles = 128;
-constexpr size_t kMaxFilesPerFamily = 16;
-constexpr size_t kMaxFamilyNameBytes = 64;
-constexpr size_t kMaxDescriptionBytes = 160;
-constexpr size_t kMaxBaseUrlBytes = 256;
-constexpr size_t kMaxFontFileBytes = 25 * 1024 * 1024;
 constexpr uint8_t kDownloadProgressStepPercent = 10;
 
 constexpr uint8_t downloadProgressPercent(const size_t completed, const size_t total) {
@@ -63,27 +56,6 @@ static_assert(!shouldRefreshDownloadProgress(90, 100));  // The verified final f
 #ifdef ENABLE_CHINESE_VERSION
 std::atomic<bool> chineseFontPromptShownThisBoot{false};
 #endif
-
-bool parseManifestPointSize(const char* familyName, const char* fileName, uint8_t& pointSize) {
-  const size_t familyLength = strlen(familyName);
-  const size_t fileNameLength = strlen(fileName);
-  if (fileNameLength <= familyLength + 1) return false;
-  if (strncmp(fileName, familyName, familyLength) != 0 || fileName[familyLength] != '_') return false;
-
-  const char* cursor = fileName + familyLength + 1;
-  if (*cursor < '1' || *cursor > '9') return false;
-
-  uint16_t value = 0;
-  while (std::isdigit(static_cast<unsigned char>(*cursor))) {
-    value = static_cast<uint16_t>(value * 10 + (*cursor - '0'));
-    if (value > UINT8_MAX) return false;
-    ++cursor;
-  }
-  if (strcmp(cursor, ".cpfont") != 0) return false;
-
-  pointSize = static_cast<uint8_t>(value);
-  return true;
-}
 
 }  // namespace
 
@@ -428,10 +400,11 @@ const char* FontDownloadActivity::failureDetailText() const {
         return tr(STR_FONT_ERR_TLS_HANDSHAKE);
       case ManifestFailure::Http:
         if (lastHttpStatus_ > 0) {
-          snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP), lastHttpStatus_);
+          snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP_MANIFEST),
+                   lastHttpStatus_);
           return httpDetailBuffer_;
         }
-        return tr(STR_FONT_ERR_HTTP);
+        return tr(STR_FONT_ERR_HTTP_MANIFEST);
       case ManifestFailure::Parse:
         return tr(STR_FONT_ERR_MANIFEST);
       case ManifestFailure::Version:
@@ -457,10 +430,10 @@ const char* FontDownloadActivity::failureDetailText() const {
       return tr(STR_FONT_ERR_TLS_HANDSHAKE);
     case FileFailure::Http:
       if (lastHttpStatus_ > 0) {
-        snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP), lastHttpStatus_);
+        snprintf(httpDetailBuffer_, sizeof(httpDetailBuffer_), "%s %d", tr(STR_FONT_ERR_HTTP_FILE), lastHttpStatus_);
         return httpDetailBuffer_;
       }
-      return tr(STR_FONT_ERR_HTTP);
+      return tr(STR_FONT_ERR_HTTP_FILE);
     case FileFailure::Crc:
       return tr(STR_FONT_ERR_CRC);
     case FileFailure::Header:
@@ -479,11 +452,14 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   static constexpr const char* MANIFEST_TMP = "/fonts_manifest.tmp";
   families_.clear();
   files_.clear();
-  baseUrl_.clear();
+  manifestBaseUrls_.clear();
+  scriptGroupLabels_.clear();
+  filteredIndices_.clear();
   downloadingFamilyIndex_ = -1;
   manifestFailure_ = ManifestFailure::None;
   fileFailure_ = FileFailure::None;
   lastHttpStatus_ = 0;
+  fontInstaller_.refreshRegistry();
 
   char githubUrl[192];
   char legacyUrl[192];
@@ -498,193 +474,136 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     return false;
   }
 
+  FontManifestCatalog::Catalog catalog;
   const HttpDownloader::FetchOptions verifiedTls{.verifyTlsPeer = true};
-  const char* urls[] = {githubUrl, legacyUrl};
-  bool downloaded = false;
-  for (const char* manifestUrl : urls) {
-    const auto result = HttpDownloader::downloadToFile(manifestUrl, MANIFEST_TMP, nullptr, nullptr, verifiedTls);
-    if (result == HttpDownloader::OK) {
-      downloaded = true;
-      LOG_INF("FONT", "Loaded manifest from %s", manifestUrl);
+  struct ManifestSource {
+    const char* url;
+    FontManifestCatalog::IngestMode mode;
+    FontManifestCatalog::ManifestBundleSource bundleSource;
+  };
+  const ManifestSource sources[] = {
+      {legacyUrl, FontManifestCatalog::IngestMode::Replace, FontManifestCatalog::ManifestBundleSource::CrossMux},
+      {githubUrl, FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames,
+       FontManifestCatalog::ManifestBundleSource::UpstreamGithub}};
+  bool loadedAny = false;
+
+  for (const ManifestSource& source : sources) {
+    const auto downloadResult = HttpDownloader::downloadToFile(source.url, MANIFEST_TMP, nullptr, nullptr, verifiedTls);
+    if (downloadResult != HttpDownloader::OK) {
+      if (manifestFailure_ == ManifestFailure::None) {
+        recordTransportFailure(manifestFailure_, lastHttpStatus_);
+      }
+      const int failedHttpStatus = HttpDownloader::lastHttpStatusCode();
+      if (failedHttpStatus > 0) {
+        LOG_ERR("FONT", "Manifest fetch failed (manifest): %s HTTP %d", source.url, failedHttpStatus);
+      } else {
+        LOG_ERR("FONT", "Manifest fetch failed (manifest): %s", source.url);
+      }
+      Storage.remove(MANIFEST_TMP);
+      continue;
+    }
+
+    JsonDocument doc;
+    DeserializationError err;
+    bool manifestTooLarge = false;
+    {
+      HalFile manifestFile;
+      if (!Storage.openFileForRead("FONT", MANIFEST_TMP, manifestFile)) {
+        LOG_ERR("FONT", "Failed to open temp manifest");
+        Storage.remove(MANIFEST_TMP);
+        if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
+          manifestFailure_ = ManifestFailure::SdWrite;
+        }
+        continue;
+      }
+      manifestTooLarge = manifestFile.fileSize() > FontManifestCatalog::Limits::kMaxManifestBytes;
+      if (!manifestTooLarge) err = deserializeJson(doc, manifestFile);
+    }
+    Storage.remove(MANIFEST_TMP);
+
+    if (manifestTooLarge) {
+      LOG_ERR("FONT", "Manifest exceeds %zu bytes", FontManifestCatalog::Limits::kMaxManifestBytes);
+      if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
+        manifestFailure_ = ManifestFailure::Parse;
+      }
+      continue;
+    }
+    if (err) {
+      LOG_ERR("FONT", "Manifest parse error: %s", err.c_str());
+      if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
+        manifestFailure_ = ManifestFailure::Parse;
+      }
+      continue;
+    }
+
+    const FontManifestCatalog::IngestResult ingestResult =
+        FontManifestCatalog::ingestDocument(doc, catalog, source.mode, source.url, source.bundleSource);
+    if (ingestResult != FontManifestCatalog::IngestResult::Ok) {
+      LOG_ERR("FONT", "Manifest ingest failed from %s", source.url);
+      if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
+        if (ingestResult == FontManifestCatalog::IngestResult::Version) {
+          manifestFailure_ = ManifestFailure::Version;
+        } else {
+          manifestFailure_ = ManifestFailure::Parse;
+        }
+      }
+      continue;
+    }
+
+    loadedAny = true;
+    LOG_INF("FONT", "Loaded manifest from %s (%zu families total)", source.url, catalog.families.size());
+  }
+
+  if (!loadedAny) return false;
+
+  for (const FontManifestCatalog::Family& family : catalog.families) {
+    if (family.baseUrlIndex >= catalog.baseUrls.size()) {
+      LOG_ERR("FONT", "Manifest family %s has invalid baseUrl index", family.name.c_str());
+      manifestFailure_ = ManifestFailure::Parse;
+      return false;
+    }
+  }
+
+  FontManifestCatalog::applyDefaultScriptGroupForUnscriptedFamilies(catalog);
+  for (size_t groupIndex = 0; groupIndex < catalog.scriptGroupTags.size(); groupIndex++) {
+    if (catalog.scriptGroupTags[groupIndex] == FontManifestCatalog::kCjkScriptGroupTag) {
+      catalog.scriptGroupLabels[groupIndex] = tr(STR_FONT_SCRIPT_GROUP_CJK);
       break;
     }
-    LOG_ERR("FONT", "Manifest fetch failed: %s", manifestUrl);
-    recordTransportFailure(manifestFailure_, lastHttpStatus_);
-    Storage.remove(MANIFEST_TMP);
-  }
-  if (!downloaded) return false;
-
-  JsonDocument doc;
-  DeserializationError err;
-  bool manifestTooLarge = false;
-  {
-    // Scope closes the local handle before the temp file is removed.
-    HalFile manifestFile;
-    if (!Storage.openFileForRead("FONT", MANIFEST_TMP, manifestFile)) {
-      LOG_ERR("FONT", "Failed to open temp manifest");
-      Storage.remove(MANIFEST_TMP);
-      manifestFailure_ = ManifestFailure::SdWrite;
-      return false;
-    }
-    manifestTooLarge = manifestFile.fileSize() > kMaxManifestBytes;
-    if (!manifestTooLarge) err = deserializeJson(doc, manifestFile);
-  }
-  Storage.remove(MANIFEST_TMP);
-
-  if (manifestTooLarge) {
-    LOG_ERR("FONT", "Manifest exceeds %zu bytes", kMaxManifestBytes);
-    manifestFailure_ = ManifestFailure::Parse;
-    return false;
-  }
-  if (err) {
-    LOG_ERR("FONT", "Manifest parse error: %s", err.c_str());
-    manifestFailure_ = ManifestFailure::Parse;
-    return false;
   }
 
-  int version = doc["version"] | 0;
-  if (version != FONTS_MANIFEST_VERSION) {
-    LOG_ERR("FONT", "Unsupported manifest version: %d", version);
-    manifestFailure_ = ManifestFailure::Version;
-    return false;
-  }
-
-  baseUrl_ = doc["baseUrl"] | "";
-  if (baseUrl_.empty() || baseUrl_.size() > kMaxBaseUrlBytes || baseUrl_.rfind("https://", 0) != 0 ||
-      baseUrl_.back() != '/') {
-    LOG_ERR("FONT", "Manifest has invalid baseUrl");
-    manifestFailure_ = ManifestFailure::Parse;
-    return false;
-  }
-  families_.clear();
-  files_.clear();
-  scriptGroupLabels_.clear();
-  filteredIndices_.clear();
-  fontInstaller_.refreshRegistry();
-
-  JsonArray groupsArr = doc["scriptGroups"].as<JsonArray>();
-  const size_t groupCount = std::min(groupsArr.size(), MAX_SCRIPT_GROUPS);
-  scriptGroupLabels_.reserve(groupCount);
-  if (groupsArr.size() > MAX_SCRIPT_GROUPS) {
-    LOG_ERR("FONT", "Manifest declares more than %zu script groups; extra groups ignored", MAX_SCRIPT_GROUPS);
-  }
-  for (size_t groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-    JsonObject groupObj = groupsArr[groupIndex].as<JsonObject>();
-    const char* tag = groupObj["tag"] | "";
-    const char* label = groupObj["label"] | "";
-    if (*tag == '\0' || *label == '\0') {
-      LOG_ERR("FONT", "Malformed script group at index %zu", groupIndex);
-      manifestFailure_ = ManifestFailure::Parse;
-      return false;
-    }
-    scriptGroupLabels_.push_back(label);
-  }
-
-  JsonArray familiesArr = doc["families"].as<JsonArray>();
-  if (familiesArr.isNull() || familiesArr.size() == 0 || familiesArr.size() > kMaxManifestFamilies) {
-    LOG_ERR("FONT", "Manifest has invalid family count: %zu", familiesArr.size());
-    manifestFailure_ = ManifestFailure::Parse;
-    return false;
-  }
-
-  size_t fileCount = 0;
-  for (JsonObject familyObject : familiesArr) {
-    const JsonArray familyFiles = familyObject["files"].as<JsonArray>();
-    if (familyFiles.isNull() || familyFiles.size() == 0 || familyFiles.size() > kMaxFilesPerFamily ||
-        familyFiles.size() > kMaxManifestFiles - fileCount) {
-      LOG_ERR("FONT", "Manifest has invalid file count");
-      manifestFailure_ = ManifestFailure::Parse;
-      return false;
-    }
-    fileCount += familyFiles.size();
-  }
-
-  families_.reserve(familiesArr.size());
-  files_.reserve(fileCount);
-  filteredIndices_.reserve(familiesArr.size());
-
-  for (JsonObject fObj : familiesArr) {
-    ManifestFamily family;
-    family.name = fObj["name"] | "";
-    family.description = fObj["description"] | "";
-    const bool duplicateFamily = std::any_of(families_.begin(), families_.end(),
-                                             [&family](const auto& existing) { return existing.name == family.name; });
-    if (!FontInstaller::isValidFamilyName(family.name.c_str()) || family.name.size() > kMaxFamilyNameBytes ||
-        family.description.empty() || family.description.size() > kMaxDescriptionBytes || duplicateFamily) {
-      LOG_ERR("FONT", "Malformed manifest family name: %s", family.name.c_str());
-      families_.clear();
-      files_.clear();
-      manifestFailure_ = ManifestFailure::Parse;
-      return false;
-    }
-
-    const JsonArray familyFiles = fObj["files"].as<JsonArray>();
-    family.fileOffset = files_.size();
-    family.fileCount = familyFiles.size();
-    for (JsonVariant script : fObj["scripts"].as<JsonArray>()) {
-      const char* familyTag = script.as<const char*>();
-      if (!familyTag) continue;
-      for (size_t groupIndex = 0; groupIndex < scriptGroupLabels_.size(); groupIndex++) {
-        JsonObject groupObj = groupsArr[groupIndex].as<JsonObject>();
-        const char* groupTag = groupObj["tag"] | "";
-        if (std::strcmp(familyTag, groupTag) == 0) {
-          family.scriptMask |= uint32_t{1} << groupIndex;
-          break;
-        }
-      }
-    }
-    family.totalSize = 0;
+  manifestFailure_ = ManifestFailure::None;
+  lastHttpStatus_ = 0;
+  const size_t catalogHeapBytes = FontManifestCatalog::estimateCatalogHeapBytes(catalog);
+  manifestBaseUrls_ = std::move(catalog.baseUrls);
+  scriptGroupLabels_ = std::move(catalog.scriptGroupLabels);
+  families_ = std::move(catalog.families);
+  files_ = std::move(catalog.files);
+  for (ManifestFamily& family : families_) {
     family.installed = fontInstaller_.isFamilyInstalled(family.name.c_str());
-    for (JsonObject fileObj : familyFiles) {
-      ManifestFile file;
-      const char* fileName = fileObj["name"] | "";
-      file.size = fileObj["size"] | 0;
-
-      if (!FontInstaller::isValidCpfontFilename(fileName) ||
-          !parseManifestPointSize(family.name.c_str(), fileName, file.pointSize) || file.size == 0 ||
-          file.size >= kMaxFontFileBytes || !fileObj["crc32"].is<uint32_t>()) {
-        LOG_ERR("FONT", "Malformed manifest file entry: %s", fileName);
-        families_.clear();
-        files_.clear();
-        manifestFailure_ = ManifestFailure::Parse;
-        return false;
-      }
-      const bool duplicatePointSize =
-          std::any_of(files_.begin() + static_cast<ptrdiff_t>(family.fileOffset), files_.end(),
-                      [&file](const auto& existing) { return existing.pointSize == file.pointSize; });
-      if (duplicatePointSize) {
-        LOG_ERR("FONT", "Duplicate manifest point size: %s", fileName);
-        families_.clear();
-        files_.clear();
-        manifestFailure_ = ManifestFailure::Parse;
-        return false;
-      }
-      file.crc32 = fileObj["crc32"].as<uint32_t>();
-
-      family.totalSize += file.size;
-      files_.push_back(file);
-
-      // Detect updates by comparing manifest file sizes with files on disk.
-      if (family.installed && !family.hasUpdate) {
-        char path[128];
-        FontInstaller::buildFontPath(family.name.c_str(), fileName, path, sizeof(path));
-        HalFile f;
-        if (Storage.openFileForRead("FONT", path, f)) {
-          if (f.fileSize() != file.size) family.hasUpdate = true;
-        } else {
-          family.hasUpdate = true;
-        }
+    family.hasUpdate = false;
+    if (!family.installed) continue;
+    for (size_t fileIndex = family.fileOffset; fileIndex < family.fileOffset + family.fileCount; fileIndex++) {
+      const ManifestFile& file = files_[fileIndex];
+      char fileName[128];
+      snprintf(fileName, sizeof(fileName), "%s_%u.cpfont", family.name.c_str(), static_cast<unsigned>(file.pointSize));
+      char path[128];
+      FontInstaller::buildFontPath(family.name.c_str(), fileName, path, sizeof(path));
+      HalFile fontFile;
+      if (Storage.openFileForRead("FONT", path, fontFile)) {
+        if (fontFile.fileSize() != file.size) family.hasUpdate = true;
+      } else {
+        family.hasUpdate = true;
       }
     }
-
-    families_.push_back(std::move(family));
   }
+  filteredIndices_.reserve(families_.size());
 
   const size_t rowCapacity = std::max(families_.size() + 2, scriptGroupLabels_.size() + 1);
   rowLabels_.reserve(rowCapacity);
   rowItems_.reserve(rowCapacity);
-
-  LOG_DBG("FONT", "Manifest loaded: %zu families, %zu script groups", families_.size(), scriptGroupLabels_.size());
+  LOG_DBG("FONT", "Manifest loaded: %zu families, %zu files, %zu script groups, ~%zu B catalog heap", families_.size(),
+          files_.size(), scriptGroupLabels_.size(), catalogHeapBytes);
   return true;
 }
 
@@ -918,7 +837,14 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
     return DownloadResult::Success;
   }
 
-  std::string url = baseUrl_ + fileName;
+  if (family.baseUrlIndex >= manifestBaseUrls_.size()) {
+    LOG_ERR("FONT", "Manifest baseUrl index out of range for %s", family.name.c_str());
+    manifestFailure_ = ManifestFailure::Parse;
+    fileFailure_ = FileFailure::None;
+    return DownloadResult::Failed;
+  }
+  std::string url = manifestBaseUrls_[family.baseUrlIndex];
+  url += fileName;
   NetworkStartup::prepare(renderer);
   const HttpDownloader::FetchOptions verifiedTls{.verifyTlsPeer = true};
   const auto result = HttpDownloader::downloadToFile(
@@ -943,9 +869,14 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
     return DownloadResult::Cancelled;
   }
   if (result != HttpDownloader::OK) {
-    LOG_ERR("FONT", "Download failed: %s (%d)", fileName, result);
     Storage.remove(downloadPath);
     recordTransportFailure(fileFailure_, lastHttpStatus_);
+    if (lastHttpStatus_ > 0) {
+      LOG_ERR("FONT", "Download failed (file): %s HTTP %d (result %d)", fileName, lastHttpStatus_,
+              static_cast<int>(result));
+    } else {
+      LOG_ERR("FONT", "Download failed (file): %s (result %d)", fileName, static_cast<int>(result));
+    }
     return DownloadResult::Failed;
   }
 

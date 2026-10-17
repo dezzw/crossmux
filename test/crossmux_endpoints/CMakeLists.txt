@@ -1,0 +1,5 @@
+add_executable(CrossMuxEndpointsTest CrossMuxEndpointsTest.cpp)
+target_compile_definitions(CrossMuxEndpointsTest PRIVATE FREEINK_DEVICE_WAVESHARE_EPAPER_397)
+target_include_directories(CrossMuxEndpointsTest PRIVATE ${REPO_ROOT})
+target_link_libraries(CrossMuxEndpointsTest PRIVATE crosspoint_test_common GTest::gtest_main)
+gtest_discover_tests(CrossMuxEndpointsTest)

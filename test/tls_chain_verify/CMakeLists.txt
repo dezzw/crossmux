@@ -67,4 +67,8 @@ add_test(
   NAME TlsHostVerifyCrossmux
   COMMAND TlsHostVerify crossmux.com ${REPO_ROOT}/src/network/TlsCaBundle.pem
 )
-set_tests_properties(TlsHostVerifyGithub TlsHostVerifyCrossmux PROPERTIES LABELS "network")
+add_test(
+  NAME TlsHostVerifyAssetsCrossmuxCn
+  COMMAND TlsHostVerify assets.crossmux.cn ${REPO_ROOT}/src/network/TlsCaBundle.pem
+)
+set_tests_properties(TlsHostVerifyGithub TlsHostVerifyCrossmux TlsHostVerifyAssetsCrossmuxCn PROPERTIES LABELS "network")
