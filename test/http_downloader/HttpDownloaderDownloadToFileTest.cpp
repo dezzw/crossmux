@@ -36,14 +36,15 @@ TEST_F(HttpDownloaderDownloadToFileTest, WolfMock2882BytesOkAndFileKept) {
   std::remove(path.c_str());
 }
 
-// Regression guard: main already skips non-200 bodies in runGetWolf's GET callback;
-// edbe441f removed that gate so error HTML would reach the sink and could be kept.
-TEST_F(HttpDownloaderDownloadToFileTest, Non200ErrorBodyNotDeliveredToSinkOrDisk) {
+// Exercises deliverWolfHttpBody (shared by real wolf GET callback and mock runGetWolf).
+TEST_F(HttpDownloaderDownloadToFileTest, FetchUrl403NeverInvokesDataCallback) {
   HttpDownloaderMockWolf::setResponseStatus(403);
-  const std::string path = tempPath();
-  const HttpDownloader::DownloadError result = HttpDownloader::downloadToFile("https://example.test/denied.bin", path);
-  EXPECT_EQ(result, HttpDownloader::HTTP_ERROR);
+  size_t callbackInvocations = 0;
+  EXPECT_FALSE(HttpDownloader::fetchUrl("https://example.test/denied.json",
+                                        [&](const uint8_t*, size_t len) {
+                                          callbackInvocations += (len > 0 ? 1u : 0u);
+                                          return true;
+                                        }));
+  EXPECT_EQ(callbackInvocations, 0u);
   EXPECT_EQ(HttpDownloader::lastHttpStatusCode(), 403);
-  EXPECT_EQ(fileSizeBytes(path), 0u);
-  std::remove(path.c_str());
 }

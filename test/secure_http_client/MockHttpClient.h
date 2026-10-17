@@ -19,6 +19,12 @@ class MockHttpClient : public Client {
 
   void armWantReadAfterAvailable(int count) { wantReadAfterAvailable_ = count; }
 
+  // Returns WANT_READ (0) once when responseOffset_ reaches offset (mid-body simulation).
+  void armWantReadWhenOffsetGe(size_t offset) {
+    wantReadWhenOffsetGe_ = offset;
+    wantReadWhenOffsetArmed_ = true;
+  }
+
   size_t write(uint8_t b) override { return write(&b, 1); }
 
   size_t write(const uint8_t* buf, size_t size) override {
@@ -32,6 +38,10 @@ class MockHttpClient : public Client {
   }
 
   int read(uint8_t* buf, size_t size) override {
+    if (wantReadWhenOffsetArmed_ && responseOffset_ >= wantReadWhenOffsetGe_) {
+      wantReadWhenOffsetArmed_ = false;
+      return 0;
+    }
     if (wantReadAfterAvailable_ > 0 && available() > 0) {
       --wantReadAfterAvailable_;
       return 0;
@@ -69,4 +79,6 @@ class MockHttpClient : public Client {
   std::string lastRequest_;
   bool connected_ = true;
   int wantReadAfterAvailable_ = 0;
+  size_t wantReadWhenOffsetGe_ = 0;
+  bool wantReadWhenOffsetArmed_ = false;
 };
