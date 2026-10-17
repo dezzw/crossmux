@@ -345,7 +345,7 @@ void FontDownloadActivity::recordTransportFailure(ManifestFailure& target, int& 
       target = ManifestFailure::EmptyResponse;
       break;
     case HttpDownloader::TransportFailure::Incomplete:
-      target = ManifestFailure::Http;
+      target = ManifestFailure::Interrupted;
       break;
     case HttpDownloader::TransportFailure::Connect:
     case HttpDownloader::TransportFailure::None:
@@ -383,7 +383,7 @@ void FontDownloadActivity::recordTransportFailure(FileFailure& target, int& http
       target = FileFailure::EmptyResponse;
       break;
     case HttpDownloader::TransportFailure::Incomplete:
-      target = FileFailure::Http;
+      target = FileFailure::Interrupted;
       break;
     case HttpDownloader::TransportFailure::Connect:
     case HttpDownloader::TransportFailure::None:
@@ -423,6 +423,8 @@ const char* FontDownloadActivity::failureDetailText() const {
         return tr(STR_FONT_ERR_SD);
       case ManifestFailure::EmptyResponse:
         return tr(STR_FONT_ERR_EMPTY_RESPONSE);
+      case ManifestFailure::Interrupted:
+        return tr(STR_FONT_ERR_DOWNLOAD_INTERRUPTED);
       case ManifestFailure::None:
         break;
     }
@@ -454,6 +456,8 @@ const char* FontDownloadActivity::failureDetailText() const {
       return tr(STR_FONT_ERR_SD);
     case FileFailure::EmptyResponse:
       return tr(STR_FONT_ERR_EMPTY_RESPONSE);
+    case FileFailure::Interrupted:
+      return tr(STR_FONT_ERR_DOWNLOAD_INTERRUPTED);
     case FileFailure::None:
       break;
   }

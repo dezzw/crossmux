@@ -295,7 +295,6 @@ int SecureClient::read() {
   uint8_t b;
   const int n = read(&b, 1);
   if (n == 1) return static_cast<int>(b);
-  if (n == 0) return 0;
   return -1;
 }
 int SecureClient::peek() { return -1; }

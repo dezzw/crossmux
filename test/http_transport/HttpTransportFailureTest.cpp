@@ -66,8 +66,9 @@ TEST(HttpTransportFailureMapping, EmptyResponseUsesDedicatedString) {
                "Empty response from server");
 }
 
-TEST(HttpTransportFailureMapping, IncompleteIsNotNetwork) {
+TEST(HttpTransportFailureMapping, IncompleteIsDownloadInterrupted) {
   I18n::getInstance().setLanguage(Language::EN);
+  EXPECT_STREQ(fontTransportFailureText(HttpTransportTypes::TransportFailure::Incomplete), "Download interrupted");
   EXPECT_STRNE(fontTransportFailureText(HttpTransportTypes::TransportFailure::Incomplete), "Network or DNS error");
 }
 

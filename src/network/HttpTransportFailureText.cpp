@@ -17,7 +17,7 @@ const char* fontTransportFailureText(const HttpTransportTypes::TransportFailure 
     case HttpTransportTypes::TransportFailure::Connect:
       return tr(STR_FONT_ERR_NETWORK);
     case HttpTransportTypes::TransportFailure::Incomplete:
-      return tr(STR_FONT_ERR_HTTP);
+      return tr(STR_FONT_ERR_DOWNLOAD_INTERRUPTED);
     case HttpTransportTypes::TransportFailure::EmptyResponse:
       return tr(STR_FONT_ERR_EMPTY_RESPONSE);
     case HttpTransportTypes::TransportFailure::HttpStatus:
@@ -45,7 +45,7 @@ const char* otaTransportFailureText(const HttpTransportTypes::TransportFailure f
     case HttpTransportTypes::TransportFailure::Connect:
       return tr(STR_OTA_ERR_NETWORK);
     case HttpTransportTypes::TransportFailure::Incomplete:
-      return tr(STR_OTA_ERR_HTTP);
+      return tr(STR_OTA_ERR_DOWNLOAD_INTERRUPTED);
     case HttpTransportTypes::TransportFailure::EmptyResponse:
       return tr(STR_OTA_ERR_EMPTY_RESPONSE);
     case HttpTransportTypes::TransportFailure::HttpStatus:

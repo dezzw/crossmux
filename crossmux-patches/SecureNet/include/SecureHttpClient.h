@@ -298,10 +298,6 @@ class SecureHttpClient {
         _bodyComplete = false;
       }
 
-      if (!discardBody && _bodyComplete && !isExplicitEmptyBody() && _downloaded == 0) {
-        _bodyComplete = false;
-      }
-
       // Reuse only a provably clean connection. An aborted/truncated body
       // leaves undrained bytes on the socket, and the next request would parse
       // leftover body data as its status line.
@@ -383,8 +379,6 @@ class SecureHttpClient {
   static bool isRedirectStatus(int status) {
     return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
   }
-
-  bool isExplicitEmptyBody() const { return _haveContentLength && _contentLength == 0; }
 
   static bool parseUrl(const std::string& url, std::string& scheme, std::string& host, std::string& path,
                        uint16_t& port) {
@@ -543,7 +537,6 @@ class SecureHttpClient {
 
   // Streams exactly `count` body bytes.
   bool readFixed(Client& c, size_t count, const DataCallback& onData, const AbortCallback& shouldAbort = nullptr) {
-    if (count == 0) return isExplicitEmptyBody();
     uint8_t buf[READ_CHUNK];
     size_t remaining = count;
     unsigned long deadline = millis() + _timeoutMs;
@@ -568,12 +561,11 @@ class SecureHttpClient {
   bool readUntilClose(Client& c, const DataCallback& onData, const AbortCallback& shouldAbort = nullptr) {
     uint8_t buf[READ_CHUNK];
     unsigned long deadline = millis() + _timeoutMs;
-    const size_t bytesAtStart = _downloaded;
     for (;;) {
       if (isAborted(shouldAbort)) return false;
       const int n = c.read(buf, sizeof(buf));
       if (n <= 0) {
-        if (!c.connected() && c.available() == 0) return _downloaded > bytesAtStart;
+        if (!c.connected() && c.available() == 0) return true;
         if (static_cast<int32_t>(millis() - deadline) >= 0) return false;
         delay(2);
         continue;

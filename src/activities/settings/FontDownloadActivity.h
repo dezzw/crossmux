@@ -67,6 +67,7 @@ class FontDownloadActivity final : public UiListActivity {
     Version,
     SdWrite,
     EmptyResponse,
+    Interrupted,
   };
   enum class FileFailure : uint8_t {
     None,
@@ -81,6 +82,7 @@ class FontDownloadActivity final : public UiListActivity {
     Header,
     Sd,
     EmptyResponse,
+    Interrupted,
   };
   enum class ExitRoute : uint8_t { Home, Reader, ReaderSuppressPrompt, ReaderPreloadChineseFont };
 
