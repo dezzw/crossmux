@@ -3,14 +3,24 @@
 #include <Logging.h>
 
 #include <algorithm>
+#include <cassert>
 #include <cctype>
 #include <cstring>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+#if !defined(CROSSPOINT_HOST_TEST)
+#include <esp_heap_caps.h>
+#endif
 
 namespace FontManifestCatalog {
 
 namespace {
 
 constexpr int kExpectedManifestSchemaVersion = 1;
+
+const Catalog kEmptyCatalog{};
 
 bool isCrossMuxBundleSource(const Catalog& catalog, uint8_t baseUrlIndex) {
   return baseUrlIndex < catalog.baseUrlSources.size() &&
@@ -68,10 +78,32 @@ uint32_t scriptMaskForTags(const std::vector<std::string>& groupTags, JsonArrayC
   return mask;
 }
 
-bool mergeScriptGroups(JsonArrayConst groupsArr, Catalog& catalog) {
+using ScriptGroupPair = std::pair<std::string, std::string>;
+
+bool planReplaceScriptGroups(JsonArrayConst groupsArr, std::vector<ScriptGroupPair>& outGroups) {
+  outGroups.clear();
   if (groupsArr.isNull()) return true;
-  const size_t incomingCount = groupsArr.size();
-  for (size_t groupIndex = 0; groupIndex < incomingCount; groupIndex++) {
+  const size_t groupCount = std::min(groupsArr.size(), Limits::kMaxScriptGroups);
+  outGroups.reserve(groupCount);
+  for (size_t groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+    JsonObjectConst groupObj = groupsArr[groupIndex].as<JsonObjectConst>();
+    const char* tag = groupObj["tag"] | "";
+    const char* label = groupObj["label"] | "";
+    if (*tag == '\0' || *label == '\0') {
+      LOG_ERR("FONT", "Malformed script group at index %zu", groupIndex);
+      return false;
+    }
+    outGroups.emplace_back(tag, label);
+  }
+  return true;
+}
+
+bool planMergeScriptGroups(JsonArrayConst groupsArr, const Catalog& catalog,
+                           std::vector<ScriptGroupPair>& outAdditions) {
+  outAdditions.clear();
+  if (groupsArr.isNull()) return true;
+  size_t projectedCount = catalog.scriptGroupTags.size();
+  for (size_t groupIndex = 0; groupIndex < groupsArr.size(); groupIndex++) {
     JsonObjectConst groupObj = groupsArr[groupIndex].as<JsonObjectConst>();
     const char* tag = groupObj["tag"] | "";
     const char* label = groupObj["label"] | "";
@@ -82,12 +114,11 @@ bool mergeScriptGroups(JsonArrayConst groupsArr, Catalog& catalog) {
     if (findScriptGroupIndex(catalog.scriptGroupTags, tag) < catalog.scriptGroupTags.size()) {
       continue;
     }
-    if (catalog.scriptGroupTags.size() >= Limits::kMaxScriptGroups) {
-      LOG_ERR("FONT", "Manifest declares more than %zu script groups; extra groups ignored", Limits::kMaxScriptGroups);
+    if (projectedCount >= Limits::kMaxScriptGroups) {
       continue;
     }
-    catalog.scriptGroupTags.emplace_back(tag);
-    catalog.scriptGroupLabels.emplace_back(label);
+    outAdditions.emplace_back(tag, label);
+    projectedCount++;
   }
   return true;
 }
@@ -119,7 +150,9 @@ void removeFamilyAt(Catalog& catalog, size_t familyIndex) {
   }
 }
 
-bool internBaseUrl(Catalog& catalog, const std::string& baseUrl, ManifestBundleSource source, uint8_t& outIndex) {
+bool resolveBaseUrlIndex(const Catalog& catalog, const std::string& baseUrl, ManifestBundleSource source,
+                         uint8_t& outIndex, bool& outAddsNew) {
+  outAddsNew = false;
   for (size_t index = 0; index < catalog.baseUrls.size(); index++) {
     if (catalog.baseUrls[index] == baseUrl) {
       if (catalog.baseUrlSources[index] != source) {
@@ -134,10 +167,21 @@ bool internBaseUrl(Catalog& catalog, const std::string& baseUrl, ManifestBundleS
     LOG_ERR("FONT", "Too many distinct manifest baseUrl values");
     return false;
   }
+  outAddsNew = true;
+  outIndex = static_cast<uint8_t>(catalog.baseUrls.size());
+  return true;
+}
+
+void commitBaseUrl(Catalog& catalog, const std::string& baseUrl, ManifestBundleSource source, uint8_t& outIndex) {
+  for (size_t index = 0; index < catalog.baseUrls.size(); index++) {
+    if (catalog.baseUrls[index] == baseUrl) {
+      outIndex = static_cast<uint8_t>(index);
+      return;
+    }
+  }
   catalog.baseUrls.push_back(baseUrl);
   catalog.baseUrlSources.push_back(source);
   outIndex = static_cast<uint8_t>(catalog.baseUrls.size() - 1);
-  return true;
 }
 
 struct IngestPlan {
@@ -233,62 +277,118 @@ bool parseFamilyFromJson(JsonObjectConst fObj, const std::vector<std::string>& s
   return true;
 }
 
-bool validateIncomingFamilies(JsonArrayConst familiesArr, const Catalog& catalog, IngestMode mode) {
+struct FamilyPlan {
+  size_t insertIndex = 0;
+  bool skip = false;
+  bool replaceExisting = false;
+  Family family;
+  std::vector<File> files;
+};
+
+bool buildFamilyPlans(JsonArrayConst familiesArr, const Catalog& catalog, IngestMode mode, uint8_t baseUrlIndex,
+                      const std::vector<std::string>& scriptGroupTags, std::vector<FamilyPlan>& outPlans) {
+  outPlans.clear();
+  std::vector<std::string> order;
+  order.reserve(catalog.families.size() + familiesArr.size());
+  for (const Family& existing : catalog.families) {
+    order.push_back(existing.name);
+  }
+
+  std::unordered_set<std::string> seenInManifest;
+  seenInManifest.reserve(familiesArr.size());
+
   for (JsonObjectConst fObj : familiesArr) {
     const char* familyName = fObj["name"] | "";
     if (mode == IngestMode::MergeSkipDuplicateNames && familyNameExists(catalog, familyName)) {
       continue;
     }
-    Family family;
-    std::vector<File> pendingFiles;
-    if (!parseFamilyFromJson(fObj, catalog.scriptGroupTags, 0, family, pendingFiles)) {
+
+    FamilyPlan plan;
+    plan.skip = false;
+    plan.replaceExisting = false;
+    plan.insertIndex = order.size();
+
+    const auto orderIt = std::find(order.begin(), order.end(), familyName);
+    if (mode == IngestMode::MergeReplaceDuplicateNames && orderIt != order.end()) {
+      plan.insertIndex = static_cast<size_t>(orderIt - order.begin());
+      plan.replaceExisting = true;
+      order.erase(orderIt);
+    } else if (mode == IngestMode::Replace) {
+      if (!seenInManifest.insert(familyName).second) {
+        LOG_ERR("FONT", "Duplicate manifest family name: %s", familyName);
+        return false;
+      }
+    } else if (familyNameExists(catalog, familyName)) {
+      LOG_ERR("FONT", "Duplicate manifest family name: %s", familyName);
       return false;
     }
-    if (familyNameExists(catalog, family.name) && mode != IngestMode::MergeReplaceDuplicateNames) {
-      LOG_ERR("FONT", "Duplicate manifest family name: %s", family.name.c_str());
+
+    if (!parseFamilyFromJson(fObj, scriptGroupTags, baseUrlIndex, plan.family, plan.files)) {
       return false;
     }
+
+    order.insert(order.begin() + static_cast<ptrdiff_t>(plan.insertIndex), plan.family.name);
+    outPlans.push_back(std::move(plan));
   }
   return true;
 }
 
-bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, IngestMode mode, uint8_t baseUrlIndex) {
-  if (!validateIncomingFamilies(familiesArr, catalog, mode)) {
-    return false;
+void applyFamilyPlans(Catalog& catalog, std::vector<FamilyPlan>& plans) {
+  for (FamilyPlan& plan : plans) {
+    if (plan.skip) continue;
+    if (plan.replaceExisting) {
+      assert(plan.insertIndex < catalog.families.size());
+      removeFamilyAt(catalog, plan.insertIndex);
+    } else {
+      assert(plan.insertIndex <= catalog.families.size());
+    }
+    plan.family.fileOffset = catalog.files.size();
+    plan.family.fileCount = plan.files.size();
+    catalog.files.insert(catalog.files.end(), plan.files.begin(), plan.files.end());
+    catalog.families.insert(catalog.families.begin() + static_cast<ptrdiff_t>(plan.insertIndex),
+                            std::move(plan.family));
   }
+}
 
-  for (JsonObjectConst fObj : familiesArr) {
-    const char* familyName = fObj["name"] | "";
-    if (mode == IngestMode::MergeSkipDuplicateNames && familyNameExists(catalog, familyName)) {
-      continue;
-    }
-
-    size_t insertIndex = catalog.families.size();
-    if (mode == IngestMode::MergeReplaceDuplicateNames) {
-      const int existingIndex = findFamilyIndex(catalog, familyName);
-      if (existingIndex >= 0) {
-        insertIndex = static_cast<size_t>(existingIndex);
-        removeFamilyAt(catalog, insertIndex);
-      }
-    }
-
-    Family family;
-    std::vector<File> pendingFiles;
-    if (!parseFamilyFromJson(fObj, catalog.scriptGroupTags, baseUrlIndex, family, pendingFiles)) {
-      return false;
-    }
-    if (familyNameExists(catalog, family.name)) {
-      LOG_ERR("FONT", "Duplicate manifest family name: %s", family.name.c_str());
-      return false;
-    }
-
-    family.fileOffset = catalog.files.size();
-    family.fileCount = pendingFiles.size();
-    catalog.files.insert(catalog.files.end(), pendingFiles.begin(), pendingFiles.end());
-    catalog.families.insert(catalog.families.begin() + static_cast<ptrdiff_t>(insertIndex), std::move(family));
+size_t estimatePlannedStringBytes(const std::vector<ScriptGroupPair>& groups) {
+  size_t bytes = 0;
+  for (const auto& group : groups) {
+    bytes += group.first.size() + group.second.size();
   }
+  return bytes;
+}
 
+size_t estimateReservationBytes(const Catalog& baseCatalog, size_t finalFamilies, size_t finalFiles,
+                                const std::vector<FamilyPlan>& familyPlans,
+                                const std::vector<ScriptGroupPair>& scriptGroups, bool addsBaseUrl,
+                                const std::string& baseUrl) {
+  size_t bytes = 0;
+  if (finalFamilies > baseCatalog.families.size()) {
+    bytes += (finalFamilies - baseCatalog.families.size()) * sizeof(Family);
+  }
+  if (finalFiles > baseCatalog.files.size()) {
+    bytes += (finalFiles - baseCatalog.files.size()) * sizeof(File);
+  }
+  for (const FamilyPlan& plan : familyPlans) {
+    if (plan.skip) continue;
+    bytes += plan.family.name.size() + plan.family.description.size();
+  }
+  bytes += estimatePlannedStringBytes(scriptGroups);
+  if (addsBaseUrl) {
+    bytes += baseUrl.size() + sizeof(ManifestBundleSource);
+  }
+  bytes += finalFamilies * 8 + finalFiles * 4;
+  return bytes;
+}
+
+bool catalogReservationFits(size_t additionalBytes) {
+#if defined(CROSSPOINT_HOST_TEST)
+  (void)additionalBytes;
   return true;
+#else
+  constexpr uint32_t kHeapCaps = MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL;
+  return heap_caps_get_largest_free_block(kHeapCaps) >= additionalBytes;
+#endif
 }
 
 IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl,
@@ -314,53 +414,46 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
     return IngestResult::Parse;
   }
 
-  Catalog scratch;
+  Catalog mergeScratch;
   const bool restoreCatalogOnFailure = mode != IngestMode::Replace;
-  if (mode == IngestMode::Replace) {
-    scratch = Catalog{};
-  } else {
-    scratch = std::move(catalog);
+  if (restoreCatalogOnFailure) {
+    mergeScratch = std::move(catalog);
   }
   const auto failIngest = [&](IngestResult result) -> IngestResult {
     if (restoreCatalogOnFailure) {
-      catalog = std::move(scratch);
+      catalog = std::move(mergeScratch);
     }
     return result;
   };
 
+  const Catalog& validateBase = restoreCatalogOnFailure ? mergeScratch : kEmptyCatalog;
+
+  std::vector<ScriptGroupPair> replaceScriptGroups;
+  std::vector<ScriptGroupPair> mergeScriptGroupAdds;
   if (mode == IngestMode::Replace) {
-    scratch.scriptGroupTags.clear();
-    scratch.scriptGroupLabels.clear();
-    scratch.families.clear();
-    scratch.files.clear();
-    scratch.baseUrls.clear();
-    scratch.baseUrlSources.clear();
-    if (!groupsArr.isNull()) {
-      const size_t groupCount = std::min(groupsArr.size(), Limits::kMaxScriptGroups);
-      scratch.scriptGroupTags.reserve(groupCount);
-      scratch.scriptGroupLabels.reserve(groupCount);
-      if (groupsArr.size() > Limits::kMaxScriptGroups) {
-        LOG_ERR("FONT", "Manifest declares more than %zu script groups; extra groups ignored",
-                Limits::kMaxScriptGroups);
-      }
-      for (size_t groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-        JsonObjectConst groupObj = groupsArr[groupIndex].as<JsonObjectConst>();
-        const char* tag = groupObj["tag"] | "";
-        const char* label = groupObj["label"] | "";
-        if (*tag == '\0' || *label == '\0') {
-          LOG_ERR("FONT", "Malformed script group at index %zu", groupIndex);
-          return failIngest(IngestResult::Parse);
-        }
-        scratch.scriptGroupTags.emplace_back(tag);
-        scratch.scriptGroupLabels.emplace_back(label);
-      }
+    if (!planReplaceScriptGroups(groupsArr, replaceScriptGroups)) {
+      return failIngest(IngestResult::Parse);
     }
-  } else if (!mergeScriptGroups(groupsArr, scratch)) {
+  } else if (!planMergeScriptGroups(groupsArr, validateBase, mergeScriptGroupAdds)) {
     return failIngest(IngestResult::Parse);
   }
 
+  std::vector<std::string> effectiveScriptTags = validateBase.scriptGroupTags;
+  if (mode == IngestMode::Replace) {
+    effectiveScriptTags.clear();
+    effectiveScriptTags.reserve(replaceScriptGroups.size());
+    for (const auto& group : replaceScriptGroups) {
+      effectiveScriptTags.push_back(group.first);
+    }
+  } else {
+    effectiveScriptTags.reserve(effectiveScriptTags.size() + mergeScriptGroupAdds.size());
+    for (const auto& group : mergeScriptGroupAdds) {
+      effectiveScriptTags.push_back(group.first);
+    }
+  }
+
   IngestPlan plan;
-  if (!planFamilies(familiesArr, scratch, mode, plan)) {
+  if (!planFamilies(familiesArr, validateBase, mode, plan)) {
     LOG_ERR("FONT", "Manifest has invalid file count from %s", sourceUrl);
     return failIngest(IngestResult::Parse);
   }
@@ -370,7 +463,7 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
   if (mode == IngestMode::Replace) {
     finalFamilies = plan.familiesToAdd;
     finalFiles = plan.filesToAdd;
-  } else if (!countAfterIngest(scratch, familiesArr, mode, finalFamilies, finalFiles)) {
+  } else if (!countAfterIngest(validateBase, familiesArr, mode, finalFamilies, finalFiles)) {
     LOG_ERR("FONT", "Manifest has invalid file count from %s", sourceUrl);
     return failIngest(IngestResult::Parse);
   }
@@ -386,13 +479,55 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
   }
 
   uint8_t baseUrlIndex = 0;
-  if (!internBaseUrl(scratch, baseUrl, bundleSource, baseUrlIndex)) {
+  bool addsBaseUrl = false;
+  if (!resolveBaseUrlIndex(validateBase, baseUrl, bundleSource, baseUrlIndex, addsBaseUrl)) {
     return failIngest(IngestResult::Parse);
   }
 
-  if (!ingestFamilies(familiesArr, scratch, mode, baseUrlIndex)) {
+  std::vector<FamilyPlan> familyPlans;
+  if (!buildFamilyPlans(familiesArr, validateBase, mode, baseUrlIndex, effectiveScriptTags, familyPlans)) {
     return failIngest(IngestResult::Parse);
   }
+
+  const size_t reservationBytes = estimateReservationBytes(
+      validateBase, finalFamilies, finalFiles, familyPlans,
+      mode == IngestMode::Replace ? replaceScriptGroups : mergeScriptGroupAdds, addsBaseUrl, baseUrl);
+  if (!catalogReservationFits(reservationBytes)) {
+    LOG_ERR("FONT", "Manifest from %s needs %zu bytes; insufficient contiguous heap", sourceUrl, reservationBytes);
+    return failIngest(IngestResult::Overflow);
+  }
+
+  Catalog scratch;
+  if (mode == IngestMode::Replace) {
+    scratch = Catalog{};
+    scratch.scriptGroupTags.reserve(replaceScriptGroups.size());
+    scratch.scriptGroupLabels.reserve(replaceScriptGroups.size());
+    if (!groupsArr.isNull() && groupsArr.size() > Limits::kMaxScriptGroups) {
+      LOG_ERR("FONT", "Manifest declares more than %zu script groups; extra groups ignored", Limits::kMaxScriptGroups);
+    }
+    for (const auto& group : replaceScriptGroups) {
+      scratch.scriptGroupTags.push_back(group.first);
+      scratch.scriptGroupLabels.push_back(group.second);
+    }
+  } else {
+    scratch = std::move(mergeScratch);
+    scratch.scriptGroupTags.reserve(scratch.scriptGroupTags.size() + mergeScriptGroupAdds.size());
+    scratch.scriptGroupLabels.reserve(scratch.scriptGroupLabels.size() + mergeScriptGroupAdds.size());
+    for (const auto& group : mergeScriptGroupAdds) {
+      scratch.scriptGroupTags.push_back(group.first);
+      scratch.scriptGroupLabels.push_back(group.second);
+    }
+  }
+
+  if (addsBaseUrl) {
+    commitBaseUrl(scratch, baseUrl, bundleSource, baseUrlIndex);
+  }
+
+  scratch.families.reserve(finalFamilies);
+  scratch.files.reserve(finalFiles);
+  scratch.baseUrls.reserve(scratch.baseUrls.size() + (addsBaseUrl ? 1u : 0u));
+
+  applyFamilyPlans(scratch, familyPlans);
 
   catalog = std::move(scratch);
   return IngestResult::Ok;

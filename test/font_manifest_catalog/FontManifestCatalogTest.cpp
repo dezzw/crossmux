@@ -355,7 +355,72 @@ TEST(FontManifestCatalog, MergeReplaceDuplicateInMiddleShiftsFileOffsets) {
   EXPECT_EQ(catalog.families[2].name, "Omega");
   EXPECT_EQ(catalog.families[2].fileOffset, 1u);
   EXPECT_EQ(catalog.families[2].fileCount, 1u);
-  EXPECT_EQ(catalog.files[1].pointSize, 12);
+  EXPECT_EQ(catalog.files[2].pointSize, 12);
+}
+
+TEST(FontManifestCatalog, MergeMalformedScriptGroupsLeavePriorCatalogUntouched) {
+  JsonDocument legacyDoc;
+  ASSERT_TRUE(loadLegacyManifest("https://assets.crossmux.cn/legacy/", "NotoSansSC", legacyDoc));
+  FontManifestCatalog::Catalog catalog;
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy",
+                                                FontManifestCatalog::ManifestBundleSource::CrossMux),
+            FontManifestCatalog::IngestResult::Ok);
+  const size_t tagsBefore = catalog.scriptGroupTags.size();
+
+  JsonDocument githubDoc;
+  githubDoc["version"] = 1;
+  githubDoc["baseUrl"] = "https://github.com/example/replace/";
+  JsonArray groups = githubDoc["scriptGroups"].to<JsonArray>();
+  JsonObject good = groups.add<JsonObject>();
+  good["tag"] = "latn";
+  good["label"] = "Latin";
+  JsonObject bad = groups.add<JsonObject>();
+  bad["tag"] = "hangul";
+  bad["label"] = "";
+  JsonArray families = githubDoc["families"].to<JsonArray>();
+  JsonObject family = families.add<JsonObject>();
+  family["name"] = "Literata";
+  family["description"] = "desc";
+  JsonArray scripts = family["scripts"].to<JsonArray>();
+  scripts.add("latn");
+  JsonArray files = family["files"].to<JsonArray>();
+  JsonObject file = files.add<JsonObject>();
+  file["name"] = "Literata_12.cpfont";
+  file["size"] = 1000;
+  file["crc32"] = 305419896;
+
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog,
+                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
+            FontManifestCatalog::IngestResult::Parse);
+  EXPECT_EQ(catalog.scriptGroupTags.size(), tagsBefore);
+  ASSERT_EQ(catalog.families.size(), 1u);
+  EXPECT_EQ(catalog.families.front().name, "NotoSansSC");
+}
+
+TEST(FontManifestCatalog, ReplaceRejectsDuplicateFamilyNameInOneManifest) {
+  JsonDocument doc;
+  doc["version"] = 1;
+  doc["baseUrl"] = "https://example.com/fonts/";
+  JsonArray families = doc["families"].to<JsonArray>();
+  for (unsigned pointSize : {12u, 14u}) {
+    JsonObject family = families.add<JsonObject>();
+    family["name"] = "A";
+    family["description"] = "desc";
+    JsonArray files = family["files"].to<JsonArray>();
+    JsonObject file = files.add<JsonObject>();
+    char fileName[16];
+    snprintf(fileName, sizeof(fileName), "A_%u.cpfont", pointSize);
+    file["name"] = fileName;
+    file["size"] = 1000;
+    file["crc32"] = 305419896;
+  }
+
+  FontManifestCatalog::Catalog catalog;
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(doc, catalog, FontManifestCatalog::IngestMode::Replace, "dup",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
+            FontManifestCatalog::IngestResult::Parse);
+  EXPECT_TRUE(catalog.families.empty());
 }
 
 TEST(FontManifestCatalog, SharesBaseUrlAcrossFamiliesFromSameSource) {
