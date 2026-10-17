@@ -26,9 +26,21 @@ class ReleaseFontsWorkflowTest(unittest.TestCase):
             joined = "\n".join(segment)
             self.assertIn("--latest=false", joined)
 
-    def test_notosans_sc_pin_script_exists(self):
+    def test_font_fetch_scripts_exist(self):
+        self.assertTrue((ROOT / "scripts/fetch_core_font_sources.py").is_file())
         self.assertTrue((ROOT / "scripts/fetch_notosans_sc_source.py").is_file())
         self.assertTrue((ROOT / "lib/EpdFont/scripts/font-release-pins.yaml").is_file())
+        workflow = (ROOT / ".github/workflows/release-fonts.yml").read_text()
+        self.assertIn("fetch_core_font_sources.py", workflow)
+
+    def test_ci_splits_offline_unit_tests_and_font_build(self):
+        ci = (ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertIn("core-font-build:", ci)
+        self.assertIn("fetch_core_font_sources.py", ci)
+        self.assertIn("test_core_font_coverage_offline", ci)
+        unit_block = ci.split("  unit-tests:", 1)[1].split("  core-font-build:", 1)[0]
+        self.assertNotIn("fetch_core_font_sources.py", unit_block)
+        self.assertNotIn("build-sd-fonts.py", unit_block)
 
 
 if __name__ == "__main__":
