@@ -62,8 +62,7 @@ TEST(HttpTransportFailureMapping, NetworkOnlyForConnect) {
 
 TEST(HttpTransportFailureMapping, EmptyResponseUsesDedicatedString) {
   I18n::getInstance().setLanguage(Language::EN);
-  EXPECT_STREQ(fontTransportFailureText(HttpTransportTypes::TransportFailure::EmptyResponse),
-                "Empty response from server");
+  EXPECT_STREQ(fontTransportFailureText(HttpTransportTypes::TransportFailure::EmptyResponse), "Empty response from server");
 }
 
 TEST(HttpTransportFailureMapping, IncompleteIsNotNetwork) {

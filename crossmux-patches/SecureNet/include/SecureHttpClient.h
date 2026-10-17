@@ -274,8 +274,7 @@ class SecureHttpClient {
       // A 3xx body that is about to be followed is protocol plumbing, not
       // payload: drain it (keeping the connection reusable for the next hop)
       // without touching the caller's sink.
-      const bool discardBody =
-          isRedirectStatus(_status) && (_followRedirects > 0 || _drainRedirectBodies);
+      const bool discardBody = isRedirectStatus(_status) && (_followRedirects > 0 || _drainRedirectBodies);
       const DataCallback discard = [](const uint8_t*, size_t) { return true; };
       const DataCallback& bodySink = discardBody ? discard : onData;
       _downloaded = 0;

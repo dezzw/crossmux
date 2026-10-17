@@ -1,8 +1,8 @@
 #define CROSSPOINT_SECURE_HTTP_CLIENT_TEST 1
 
-#include <gtest/gtest.h>
-
 #include <SecureHttpClient.h>
+
+#include <gtest/gtest.h>
 
 #include <string>
 
