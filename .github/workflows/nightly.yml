@@ -165,6 +165,7 @@ jobs:
       - name: Install signing dependencies
         run: pip install 'cryptography==44.0.2'
       - name: Sign OTA manifests
+        if: needs.prepare.outputs.channel == 'nightly'
         env:
           OTA_SIGNING_KEY: ${{ secrets.OTA_SIGNING_KEY }}
           CHANNEL: ${{ needs.prepare.outputs.channel }}
@@ -176,10 +177,6 @@ jobs:
             exit 1
           fi
           python3 scripts/verify_ota_public_key.py
-          tag="$BUILD_TAG"
-          if [ "$CHANNEL" = stable ]; then
-            tag="$GITHUB_REF_NAME"
-          fi
           mapfile -t manifests < <(find artifacts -name '*-global-manifest.json')
           for manifest in "${manifests[@]}"; do
             dir="$(dirname "$manifest")"
@@ -189,7 +186,7 @@ jobs:
             python3 scripts/sign_ota_release.py \
               --firmware "$firmware" \
               --manifest "$manifest" \
-              --download-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/$(basename "$firmware")" \
+              --download-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${BUILD_TAG}/$(basename "$firmware")" \
               --output "$signed"
             mv "$signed" "$manifest"
           done
@@ -258,9 +255,11 @@ jobs:
               "${prerelease_flag[@]}" "${latest_flag[@]}"
           fi
           gh release upload "$CHANNEL" release-index.json --repo "$GITHUB_REPOSITORY" --clobber
-          mapfile -t global_manifests < <(find artifacts -name '*-global-manifest.json')
-          if [ ${#global_manifests[@]} -gt 0 ]; then
-            gh release upload "$CHANNEL" "${global_manifests[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          if [ "$CHANNEL" != stable ]; then
+            mapfile -t global_manifests < <(find artifacts -name '*-global-manifest.json')
+            if [ ${#global_manifests[@]} -gt 0 ]; then
+              gh release upload "$CHANNEL" "${global_manifests[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+            fi
           fi
           legacy_assets="$(gh release view "$CHANNEL" --repo "$GITHUB_REPOSITORY" \
             --json assets --jq '.assets[].name')"
@@ -288,6 +287,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v4
         with:
           pattern: firmware-stable-*
@@ -297,19 +297,69 @@ jobs:
         with:
           name: firmware-release-notes
           path: notes
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install signing dependencies
+        run: pip install 'cryptography==44.0.2'
+      - name: Sign stable OTA manifests (semver firmware URL)
+        env:
+          OTA_SIGNING_KEY: ${{ secrets.OTA_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OTA_SIGNING_KEY:-}" ]; then
+            echo "::error::OTA_SIGNING_KEY secret is required to publish signed stable OTA manifests"
+            exit 1
+          fi
+          python3 scripts/verify_ota_public_key.py
+          mapfile -t manifests < <(find artifacts -name '*-global-manifest.json')
+          for manifest in "${manifests[@]}"; do
+            dir="$(dirname "$manifest")"
+            firmware="$(find "$dir" -name '*-firmware.bin' -print -quit)"
+            test -f "$firmware"
+            signed="${manifest%.json}-signed.json"
+            python3 scripts/sign_ota_release.py \
+              --firmware "$firmware" \
+              --manifest "$manifest" \
+              --download-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/$(basename "$firmware")" \
+              --output "$signed"
+            mv "$signed" "$manifest"
+          done
       - name: Publish versioned stable release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          assets=(artifacts/*)
+          set -euo pipefail
+          mapfile -t firmware_assets < <(find artifacts -type f ! -name '*-global-manifest.json' -print)
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload "$GITHUB_REF_NAME" "${firmware_assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
               --title "CrossMux $GITHUB_REF_NAME" --notes-file notes/release-body.md --latest
           else
-            gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" \
+            gh release create "$GITHUB_REF_NAME" "${firmware_assets[@]}" --repo "$GITHUB_REPOSITORY" \
               --verify-tag --title "CrossMux $GITHUB_REF_NAME" --notes-file notes/release-body.md --latest
           fi
+      - name: Upload signed stable manifest to rolling stable release (last)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mapfile -t global_manifests < <(find artifacts -name '*-global-manifest.json')
+          if [ ${#global_manifests[@]} -eq 0 ]; then
+            echo "::error::No global manifest artifacts to publish"
+            exit 1
+          fi
+          for manifest in "${global_manifests[@]}"; do
+            firmware_url="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print(m.get("firmwareUrl",""))' "$manifest")"
+            if ! curl -fsSL --head --connect-timeout 10 --max-time 30 "$firmware_url" >/dev/null; then
+              echo "::error::Stable manifest firmware URL not reachable: $firmware_url"
+              exit 1
+            fi
+          done
+          if ! gh release view stable --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create stable --repo "$GITHUB_REPOSITORY" --title "CrossMux Stable (rolling)" --notes "Rolling stable channel pointer." --latest=false --prerelease
+          fi
+          gh release upload stable "${global_manifests[@]}" --repo "$GITHUB_REPOSITORY" --clobber
 
   cleanup_github:
     if: needs.prepare.outputs.channel == 'nightly'

@@ -1,7 +1,7 @@
 # Core SD card font families published from dezzw/crossmux (see font-release-pins.yaml).
 #
-# NotoSansSC matches crossmux.com m1-b4 coverage: GB 2312 hanzi allowlist + Latin/Greek/Cyrillic
-# interval presets, with real Regular and Bold masters (italic resolves to Regular on device).
+# NotoSansSC matches crossmux.com m1-b4 glyph coverage (see noto_m1_b4_hanzi_coverage.txt).
+# Real Regular + Bold masters only (italic resolves to Regular on device).
 
 scriptGroups:
   - {tag: latin, label: Latin}
@@ -35,8 +35,8 @@ families:
   - name: NotoSansSC
     description: "Simplified Chinese (Noto Sans SC, OFL)"
     scripts: [cjk]
-    intervals: ascii,latin1,punctuation,greek,cyrillic,ipa-chars,symbols,cjk,cjk-symbols
-    codepoints_file: chinese_gb2312_hanzi.txt
+    intervals: latin-ext,punctuation,cjk,greek,cyrillic,ipa-chars,combining,letterlike,enclosed-alphanumerics,ext-a,cjk-symbols,symbols
+    codepoints_file: noto_m1_b4_hanzi_coverage.txt
     sizes: [8, 10, 12, 14, 16, 18]
     styles:
       regular:    {path: "builtinFonts/source/NotoSansSC/NotoSansSC-Regular.otf"}

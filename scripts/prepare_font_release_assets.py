@@ -30,8 +30,14 @@ def write_notice(dest: Path, family: str, meta: dict) -> None:
         "for this family at the commit above.",
     ]
     if family == "NotoSansSC":
-        lines.append("")
-        lines.append(f"Hanzi allowlist: lib/EpdFont/scripts/{meta.get('hanzi_allowlist', 'chinese_gb2312_hanzi.txt')}")
+        lines.extend(
+            [
+                "",
+                "© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name Source",
+                "",
+                f"Hanzi allowlist: lib/EpdFont/scripts/{meta.get('hanzi_allowlist', 'noto_m1_b4_hanzi_coverage.txt')}",
+            ]
+        )
         for src in meta.get("sources", []):
             lines.extend(
                 [

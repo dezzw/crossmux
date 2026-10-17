@@ -5,6 +5,10 @@ name: Build & Publish SD Card Fonts
 on:
   workflow_dispatch:
 
+concurrency:
+  group: fonts-release
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -40,6 +44,9 @@ jobs:
       - name: Build SD card fonts
         run: python3 lib/EpdFont/scripts/build-sd-fonts.py --clean --verbose -j 1
 
+      - name: Verify glyph coverage and file size limits
+        run: python3 scripts/verify_core_font_build.py
+
       - name: Flatten output for release assets
         run: |
           mkdir -p dist
@@ -60,16 +67,16 @@ jobs:
           echo "revision=$NEXT" >> "$GITHUB_OUTPUT"
           echo "versioned=${BASE}-r${NEXT}" >> "$GITHUB_OUTPUT"
 
-      - name: Generate manifest
+      - name: Prepare license assets
+        run: python3 scripts/prepare_font_release_assets.py --output dist
+
+      - name: Generate immutable manifest
         run: |
           python3 scripts/generate-font-manifest.py \
             --input dist \
-            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ steps.tags.outputs.base }}/" \
-            --output dist/fonts.json \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ steps.tags.outputs.versioned }}/" \
+            --output dist/fonts.immutable.json \
             --descriptions-from lib/EpdFont/scripts/sd-fonts.yaml
-
-      - name: Prepare license assets
-        run: python3 scripts/prepare_font_release_assets.py --output dist
 
       - name: Publish immutable font revision
         env:
@@ -77,7 +84,8 @@ jobs:
         run: |
           VERSIONED="${{ steps.tags.outputs.versioned }}"
           TITLE="SD Card Fonts (${VERSIONED#fonts-})"
-          gh release create "$VERSIONED" dist/* \
+          mapfile -t assets < <(find dist -maxdepth 1 -type f ! -name 'fonts.immutable.json' -print)
+          gh release create "$VERSIONED" "${assets[@]}" dist/fonts.immutable.json \
             --repo "${{ github.repository }}" \
             --title "$TITLE" \
             --notes "Immutable font build revision **${{ steps.tags.outputs.revision }}** for manifest v${{ steps.versions.outputs.metadata }}, binary format v${{ steps.versions.outputs.binary }}." \
@@ -88,13 +96,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           BASE="${{ steps.tags.outputs.base }}"
-          gh release delete "$BASE" --repo "${{ github.repository }}" --yes 2>/dev/null || true
-          gh release create "$BASE" dist/* \
-            --repo "${{ github.repository }}" \
-            --title "SD Card Fonts (${BASE#fonts-})" \
-            --notes "Current font build for manifest v${{ steps.versions.outputs.metadata }}, binary format v${{ steps.versions.outputs.binary }}. Devices download \`fonts.json\` from this release tag.
-
-          Immutable copy: [\`${{ steps.tags.outputs.versioned }}\`](https://github.com/${{ github.repository }}/releases/tag/${{ steps.tags.outputs.versioned }})." \
-            --latest=false \
-            --prerelease
+          cp dist/fonts.immutable.json dist/fonts.json
+          mapfile -t cpfonts < <(find dist -maxdepth 1 -name '*.cpfont' -print | sort)
+          mapfile -t licenses < <(find dist -maxdepth 1 \( -name '*-OFL.txt' -o -name '*-NOTICE.txt' \) -print | sort)
+          if gh release view "$BASE" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release edit "$BASE" --repo "${{ github.repository }}" \
+              --title "SD Card Fonts (${BASE#fonts-})" \
+              --notes "Current font build for manifest v${{ steps.versions.outputs.metadata }}, binary format v${{ steps.versions.outputs.binary }}. Immutable copy: \`${{ steps.tags.outputs.versioned }}\`."
+            gh release upload "$BASE" "${cpfonts[@]}" "${licenses[@]}" --repo "${{ github.repository }}" --clobber
+            gh release upload "$BASE" dist/fonts.json --repo "${{ github.repository }}" --clobber
+          else
+            gh release create "$BASE" "${cpfonts[@]}" "${licenses[@]}" dist/fonts.json \
+              --repo "${{ github.repository }}" \
+              --title "SD Card Fonts (${BASE#fonts-})" \
+              --notes "Current font build for manifest v${{ steps.versions.outputs.metadata }}, binary format v${{ steps.versions.outputs.binary }}. Immutable copy: \`${{ steps.tags.outputs.versioned }}\`." \
+              --latest=false \
+              --prerelease
+          fi

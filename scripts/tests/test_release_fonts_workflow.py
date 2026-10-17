@@ -14,8 +14,13 @@ class ReleaseFontsWorkflowTest(unittest.TestCase):
         self.assertNotIn("FONTS_REPO_TOKEN", workflow)
         self.assertNotIn("crosspoint-fonts", workflow)
         self.assertIn('BASE="fonts-m', workflow)
+        self.assertIn("concurrency:", workflow)
+        self.assertIn("fonts-release", workflow)
+        self.assertIn("verify_core_font_build.py", workflow)
+        self.assertIn("fonts.immutable.json", workflow)
+        self.assertNotIn("gh release delete", workflow)
         create_blocks = workflow.split("gh release create")
-        self.assertGreaterEqual(len(create_blocks), 3)
+        self.assertGreaterEqual(len(create_blocks), 2)
         for block in create_blocks[1:]:
             segment = block.split("\n", 8)[0:8]
             joined = "\n".join(segment)

@@ -54,12 +54,22 @@ def save_specimen(path: Path, title: str, size: int, lines: list[tuple[str, free
     print(f"Wrote {path}")
 
 
+MIXED_LINE = "“”—…€℃№①② and mixed 中文 Bold 加粗 with Latin."
+LATIN_LINE = f'{MIXED_LINE} The quick brown fox.'
+
+
 def lines_text(caption: str) -> str:
     if caption.startswith("CN"):
-        return "中文阅读正文：真实 Bold 字重对比（Italic 仍用 Regular 字模）。"
-    if "Literata" in caption:
-        return "The quick brown fox jumps over the lazy dog."
-    return "The quick brown fox jumps over the lazy dog."
+        if "bold" in caption.lower():
+            return f"{MIXED_LINE} 强调：**加粗**。"
+        return f"{MIXED_LINE} 常规正文。"
+    if "bold" in caption.lower():
+        return LATIN_LINE.upper()
+    if "italic" in caption.lower():
+        return LATIN_LINE
+    if "Literata" in caption or "Inter" in caption:
+        return LATIN_LINE
+    return LATIN_LINE
 
 
 def main() -> int:

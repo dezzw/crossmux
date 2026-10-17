@@ -227,6 +227,15 @@ jobs:
           bash freeink-sdk/libs/book/FreeInkBook/test/host/run.sh
           bash freeink-sdk/libs/ui/FreeInkUI/test/host/run.sh
 
+      - name: Verify core SD font build
+        run: |
+          set -euo pipefail
+          pip install freetype-py fonttools pyyaml
+          sudo apt-get install -y libfreetype6-dev
+          python3 scripts/fetch_notosans_sc_source.py
+          python3 lib/EpdFont/scripts/build-sd-fonts.py --clean -j 2
+          python3 scripts/verify_core_font_build.py
+
       - name: Run hardware packaging tests
         run: python3 -m unittest discover -v -s scripts/tests
 

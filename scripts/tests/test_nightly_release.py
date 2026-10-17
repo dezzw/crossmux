@@ -107,7 +107,8 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertNotIn('for flavor in global cn', workflow)
         self.assertIn('pattern: firmware-stable-*', workflow)
         self.assertIn('merge-multiple: true', workflow)
-        self.assertIn('assets=(artifacts/*)', workflow)
+        self.assertIn('mapfile -t firmware_assets', workflow)
+        self.assertIn('Upload signed stable manifest to rolling stable release (last)', workflow)
         self.assertIn('Stable firmware releases are not configured', workflow)
         self.assertIn('gh release delete-asset "$CHANNEL" firmware-cn.bin', workflow)
         self.assertNotIn('--flavor', hardware_workflow)
@@ -120,7 +121,7 @@ class NightlyTargetTest(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
         self.assertIn("group: firmware-${{ github.event_name == 'push'", workflow)
         self.assertIn("if: needs.prepare.outputs.channel == 'stable'", workflow)
-        self.assertEqual(workflow.count("if: needs.prepare.outputs.channel == 'nightly'"), 3)
+        self.assertGreaterEqual(workflow.count("if: needs.prepare.outputs.channel == 'nightly'"), 3)
         self.assertNotIn("if: always() && needs.prepare.result == 'success'", workflow)
         self.assertNotIn('--dir previous/global || true', workflow)
         self.assertNotIn('-o previous/cn.json || true', workflow)
@@ -133,6 +134,7 @@ class NightlyTargetTest(unittest.TestCase):
             '  verify_publish:', 1
         )[0]
         self.assertIn('--latest=false', rolling)
+        self.assertIn('if [ "$CHANNEL" != stable ]', rolling)
         self.assertIn("*-global-manifest.json", rolling)
         self.assertIn('legacy_assets=', rolling)
         self.assertNotIn('xteink-firmware.bin', rolling)

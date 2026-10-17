@@ -41,6 +41,7 @@ INTERVAL_PRESETS = {
     "latin1":      [(0x0080, 0x00FF)],
     "latin-ext":   [(0x0020, 0x007E), (0x0080, 0x00FF), (0x0100, 0x024F),
                     (0x02B0, 0x02FF), (0x1E00, 0x1EFF), (0x2000, 0x206F),
+                    (0x20A0, 0x20C0), (0x2100, 0x214F), (0x2212, 0x2212),
                     (0xFB00, 0xFB06)],
     "greek":       [(0x0370, 0x03FF), (0x1F00, 0x1FFF)],
     "cyrillic":    [(0x0400, 0x04FF), (0x0500, 0x052F)],
@@ -53,8 +54,13 @@ INTERVAL_PRESETS = {
     "vietnamese":  [(0x01A0, 0x01B0), (0x1EA0, 0x1EF9)],
     "ipa-chars":   [(0x0250, 0x02AF), (0x02B0, 0x02FF)],
     "punctuation": [(0x2000, 0x206F)],
+    "letterlike":  [(0x2100, 0x214F), (0x2160, 0x218F)],
+    "combining":   [(0x0300, 0x036F)],
+    "enclosed-alphanumerics": [(0x2460, 0x24FF)],
+    "ext-a":       [(0x3400, 0x4DBF)],
     "cjk":         [(0x3000, 0x303F), (0x3040, 0x309F), (0x30A0, 0x30FF),
-                    (0x4E00, 0x9FFF), (0xF900, 0xFAFF), (0xFF00, 0xFFEF)],
+                    (0x3100, 0x312F), (0x4E00, 0x9FFF), (0xF900, 0xFAFF),
+                    (0xFF00, 0xFFEF), (0x20000, 0x2FFFF)],
     "cjk-symbols": [(0x2E80, 0x2EFF), (0x3200, 0x32FF), (0xFE10, 0xFE19),
                     (0xFE30, 0xFE4F)],
     "hangul":      [(0xAC00, 0xD7AF), (0x1100, 0x11FF), (0x3130, 0x318F)],
@@ -63,8 +69,9 @@ INTERVAL_PRESETS = {
     # Symbol blocks commonly seen in scifi/popsci/literary fiction.
 
     "symbols":     [(0x2070, 0x209F), (0x20A0, 0x20CF), (0x2150, 0x218F),
-                    (0x2190, 0x21FF), (0x2200, 0x22FF), (0x2500, 0x257F),
-                    (0x25A0, 0x25FF), (0x2600, 0x26FF), (0x2700, 0x27BF)],
+                    (0x2190, 0x21FF), (0x2200, 0x22FF), (0x2300, 0x23FF),
+                    (0x2500, 0x257F), (0x25A0, 0x25FF), (0x2600, 0x26FF),
+                    (0x2700, 0x27BF), (0x2900, 0x29FF), (0x2E00, 0x2E7F)],
     # Composite preset for English-language literary fiction including scifi/popsci.
     # Greek for physics terms, math operators, geometric shapes, uncommon
     # dialogue punctuation, CJK quote marks, miscellaneous symbols (♪♫♬), dingbats.
@@ -137,6 +144,7 @@ HANZI_FILTER_RANGES = (
     (0x3400, 0x4DBF),
     (0x4E00, 0x9FFF),
     (0xF900, 0xFAFF),
+    (0x20000, 0x2FFFF),
 )
 
 
@@ -153,7 +161,7 @@ def load_hanzi_allowlist(paths) -> set[int]:
                 line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
-                if len(line) <= 6 and all(c in "0123456789abcdefABCDEF" for c in line):
+                if line and all(c in "0123456789abcdefABCDEF" for c in line) and len(line) <= 8:
                     allowed.add(int(line, 16))
                     continue
                 for ch in line:

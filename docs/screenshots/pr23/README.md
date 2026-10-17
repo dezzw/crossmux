@@ -1,8 +1,12 @@
 # PR #23 font specimens
 
-800×480 1-bit renders using the same pinned masters and point sizes as the SD
-font build (`fontconvert_sdcard.py` at 150 DPI). They mirror the Waveshare /
-simulator viewport geometry for visual review before flashing release assets.
+800×480 reader-style specimens at Waveshare / simulator geometry, rasterized with
+the same pinned masters, point sizes, and 150 DPI settings as `fontconvert_sdcard.py`.
+Each PNG includes the mixed punctuation line `“”—…€℃№①②` plus CJK/Latin samples
+with regular, **bold**, and italic masters where applicable.
+
+Settings vs legacy crossmux.com m1-b4 and upstream Literata/Inter: see
+[`font-settings-comparison.md`](font-settings-comparison.md).
 
 | File | Content |
 |------|---------|
