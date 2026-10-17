@@ -23,10 +23,27 @@ size_t fileSizeBytes(const std::string& path) {
 
 }  // namespace
 
-TEST(HttpDownloaderDownloadToFile, WolfMock2882BytesOkAndFileKept) {
+class HttpDownloaderDownloadToFileTest : public ::testing::Test {
+ protected:
+  void TearDown() override { HttpDownloaderMockWolf::resetResponseStatus(); }
+};
+
+TEST_F(HttpDownloaderDownloadToFileTest, WolfMock2882BytesOkAndFileKept) {
   const std::string path = tempPath();
   const HttpDownloader::DownloadError result = HttpDownloader::downloadToFile("https://example.test/fonts.json", path);
   EXPECT_EQ(result, HttpDownloader::OK);
   EXPECT_EQ(fileSizeBytes(path), 2882u);
+  std::remove(path.c_str());
+}
+
+// Regression guard: main already skips non-200 bodies in runGetWolf's GET callback;
+// edbe441f removed that gate so error HTML would reach the sink and could be kept.
+TEST_F(HttpDownloaderDownloadToFileTest, Non200ErrorBodyNotDeliveredToSinkOrDisk) {
+  HttpDownloaderMockWolf::setResponseStatus(403);
+  const std::string path = tempPath();
+  const HttpDownloader::DownloadError result = HttpDownloader::downloadToFile("https://example.test/denied.bin", path);
+  EXPECT_EQ(result, HttpDownloader::HTTP_ERROR);
+  EXPECT_EQ(HttpDownloader::lastHttpStatusCode(), 403);
+  EXPECT_EQ(fileSizeBytes(path), 0u);
   std::remove(path.c_str());
 }

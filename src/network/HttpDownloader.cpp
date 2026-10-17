@@ -34,6 +34,12 @@ static_assert(freeink::SecureClient::kCaLoadError == WolfSslTransportErrors::kSe
 extern "C" void wolfSSL_Arduino_Serial_Print(const char* const msg) { LOG_DBG("WOLFSSL", "%s", msg); }
 #endif
 
+#if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
+namespace HttpDownloaderMockWolf {
+extern int gMockWolfHttpStatus;
+}  // namespace HttpDownloaderMockWolf
+#endif
+
 namespace {
 #if !defined(FREEINK_NET_WOLFSSL) && !defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
 constexpr int HTTP_RX_BUF = 2048;
@@ -101,16 +107,29 @@ struct WifiPowerSaveGuard {};
 #endif
 
 #if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
+bool mockWolfDeliverBody(Sink& sink, int httpStatus, const uint8_t* data, size_t len) {
+  if (httpStatus != 200) return true;
+  if (!sink.write(data, len)) return false;
+  sink.downloaded += len;
+  return true;
+}
+
 HttpDownloader::DownloadError runGetWolf(const std::string& /*startUrl*/, const std::string& /*username*/,
                                          const std::string& /*password*/, const char* /*userAgent*/, Sink& sink) {
+  const int httpStatus = HttpDownloaderMockWolf::gMockWolfHttpStatus;
+  gLastHttpStatus = httpStatus;
+  if (httpStatus != 200) {
+    static const std::string kErrorBody(256, 'E');
+    (void)mockWolfDeliverBody(sink, httpStatus, reinterpret_cast<const uint8_t*>(kErrorBody.data()), kErrorBody.size());
+    gLastTransportFailure = HttpDownloader::TransportFailure::HttpStatus;
+    return HttpDownloader::HTTP_ERROR;
+  }
   static constexpr size_t kMockPayloadBytes = 2882;
   static const std::string kBody(kMockPayloadBytes, 'F');
-  gLastHttpStatus = 200;
-  if (!sink.write(reinterpret_cast<const uint8_t*>(kBody.data()), kBody.size())) {
+  if (!mockWolfDeliverBody(sink, httpStatus, reinterpret_cast<const uint8_t*>(kBody.data()), kBody.size())) {
     gLastTransportFailure = HttpDownloader::TransportFailure::FileIo;
     return HttpDownloader::FILE_ERROR;
   }
-  sink.downloaded += kBody.size();
   sink.total = kBody.size();
   return HttpDownloader::OK;
 }
@@ -350,6 +369,15 @@ HttpDownloader::DownloadError runGetSecure(const std::string& url, const std::st
 #endif
 }
 }  // namespace
+
+#if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
+namespace HttpDownloaderMockWolf {
+int gMockWolfHttpStatus = 200;
+
+void setResponseStatus(const int httpStatus) { gMockWolfHttpStatus = httpStatus; }
+void resetResponseStatus() { gMockWolfHttpStatus = 200; }
+}  // namespace HttpDownloaderMockWolf
+#endif
 
 HttpDownloader::TransportFailure HttpDownloader::lastTransportFailure() { return gLastTransportFailure; }
 
