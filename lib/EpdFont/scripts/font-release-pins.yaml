@@ -1,0 +1,20 @@
+# Pinned upstream sources for CI font builds and release NOTICE/OFL assets.
+
+NotoSansSC:
+  repository: notofonts/noto-cjk
+  commit: f8d157532fbfaeda587e826d4cd5b21a49186f7c
+  source:
+    url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf
+    sha256: faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9
+    relative_path: builtinFonts/source/NotoSansSC/NotoSansSC-Regular.otf
+  ofl_url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/LICENSE
+
+Literata:
+  repository: googlefonts/literata
+  commit: 0c2761b727a1b3a7cffd313c37f0f5163dfc7a63
+  ofl_url: https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/OFL.txt
+
+Inter:
+  repository: google/fonts
+  commit: 47d54ca1ebb14fd864695f1d39dc734f39017c33
+  ofl_url: https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/OFL.txt

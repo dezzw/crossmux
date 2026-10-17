@@ -32,7 +32,8 @@ There are three ways to install fonts:
 ### Option 3: Manual SD card copy
 
 1. Download font files from the
-   [crosspoint-fonts repository](https://github.com/crosspoint-reader/crosspoint-fonts)
+   [dezzw/crossmux font releases](https://github.com/dezzw/crossmux/releases) (tag `fonts-m1-b4` or the
+   current `fonts-m*` tag for your firmware)
 2. Copy font family folders to one of two locations on your SD card:
 
    - `/.fonts/` — hidden directory (preferred; keeps the SD root tidy
@@ -86,16 +87,16 @@ The built-in 12pt reader subset remains an offline fallback.
 
 ## Available Pre-Built Fonts
 
-The current list of pre-built fonts is maintained in the
-[crosspoint-fonts repository](https://github.com/crosspoint-reader/crosspoint-fonts).
+The core pre-built set (`NotoSansSC`, `Literata`, `Inter`) is declared in
+[`lib/EpdFont/scripts/sd-fonts.yaml`](../lib/EpdFont/scripts/sd-fonts.yaml) and published by the
+**Build & Publish SD Card Fonts** GitHub Actions workflow to
+[`dezzw/crossmux` Releases](https://github.com/dezzw/crossmux/releases) under tags such as
+`fonts-m1-b4` (manifest v1, cpfont v4). Firmware downloads
+`https://github.com/dezzw/crossmux/releases/download/fonts-m1-b4/fonts.json` (version numbers track
+`FONTS_MANIFEST_VERSION` and `CPFONT_VERSION`).
 
-Unified firmware loads font manifests through `crossmux.com`
-and `crossmux.com` for Global profiles; it does not select GitHub or Gitee
-directly. Both catalogs publish manifest v1 with a valid
-`baseUrl`, family/file names, non-zero file sizes, and CRC32 values. Every
-referenced asset must be cpfont v4 and provide the coverage promised by its
-catalog maintainer. Font sources and catalog-generation configuration are not
-kept in this repository.
+The repository must stay **public** so devices can download release assets without authentication.
+Each font release ships OFL license texts and NOTICE files with pinned upstream commits.
 
 In a Chinese EPUB, confirming the incomplete-font prompt starts an automatic
 reader-only flow: connect Wi-Fi, download and verify the complete `NotoSansSC`

@@ -6,7 +6,6 @@
 #include "EpdFont/SdCardFont.h"
 #include "src/network/CrossMuxEndpoints.h"
 
-// Keep aligned with FONTS_MANIFEST_VERSION in FontDownloadActivity.h.
 constexpr int kFontsManifestVersion = 1;
 
 TEST(CrossMuxEndpoints, FormatFontGithubManifestUrlUsesBuildConstants) {
@@ -18,22 +17,18 @@ TEST(CrossMuxEndpoints, FormatFontGithubManifestUrlUsesBuildConstants) {
 
   char expected[256];
   snprintf(expected, sizeof(expected),
-           "https://github.com/crosspoint-reader/crosspoint-fonts/releases/download/sd-fonts-m%d-b%d/fonts.json",
-           kFontsManifestVersion, CPFONT_VERSION);
+           "https://github.com/dezzw/crossmux/releases/download/fonts-m%d-b%d/fonts.json", kFontsManifestVersion,
+           CPFONT_VERSION);
   EXPECT_STREQ(url, expected);
 }
 
-TEST(CrossMuxEndpoints, FormatFontLegacyManifestUrlUsesBuildConstants) {
+TEST(CrossMuxEndpoints, FormatOtaStableManifestUrlUsesStableTag) {
   char url[256];
-  const int len =
-      CrossMuxEndpoints::formatFontLegacyManifestUrl(url, sizeof(url), kFontsManifestVersion, CPFONT_VERSION);
+  const int len = CrossMuxEndpoints::formatOtaStableManifestUrl(url, sizeof(url));
   ASSERT_GT(len, 0);
   EXPECT_LT(static_cast<size_t>(len), sizeof(url));
-
-  char expected[256];
-  snprintf(expected, sizeof(expected), "https://crossmux.com/api/assets/fonts/m%d-b%d/fonts.json",
-           kFontsManifestVersion, CPFONT_VERSION);
-  EXPECT_STREQ(url, expected);
+  EXPECT_STREQ(url,
+               "https://github.com/dezzw/crossmux/releases/download/stable/waveshare-epaper-397-global-manifest.json");
 }
 
 TEST(CrossMuxEndpoints, FormatFontGithubManifestUrlTruncatesWhenBufferTooSmall) {

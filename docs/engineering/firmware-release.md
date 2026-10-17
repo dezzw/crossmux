@@ -29,8 +29,23 @@ aliased by the compatibility `global` and `zh-CN` pointers.
 5. Flash one device over USB with the firmware that embeds the matching public key
    before relying on OTA.
 
+### One-time font + stable OTA bootstrap (Desmond)
+
+After merging self-hosted fonts firmware, run these once on a **public**
+`dezzw/crossmux` repository:
+
+1. **Actions → Build & Publish SD Card Fonts → Run workflow.** This builds the core
+   set, publishes immutable `fonts-m1-b4-r1` (revision increments on reruns), and
+   updates the rolling `fonts-m1-b4` release (never marked GitHub “Latest”).
+2. **Tag the first semver firmware release** on `main` (for example `1.6.0`) so
+   **Firmware Release** publishes signed binaries and uploads
+   `waveshare-epaper-397-global-manifest.json` to the rolling **`stable`** release.
+3. Confirm anonymous HTTPS downloads work for both release tags (fonts and stable
+   manifest) before shipping devices on this firmware.
+
 Devices fetch Stable manifests from
-`https://github.com/dezzw/crossmux/releases/latest/download/waveshare-epaper-397-global-manifest.json`,
+`https://github.com/dezzw/crossmux/releases/download/stable/waveshare-epaper-397-global-manifest.json`
+(the rolling `stable` GitHub Release is updated on each semver tag publish and is not marked Latest),
 verify SHA-256 and an ECDSA P-256 signature, require a matching board tag, and
 refuse downgrades. TLS uses the embedded CA bundle for GitHub and crossmux.com.
 

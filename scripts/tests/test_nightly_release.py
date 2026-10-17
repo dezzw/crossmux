@@ -129,9 +129,11 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertNotIn('  publish_cn:', workflow)
         self.assertNotIn('  cleanup_cn:', workflow)
         self.assertNotIn('assets.crossmux.cn', workflow)
-        rolling = workflow.split('- name: Publish rolling global index last', 1)[1].split(
+        rolling = workflow.split('- name: Publish rolling channel release last', 1)[1].split(
             '  verify_publish:', 1
         )[0]
+        self.assertIn('--latest=false', rolling)
+        self.assertIn("*-global-manifest.json", rolling)
         self.assertIn('legacy_assets=', rolling)
         self.assertNotIn('xteink-firmware.bin', rolling)
         verify = workflow.split('  verify_publish:', 1)[1]

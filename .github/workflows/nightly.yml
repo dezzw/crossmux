@@ -236,20 +236,32 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "CrossMux ${CHANNEL^} ${GITHUB_SHA::7} #${GITHUB_RUN_NUMBER}" \
             --notes-file notes/release-body.md --prerelease
-      - name: Publish rolling global index last
+      - name: Publish rolling channel release last
         env:
           GH_TOKEN: ${{ github.token }}
           CHANNEL: ${{ needs.prepare.outputs.channel }}
         run: |
+          set -euo pipefail
           title="CrossMux ${CHANNEL^} (${GITHUB_SHA::7})"
+          latest_flag=(--latest=false)
+          prerelease_flag=(--prerelease)
+          if [ "$CHANNEL" = nightly ]; then
+            latest_flag=()
+          fi
           if gh release view "$CHANNEL" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release edit "$CHANNEL" --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" --title "$title" --notes-file notes/release-body.md --prerelease
+              --target "$GITHUB_SHA" --title "$title" --notes-file notes/release-body.md \
+              "${prerelease_flag[@]}" "${latest_flag[@]}"
           else
             gh release create "$CHANNEL" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "$title" --notes-file notes/release-body.md --prerelease
+              --title "$title" --notes-file notes/release-body.md \
+              "${prerelease_flag[@]}" "${latest_flag[@]}"
           fi
           gh release upload "$CHANNEL" release-index.json --repo "$GITHUB_REPOSITORY" --clobber
+          mapfile -t global_manifests < <(find artifacts -name '*-global-manifest.json')
+          if [ ${#global_manifests[@]} -gt 0 ]; then
+            gh release upload "$CHANNEL" "${global_manifests[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          fi
           legacy_assets="$(gh release view "$CHANNEL" --repo "$GITHUB_REPOSITORY" \
             --json assets --jq '.assets[].name')"
           if grep -Fxq firmware-cn.bin <<< "$legacy_assets"; then
