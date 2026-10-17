@@ -6,9 +6,12 @@
 #include <Memory.h>
 #include <Stream.h>
 #include <base64.h>
+
+#if !defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
 #include <esp_crt_bundle.h>
 #include <esp_http_client.h>
 #include <esp_wifi.h>
+#endif
 
 #include <cctype>
 #include <cstdio>
@@ -17,10 +20,12 @@
 #include <string_view>
 
 #include "HttpTransportFailure.h"
+#if !defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
 #include "TlsCaBundle.h"
 #include "WolfSslTransportErrors.h"
+#endif
 
-#if defined(FREEINK_NET_WOLFSSL)
+#if defined(FREEINK_NET_WOLFSSL) && !defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
 #include <SecureClient.h>
 #include <SecureHttpClient.h>
 
@@ -29,8 +34,14 @@ static_assert(freeink::SecureClient::kCaLoadError == WolfSslTransportErrors::kSe
 extern "C" void wolfSSL_Arduino_Serial_Print(const char* const msg) { LOG_DBG("WOLFSSL", "%s", msg); }
 #endif
 
+#if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
+namespace HttpDownloaderMockWolf {
+extern int gMockWolfHttpStatus;
+}  // namespace HttpDownloaderMockWolf
+#endif
+
 namespace {
-#if !defined(FREEINK_NET_WOLFSSL)
+#if !defined(FREEINK_NET_WOLFSSL) && !defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
 constexpr int HTTP_RX_BUF = 2048;
 constexpr int HTTP_TX_BUF = 512;
 #endif
@@ -80,6 +91,24 @@ bool rejectsCleartextRedirect(const std::string& secureStartUrl, const std::stri
   return false;
 }
 
+#if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF) || defined(FREEINK_NET_WOLFSSL)
+struct WolfHttpBodyContext {
+  int httpStatus = 0;
+  bool hasContentLength = false;
+  size_t contentLength = 0;
+};
+
+bool deliverWolfHttpBody(Sink& sink, const WolfHttpBodyContext& ctx, const uint8_t* data, size_t len) {
+  if (ctx.httpStatus != 200) return true;
+  if (sink.total == 0 && ctx.hasContentLength) sink.total = ctx.contentLength;
+  if (!sink.write(data, len)) return false;
+  sink.downloaded += len;
+  if (sink.progress && sink.total > 0) sink.progress(sink.downloaded, sink.total);
+  return true;
+}
+#endif
+
+#if !defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
 struct WifiPowerSaveGuard {
   WifiPowerSaveGuard() {
     esp_err_t err = esp_wifi_set_ps(WIFI_PS_NONE);
@@ -90,8 +119,60 @@ struct WifiPowerSaveGuard {
     if (err != ESP_OK) LOG_ERR("HTTP", "Failed to restore WiFi power-save: %d", err);
   }
 };
+#else
+struct WifiPowerSaveGuard {};
+#endif
 
-#if defined(FREEINK_NET_WOLFSSL)
+#if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
+HttpDownloader::DownloadError runGetWolf(const std::string& /*startUrl*/, const std::string& /*username*/,
+                                         const std::string& /*password*/, const char* /*userAgent*/, Sink& sink) {
+  const int httpStatus = HttpDownloaderMockWolf::gMockWolfHttpStatus;
+  gLastHttpStatus = httpStatus;
+  if (httpStatus != 200) {
+    static const std::string kErrorBody(256, 'E');
+    const WolfHttpBodyContext errCtx{httpStatus, true, kErrorBody.size()};
+    if (!deliverWolfHttpBody(sink, errCtx, reinterpret_cast<const uint8_t*>(kErrorBody.data()), kErrorBody.size())) {
+      gLastTransportFailure = HttpDownloader::TransportFailure::FileIo;
+      return HttpDownloader::FILE_ERROR;
+    }
+    gLastTransportFailure = HttpDownloader::TransportFailure::HttpStatus;
+    return HttpDownloader::HTTP_ERROR;
+  }
+  static constexpr size_t kMockPayloadBytes = 2882;
+  static const std::string kBody(kMockPayloadBytes, 'F');
+  const WolfHttpBodyContext okCtx{httpStatus, true, kBody.size()};
+  if (!deliverWolfHttpBody(sink, okCtx, reinterpret_cast<const uint8_t*>(kBody.data()), kBody.size())) {
+    gLastTransportFailure = HttpDownloader::TransportFailure::FileIo;
+    return HttpDownloader::FILE_ERROR;
+  }
+  return HttpDownloader::OK;
+}
+#elif defined(FREEINK_NET_WOLFSSL)
+const char* bodyFramingLabel(const freeink::SecureHttpClient::BodyFraming mode) {
+  switch (mode) {
+    case freeink::SecureHttpClient::BodyFraming::Fixed:
+      return "fixed";
+    case freeink::SecureHttpClient::BodyFraming::UntilClose:
+      return "until-close";
+    case freeink::SecureHttpClient::BodyFraming::Chunked:
+      return "chunked";
+    case freeink::SecureHttpClient::BodyFraming::None:
+      break;
+  }
+  return "none";
+}
+
+void logHttpBodyOutcome(const freeink::SecureHttpClient& http, const bool failed) {
+  const char* mode = bodyFramingLabel(http.lastBodyFraming());
+  const size_t contentLength = http.hasContentLength() ? http.getContentLength() : 0;
+  if (failed) {
+    LOG_ERR("HTTP", "body %s cl=%zu got=%zu wolfErr=%d", mode, contentLength, http.bodyBytesDelivered(),
+            http.lastWolfErrorCode());
+  } else {
+    LOG_INF("HTTP", "body %s cl=%zu got=%zu", mode, contentLength, http.bodyBytesDelivered());
+  }
+}
+
 HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std::string& username,
                                          const std::string& password, const char* userAgent, Sink& sink) {
   WifiPowerSaveGuard psGuard;
@@ -101,6 +182,7 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
   for (int hop = 0; hop <= MAX_REDIRECTS; ++hop) {
     freeink::SecureHttpClient http;
     http.setTimeout(HTTP_TIMEOUT_MS);
+    http.setDrainRedirectResponseBodies(true);
     if (sink.verifyTlsPeer) {
       http.setCACert(TlsCaBundle::pemRoots());
     } else {
@@ -121,12 +203,8 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
     LOG_DBG("HTTP", "wolfSSL GET: %s", url.c_str());
     const int status = http.GET(
         [&http, &sink](const uint8_t* data, size_t len) {
-          if (http.getStatus() != 200) return true;
-          if (sink.total == 0 && http.hasContentLength()) sink.total = http.getContentLength();
-          if (!sink.write(data, len)) return false;
-          sink.downloaded += len;
-          if (sink.progress && sink.total > 0) sink.progress(sink.downloaded, sink.total);
-          return true;
+          const WolfHttpBodyContext ctx{http.getStatus(), http.hasContentLength(), http.getContentLength()};
+          return deliverWolfHttpBody(sink, ctx, data, len);
         },
         [&sink]() { return sink.cancelFlag && *sink.cancelFlag; });
 
@@ -163,10 +241,18 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
       return HttpDownloader::FILE_ERROR;
     }
     if (!http.responseComplete()) {
+      logHttpBodyOutcome(http, true);
       LOG_ERR("HTTP", "wolfSSL incomplete: got %zu of %zu bytes", sink.downloaded, sink.total);
       gLastTransportFailure = HttpDownloader::TransportFailure::Incomplete;
       return HttpDownloader::HTTP_ERROR;
     }
+    const bool explicitEmpty = http.hasContentLength() && http.getContentLength() == 0;
+    if (sink.downloaded == 0 && !explicitEmpty) {
+      logHttpBodyOutcome(http, true);
+      gLastTransportFailure = HttpDownloader::TransportFailure::EmptyResponse;
+      return HttpDownloader::HTTP_ERROR;
+    }
+    logHttpBodyOutcome(http, false);
     return HttpDownloader::OK;
   }
   LOG_ERR("HTTP", "too many redirects");
@@ -175,7 +261,7 @@ HttpDownloader::DownloadError runGetWolf(const std::string& startUrl, const std:
 }
 #endif
 
-#if !defined(FREEINK_NET_WOLFSSL)
+#if !defined(FREEINK_NET_WOLFSSL) && !defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
 HttpDownloader::DownloadError runGet(const std::string& url, const std::string& username, const std::string& password,
                                      const char* userAgent, Sink& sink) {
   WifiPowerSaveGuard psGuard;
@@ -274,7 +360,7 @@ HttpDownloader::DownloadError runGet(const std::string& url, const std::string& 
 #endif
 
 HttpDownloader::DownloadError runGetSecure(const std::string& url, const std::string& username,
-                                           const std::string& password, const Sink& sinkIn) {
+                                           const std::string& password, Sink& sinkIn) {
   resetTransportDiagnostics();
   if (sinkIn.verifyTlsPeer && !HttpTransportFailure::ensureClockForVerifiedTls(gLastTransportFailure)) {
     return HttpDownloader::HTTP_ERROR;
@@ -286,14 +372,22 @@ HttpDownloader::DownloadError runGetSecure(const std::string& url, const std::st
     LOG_ERR("HTTP", "User-Agent exceeds %zu bytes", sizeof(userAgent));
     return HttpDownloader::HTTP_ERROR;
   }
-  Sink sink = sinkIn;
-#if defined(FREEINK_NET_WOLFSSL)
-  return runGetWolf(url, username, password, userAgent, sink);
+#if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF) || defined(FREEINK_NET_WOLFSSL)
+  return runGetWolf(url, username, password, userAgent, sinkIn);
 #else
-  return runGet(url, username, password, userAgent, sink);
+  return runGet(url, username, password, userAgent, sinkIn);
 #endif
 }
 }  // namespace
+
+#if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
+namespace HttpDownloaderMockWolf {
+int gMockWolfHttpStatus = 200;
+
+void setResponseStatus(const int httpStatus) { gMockWolfHttpStatus = httpStatus; }
+void resetResponseStatus() { gMockWolfHttpStatus = 200; }
+}  // namespace HttpDownloaderMockWolf
+#endif
 
 HttpDownloader::TransportFailure HttpDownloader::lastTransportFailure() { return gLastTransportFailure; }
 
@@ -383,7 +477,7 @@ HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& 
   if (sink.downloaded == 0) {
     LOG_ERR("HTTP", "no data received");
     Storage.remove(destPath.c_str());
-    gLastTransportFailure = TransportFailure::Incomplete;
+    gLastTransportFailure = TransportFailure::EmptyResponse;
     return HTTP_ERROR;
   }
   LOG_DBG("HTTP", "Downloaded %zu bytes", sink.downloaded);

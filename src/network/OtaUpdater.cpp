@@ -217,9 +217,8 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
   mbedtls_sha256_finish(&shaCtx, digest);
   mbedtls_sha256_free(&shaCtx);
 
-  if (wrongChip || wrongBoard || wrongVersion || boardScanner.missingRequiredTag() ||
-      versionScanner.missingRequiredTag()) {
-    LOG_ERR("OTA", "Firmware install aborted: wrong or untagged device/version");
+  if (wrongChip || wrongBoard || wrongVersion) {
+    LOG_ERR("OTA", "Firmware install aborted: wrong device/version");
     esp_ota_abort(otaHandle);
     return WRONG_DEVICE_ERROR;
   }
@@ -228,6 +227,12 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
     LOG_ERR("OTA", "Firmware install failed (%s)", flashOk ? "download" : "flash write");
     esp_ota_abort(otaHandle);
     return flashOk ? HTTP_ERROR : INTERNAL_UPDATE_ERROR;
+  }
+
+  if (boardScanner.missingRequiredTag() || versionScanner.missingRequiredTag()) {
+    LOG_ERR("OTA", "Firmware install aborted: wrong or untagged device/version");
+    esp_ota_abort(otaHandle);
+    return WRONG_DEVICE_ERROR;
   }
 
   if (processedSize != otaSize) {

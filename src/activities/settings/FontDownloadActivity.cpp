@@ -341,8 +341,13 @@ void FontDownloadActivity::recordTransportFailure(ManifestFailure& target, int& 
     case HttpDownloader::TransportFailure::FileIo:
       target = ManifestFailure::SdWrite;
       break;
-    case HttpDownloader::TransportFailure::Connect:
+    case HttpDownloader::TransportFailure::EmptyResponse:
+      target = ManifestFailure::EmptyResponse;
+      break;
     case HttpDownloader::TransportFailure::Incomplete:
+      target = ManifestFailure::Interrupted;
+      break;
+    case HttpDownloader::TransportFailure::Connect:
     case HttpDownloader::TransportFailure::None:
     default:
       target = ManifestFailure::Network;
@@ -374,8 +379,13 @@ void FontDownloadActivity::recordTransportFailure(FileFailure& target, int& http
     case HttpDownloader::TransportFailure::FileIo:
       target = FileFailure::Sd;
       break;
-    case HttpDownloader::TransportFailure::Connect:
+    case HttpDownloader::TransportFailure::EmptyResponse:
+      target = FileFailure::EmptyResponse;
+      break;
     case HttpDownloader::TransportFailure::Incomplete:
+      target = FileFailure::Interrupted;
+      break;
+    case HttpDownloader::TransportFailure::Connect:
     case HttpDownloader::TransportFailure::None:
     default:
       target = FileFailure::Network;
@@ -411,6 +421,10 @@ const char* FontDownloadActivity::failureDetailText() const {
         return tr(STR_FONT_ERR_MANIFEST);
       case ManifestFailure::SdWrite:
         return tr(STR_FONT_ERR_SD);
+      case ManifestFailure::EmptyResponse:
+        return tr(STR_FONT_ERR_EMPTY_RESPONSE);
+      case ManifestFailure::Interrupted:
+        return tr(STR_FONT_ERR_DOWNLOAD_INTERRUPTED);
       case ManifestFailure::None:
         break;
     }
@@ -440,6 +454,10 @@ const char* FontDownloadActivity::failureDetailText() const {
       return tr(STR_FONT_ERR_HEADER);
     case FileFailure::Sd:
       return tr(STR_FONT_ERR_SD);
+    case FileFailure::EmptyResponse:
+      return tr(STR_FONT_ERR_EMPTY_RESPONSE);
+    case FileFailure::Interrupted:
+      return tr(STR_FONT_ERR_DOWNLOAD_INTERRUPTED);
     case FileFailure::None:
       break;
   }

@@ -27,6 +27,7 @@ class HttpDownloader {
   // Called with each body chunk as it arrives; return false to abort. Lets a
   // streaming parser consume the response without buffering the whole body.
   using DataCallback = std::function<bool(const uint8_t* data, size_t len)>;
+
   enum DownloadError {
     OK = 0,
     HTTP_ERROR,
@@ -68,3 +69,10 @@ class HttpDownloader {
                                       bool* cancelFlag, const FetchOptions& options, const std::string& username = "",
                                       const std::string& password = "");
 };
+
+#if defined(CROSSPOINT_HTTP_DOWNLOADER_MOCK_WOLF)
+namespace HttpDownloaderMockWolf {
+void setResponseStatus(int httpStatus);
+void resetResponseStatus();
+}  // namespace HttpDownloaderMockWolf
+#endif

@@ -32,6 +32,7 @@ class SecureClient : public Client {
   // Certificate / verification configuration (applied before connect()).
   void setCACert(const char* rootCA);
   void setInsecure();  // skip peer verification (testing only)
+  void setTimeout(uint32_t ms) { _transport.setTimeout(ms); }
 
   // Connect and perform a TLS 1.3 handshake to host:port (uses the SNI host).
   int connect(IPAddress ip, uint16_t port) override;
@@ -55,7 +56,14 @@ class SecureClient : public Client {
   static constexpr int kCaLoadError = -2000;
   int lastWolfErrorCode() const { return _lastWolfError; }
 
+#if defined(CROSSPOINT_SECURECLIENT_HOST_TEST)
+  void setHostTestConnected(bool connected) { _connected = connected; }
+  void setHostTestBufferedRead(int result) { _hostTestBufferedRead = result; }
+  void clearHostTestBufferedRead() { _hostTestBufferedRead = kHostTestBufferedReadUnset; }
+#endif
+
  private:
+  static constexpr int kHostTestBufferedReadUnset = -1000000;
   int connectWithMethod(const char* host, uint16_t port, void* method, const char* label);
 
   WiFiClient _transport;
@@ -65,6 +73,9 @@ class SecureClient : public Client {
   void* _ctx = nullptr;  // WOLFSSL_CTX*
   bool _connected = false;
   int _lastWolfError = 0;
+#if defined(CROSSPOINT_SECURECLIENT_HOST_TEST)
+  int _hostTestBufferedRead = kHostTestBufferedReadUnset;
+#endif
 };
 
 }  // namespace freeink

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "HttpDownloader.h"
+#include "HttpTransportTypes.h"
 
-const char* fontTransportFailureText(HttpDownloader::TransportFailure failure);
-const char* otaTransportFailureText(HttpDownloader::TransportFailure failure);
+const char* fontTransportFailureText(HttpTransportTypes::TransportFailure failure);
+const char* otaTransportFailureText(HttpTransportTypes::TransportFailure failure);
