@@ -40,11 +40,10 @@ TEST_F(HttpDownloaderDownloadToFileTest, WolfMock2882BytesOkAndFileKept) {
 TEST_F(HttpDownloaderDownloadToFileTest, FetchUrl403NeverInvokesDataCallback) {
   HttpDownloaderMockWolf::setResponseStatus(403);
   size_t callbackInvocations = 0;
-  EXPECT_FALSE(HttpDownloader::fetchUrl("https://example.test/denied.json",
-                                        [&](const uint8_t*, size_t len) {
-                                          callbackInvocations += (len > 0 ? 1u : 0u);
-                                          return true;
-                                        }));
+  EXPECT_FALSE(HttpDownloader::fetchUrl("https://example.test/denied.json", [&](const uint8_t*, size_t len) {
+    callbackInvocations += (len > 0 ? 1u : 0u);
+    return true;
+  }));
   EXPECT_EQ(callbackInvocations, 0u);
   EXPECT_EQ(HttpDownloader::lastHttpStatusCode(), 403);
 }
