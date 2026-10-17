@@ -1,0 +1,19 @@
+legacy_noto_m1_b4:
+  file: noto_m1_b4_hanzi_coverage.txt
+  sha256: 143da2aa609a920adb3cffd08dd9780d5a6abf1273a3c115c2b7fa07915b21f3
+Literata:
+  styles:
+    '0': a0286eccd2dd77f97bf7ade34ef6fb5635b6a1c64273a2d6ca3626ae74f7f862
+    '1': a0286eccd2dd77f97bf7ade34ef6fb5635b6a1c64273a2d6ca3626ae74f7f862
+    '2': a0286eccd2dd77f97bf7ade34ef6fb5635b6a1c64273a2d6ca3626ae74f7f862
+    '3': a0286eccd2dd77f97bf7ade34ef6fb5635b6a1c64273a2d6ca3626ae74f7f862
+Inter:
+  styles:
+    '0': a0286eccd2dd77f97bf7ade34ef6fb5635b6a1c64273a2d6ca3626ae74f7f862
+    '1': a0286eccd2dd77f97bf7ade34ef6fb5635b6a1c64273a2d6ca3626ae74f7f862
+    '2': a0286eccd2dd77f97bf7ade34ef6fb5635b6a1c64273a2d6ca3626ae74f7f862
+    '3': a0286eccd2dd77f97bf7ade34ef6fb5635b6a1c64273a2d6ca3626ae74f7f862
+NotoSansSC:
+  styles:
+    '0': d374925c039ce56e570e45d9e9b63ac4ca4a4f44f1a2b1f1ef49076f88efcf1f
+    '1': d374925c039ce56e570e45d9e9b63ac4ca4a4f44f1a2b1f1ef49076f88efcf1f

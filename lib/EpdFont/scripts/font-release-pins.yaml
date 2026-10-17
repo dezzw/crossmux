@@ -4,14 +4,18 @@ NotoSansSC:
   repository: notofonts/noto-cjk
   commit: f8d157532fbfaeda587e826d4cd5b21a49186f7c
   hanzi_allowlist: noto_m1_b4_hanzi_coverage.txt
+  bold_latin_fallback:
+    path: builtinFonts/source/NotoSans/NotoSans-Bold.ttf
+    sha256: 13a813c49624ae3ba3c5c6e72c5ebffc4b9e1e6ea32f421c04069b037c6ad431
   sources:
     - url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf
       sha256: faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9
-      relative_path: builtinFonts/source/NotoSansSC/NotoSansSC-Regular.otf
+      relative_path: NotoSansSC-Regular.otf
     - url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Bold.otf
       sha256: c6cb5a93abaa9edc8ee7463b7ebb7f42d618d40e6ed2f7a5371c97b0b64767c0
-      relative_path: builtinFonts/source/NotoSansSC/NotoSansSC-Bold.otf
+      relative_path: NotoSansSC-Bold.otf
   ofl_url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE
+  bold_fallback_ofl_path: builtinFonts/source/NotoSans/OFL.txt
 
 Literata:
   repository: googlefonts/literata

@@ -42,9 +42,19 @@ def write_notice(dest: Path, family: str, meta: dict) -> None:
             lines.extend(
                 [
                     "",
-                    f"Master: {src['relative_path']}",
-                    f"Download URL: {src['url']}",
+                    f"Master: pinned_sources/{src['relative_path']}",
+                    f"Upstream URL: {src['url']}",
                     f"SHA-256: {src['sha256']}",
+                ]
+            )
+        fb = meta.get("bold_latin_fallback")
+        if fb:
+            lines.extend(
+                [
+                    "",
+                    "Bold style Latin/Greek/Cyrillic fallback (Noto Sans Bold, OFL):",
+                    f"Path: {fb['path']}",
+                    f"SHA-256: {fb['sha256']}",
                 ]
             )
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -55,12 +65,20 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True, help="Directory for OFL/NOTICE assets")
     args = parser.parse_args()
     pins = yaml.safe_load(PINS.read_text())
+    epd = ROOT / "lib/EpdFont"
     for family, meta in pins.items():
         ofl_path = args.output / f"{family}-OFL.txt"
         notice_path = args.output / f"{family}-NOTICE.txt"
-        download(meta["ofl_url"], ofl_path)
+        if meta.get("ofl_url"):
+            download(meta["ofl_url"], ofl_path)
+        elif meta.get("ofl_path"):
+            ofl_path.write_bytes((epd / meta["ofl_path"]).read_bytes())
         write_notice(notice_path, family, meta)
         print(f"Prepared {ofl_path.name} and {notice_path.name}")
+        if family == "NotoSansSC" and meta.get("bold_fallback_ofl_path"):
+            fb_ofl = args.output / "NotoSans-Bold-OFL.txt"
+            fb_ofl.write_bytes((epd / meta["bold_fallback_ofl_path"]).read_bytes())
+            print(f"Prepared {fb_ofl.name}")
     return 0
 
 

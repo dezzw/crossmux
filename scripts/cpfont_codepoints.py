@@ -10,14 +10,20 @@ STYLE_TOC = struct.Struct("<B3xIIBhhHHBBBI4x")
 GLYPH = struct.Struct("<BBHhhH2xI")
 
 
-def cpfont_codepoints(path: Path, *, require_bitmap: bool = False) -> list[int]:
+def _style_toc_entry(data: bytes, style_id: int) -> tuple:
+    style_count = data[12]
+    for i in range(style_count):
+        chunk = STYLE_TOC.unpack_from(data, 32 + i * 32)
+        if chunk[0] == style_id:
+            return chunk
+    raise ValueError(f"style {style_id} not in cpfont")
+
+
+def cpfont_codepoints(path: Path, *, style_id: int = 0, require_bitmap: bool = False) -> list[int]:
     data = path.read_bytes()
     if data[:6] != b"CPFONT":
         raise ValueError(f"not a CPFONT file: {path}")
-    style_count = data[12]
-    toc_off = 32
-    style_id, interval_count, glyph_count, *_rest, data_offset = STYLE_TOC.unpack_from(data, toc_off)
-    del style_id, _rest
+    _sid, interval_count, glyph_count, *_rest, data_offset = _style_toc_entry(data, style_id)
 
     p = data_offset
     intervals: list[tuple[int, int]] = []

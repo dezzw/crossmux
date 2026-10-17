@@ -44,7 +44,7 @@ After merging self-hosted fonts firmware, run these once on a **public**
    `waveshare-epaper-397-global-manifest.json` to the rolling **`stable`** release.
 3. Confirm anonymous HTTPS downloads work for both release tags (fonts and stable
    manifest) before shipping devices on this firmware. Stable publish verifies
-   each signed global manifest’s `firmwareUrl` returns HTTP **200** before
+   each signed global manifest’s `firmware.url` returns HTTP **200** before
    uploading the manifest to the rolling **`stable`** release (uploaded last,
    after the semver release assets exist).
 

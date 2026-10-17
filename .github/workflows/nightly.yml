@@ -350,7 +350,7 @@ jobs:
             exit 1
           fi
           for manifest in "${global_manifests[@]}"; do
-            firmware_url="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print(m.get("firmwareUrl",""))' "$manifest")"
+            firmware_url="$(python3 scripts/ota_manifest.py url "$manifest")"
             if ! curl -fsSL --head --connect-timeout 10 --max-time 30 "$firmware_url" >/dev/null; then
               echo "::error::Stable manifest firmware URL not reachable: $firmware_url"
               exit 1

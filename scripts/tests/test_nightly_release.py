@@ -14,7 +14,9 @@ sys.path.insert(0, str(SCRIPTS))
 import build_nightly_index
 import nightly_retention
 import nightly_targets
+import ota_manifest
 import package_nightly_target
+import sign_ota_release
 import verify_nightly_release
 
 
@@ -109,6 +111,7 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertIn('merge-multiple: true', workflow)
         self.assertIn('mapfile -t firmware_assets', workflow)
         self.assertIn('Upload signed stable manifest to rolling stable release (last)', workflow)
+        self.assertIn('python3 scripts/ota_manifest.py url', workflow)
         self.assertIn('Stable firmware releases are not configured', workflow)
         self.assertIn('gh release delete-asset "$CHANNEL" firmware-cn.bin', workflow)
         self.assertNotIn('--flavor', hardware_workflow)
@@ -145,6 +148,47 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertEqual(workflow.count('python3 scripts/nightly_retention.py'), 1)
         self.assertIn('gh release delete "$build_tag"', workflow)
         self.assertIn('--cleanup-tag --yes', workflow)
+
+    def test_signed_manifest_firmware_url_matches_sign_script(self):
+        private_pem = (ROOT / 'test/fixtures/ota_test_private.pem').read_text()
+        with tempfile.TemporaryDirectory() as temp:
+            tmp = Path(temp)
+            firmware = tmp / 'waveshare-epaper-397-firmware.bin'
+            firmware.write_bytes(b'\x7fELF-test-firmware')
+            manifest_in = tmp / 'manifest.json'
+            manifest_in.write_text(
+                json.dumps(
+                    {
+                        'version': '9.9.9-test',
+                        'boardTag': 'waveshare_epaper_397',
+                        'channel': 'stable',
+                    }
+                )
+                + '\n'
+            )
+            signed = tmp / 'signed.json'
+            download_url = 'https://github.com/example/releases/download/v9.9.9/waveshare-epaper-397-firmware.bin'
+            with mock.patch.dict('os.environ', {'OTA_SIGNING_KEY': private_pem}):
+                with mock.patch.object(
+                    sys,
+                    'argv',
+                    [
+                        'sign_ota_release.py',
+                        '--firmware',
+                        str(firmware),
+                        '--manifest',
+                        str(manifest_in),
+                        '--download-url',
+                        download_url,
+                        '--output',
+                        str(signed),
+                    ],
+                ):
+                    sign_ota_release.main()
+            url = ota_manifest.firmware_url_from_path(signed)
+            self.assertEqual(url, download_url)
+            with self.assertRaisesRegex(ValueError, 'empty'):
+                ota_manifest.firmware_url_from_manifest({'firmware': {'url': ''}})
 
     def test_package_contains_one_binary_set_and_two_compatible_manifests(self):
         with tempfile.TemporaryDirectory() as temp:

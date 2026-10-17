@@ -48,9 +48,9 @@ DEFAULT_OUTPUT = SCRIPT_DIR / "output"
 DOWNLOAD_DIR = SCRIPT_DIR / "downloaded_fonts"
 INSTANCE_DIR = SCRIPT_DIR / "instanced_fonts"
 DEFAULT_FALLBACK_FONT = EPDFONTS_DIR / "builtinFonts/source/NotoSans/NotoSans-Regular.ttf"
+NOTO_SANS_BOLD_FALLBACK = EPDFONTS_DIR / "builtinFonts/source/NotoSans/NotoSans-Bold.ttf"
 REPO_ROOT = SCRIPT_DIR.parent.parent.parent
 NOTO_HANZI_ALLOWLIST = SCRIPT_DIR / "noto_m1_b4_hanzi_coverage.txt"
-LEGACY_NOTO_CACHE = SCRIPT_DIR / ".cache/NotoSansSC_12.cpfont"
 HANZI_FILTER_RANGES = (
     (0x3400, 0x4DBF),
     (0x4E00, 0x9FFF),
@@ -64,23 +64,19 @@ def _in_hanzi_range(codepoint: int) -> bool:
 
 
 def ensure_noto_hanzi_allowlist() -> None:
-    """Use committed allowlist; optional refresh from pinned legacy .cpfont (--refresh-hanzi-allowlist)."""
+    """Require committed m1-b4 legacy bitmap codepoint list (see core_font_coverage_pins.yaml)."""
     if NOTO_HANZI_ALLOWLIST.is_file():
         return
-    import sys
+    print(f"ERROR: Missing {NOTO_HANZI_ALLOWLIST.name}", file=sys.stderr)
+    sys.exit(1)
 
-    sys.path.insert(0, str(REPO_ROOT / "scripts"))
-    from cpfont_codepoints import cpfont_codepoints  # noqa: WPS433
-    from legacy_noto_m1_b4 import download_legacy_noto  # noqa: WPS433
 
-    download_legacy_noto(LEGACY_NOTO_CACHE)
-    bitmap_cps = cpfont_codepoints(LEGACY_NOTO_CACHE, require_bitmap=True)
-    hanzi = sorted({cp for cp in bitmap_cps if _in_hanzi_range(cp)})
-    lines = [f"# Derived from {LEGACY_NOTO_CACHE.name} (crossmux.com m1-b4); see scripts/legacy_noto_m1_b4.py"]
-    for cp in hanzi:
-        lines.append(f"{cp:X}" if cp <= 0xFFFF else f"{cp:06X}")
-    NOTO_HANZI_ALLOWLIST.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"  Wrote {NOTO_HANZI_ALLOWLIST.name} ({len(hanzi)} hanzi codepoints)")
+def fallback_font_for(family_name: str, style_name: str) -> Path:
+    if family_name == "NotoSansSC" and style_name == "bold":
+        if not NOTO_SANS_BOLD_FALLBACK.is_file():
+            raise FileNotFoundError(f"Missing NotoSans Bold fallback: {NOTO_SANS_BOLD_FALLBACK}")
+        return NOTO_SANS_BOLD_FALLBACK
+    return DEFAULT_FALLBACK_FONT
 
 
 _orig_getaddrinfo = socket.getaddrinfo
@@ -248,7 +244,7 @@ def build_family(
         # Multi-style mode
         for style_name, font_path in resolved_styles.items():
             cmd.extend([f"--{style_name}", str(font_path)])
-            cmd.extend([f"--fallback-{style_name}", str(DEFAULT_FALLBACK_FONT)])
+            cmd.extend([f"--fallback-{style_name}", str(fallback_font_for(name, style_name))])
     else:
         # Single-style mode
         style_name = next(iter(resolved_styles))
@@ -433,12 +429,6 @@ def main():
 
     if any(f.get("name") == "NotoSansSC" for f in families):
         ensure_noto_hanzi_allowlist()
-        if not NOTO_HANZI_ALLOWLIST.is_file():
-            print(
-                f"ERROR: Missing {NOTO_HANZI_ALLOWLIST} (need {LEGACY_NOTO_FIXTURE})",
-                file=sys.stderr,
-            )
-            sys.exit(1)
 
     # Download phase (sequential — avoids hammering servers)
     print(f"\n=== Resolving {len(families)} font families ===\n")
