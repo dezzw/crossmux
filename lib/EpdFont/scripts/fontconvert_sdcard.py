@@ -41,6 +41,7 @@ INTERVAL_PRESETS = {
     "latin1":      [(0x0080, 0x00FF)],
     "latin-ext":   [(0x0020, 0x007E), (0x0080, 0x00FF), (0x0100, 0x024F),
                     (0x02B0, 0x02FF), (0x1E00, 0x1EFF), (0x2000, 0x206F),
+                    (0x20A0, 0x20C0), (0x2100, 0x214F), (0x2212, 0x2212),
                     (0xFB00, 0xFB06)],
     "greek":       [(0x0370, 0x03FF), (0x1F00, 0x1FFF)],
     "cyrillic":    [(0x0400, 0x04FF), (0x0500, 0x052F)],
@@ -53,16 +54,24 @@ INTERVAL_PRESETS = {
     "vietnamese":  [(0x01A0, 0x01B0), (0x1EA0, 0x1EF9)],
     "ipa-chars":   [(0x0250, 0x02AF), (0x02B0, 0x02FF)],
     "punctuation": [(0x2000, 0x206F)],
+    "letterlike":  [(0x2100, 0x214F), (0x2160, 0x218F)],
+    "combining":   [(0x0300, 0x036F)],
+    "enclosed-alphanumerics": [(0x2460, 0x24FF)],
+    "ext-a":       [(0x3400, 0x4DBF)],
     "cjk":         [(0x3000, 0x303F), (0x3040, 0x309F), (0x30A0, 0x30FF),
-                    (0x4E00, 0x9FFF), (0xF900, 0xFAFF), (0xFF00, 0xFFEF)],
+                    (0x3100, 0x312F), (0x4E00, 0x9FFF), (0xF900, 0xFAFF),
+                    (0xFF00, 0xFFEF), (0x20000, 0x2FFFF)],
+    "cjk-symbols": [(0x2E80, 0x2EFF), (0x3200, 0x32FF), (0xFE10, 0xFE19),
+                    (0xFE30, 0xFE4F)],
     "hangul":      [(0xAC00, 0xD7AF), (0x1100, 0x11FF), (0x3130, 0x318F)],
     "cherokee":    [(0x13A0, 0x13FF), (0xAB70, 0xABBF)],
     "tifinagh":    [(0x2D30, 0x2D7F)],
     # Symbol blocks commonly seen in scifi/popsci/literary fiction.
 
     "symbols":     [(0x2070, 0x209F), (0x20A0, 0x20CF), (0x2150, 0x218F),
-                    (0x2190, 0x21FF), (0x2200, 0x22FF), (0x2500, 0x257F),
-                    (0x25A0, 0x25FF), (0x2600, 0x26FF), (0x2700, 0x27BF)],
+                    (0x2190, 0x21FF), (0x2200, 0x22FF), (0x2300, 0x23FF),
+                    (0x2500, 0x257F), (0x25A0, 0x25FF), (0x2600, 0x26FF),
+                    (0x2700, 0x27BF), (0x2900, 0x29FF), (0x2E00, 0x2E7F)],
     # Composite preset for English-language literary fiction including scifi/popsci.
     # Greek for physics terms, math operators, geometric shapes, uncommon
     # dialogue punctuation, CJK quote marks, miscellaneous symbols (♪♫♬), dingbats.
@@ -128,6 +137,44 @@ def resolve_intervals(preset_str):
         else:
             merged.append((start, end))
     return merged
+
+
+# Ideograph ranges filtered by optional --codepoints-file allowlists (GB2312-style builds).
+HANZI_FILTER_RANGES = (
+    (0x3400, 0x4DBF),
+    (0x4E00, 0x9FFF),
+    (0xF900, 0xFAFF),
+    (0x20000, 0x2FFFF),
+)
+
+
+def in_hanzi_filter_range(code_point: int) -> bool:
+    return any(lo <= code_point <= hi for lo, hi in HANZI_FILTER_RANGES)
+
+
+def load_hanzi_allowlist(paths) -> set[int]:
+    """Load allowed CJK codepoints from UTF-8 text (one hex codepoint or character per line)."""
+    allowed: set[int] = set()
+    for path in paths:
+        with open(path, encoding="utf-8") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line and all(c in "0123456789abcdefABCDEF" for c in line) and len(line) <= 8:
+                    allowed.add(int(line, 16))
+                    continue
+                for ch in line:
+                    allowed.add(ord(ch))
+    return allowed
+
+
+def include_codepoint(code_point: int, hanzi_allowlist: set[int] | None) -> bool:
+    if hanzi_allowlist is None:
+        return True
+    if not in_hanzi_filter_range(code_point):
+        return True
+    return code_point in hanzi_allowlist
 
 
 GlyphProps = namedtuple("GlyphProps", [
@@ -568,7 +615,7 @@ def extract_ligatures_fonttools(font_path, codepoints):
 
 
 def rasterize_font_style(fontfile, size, intervals, style_id=0, force_autohint=False,
-                         fallback_fontfile=None):
+                         fallback_fontfile=None, hanzi_allowlist=None):
     """Rasterize all glyphs for one font style. Returns StyleRasterData."""
     import freetype
 
@@ -614,6 +661,11 @@ def rasterize_font_style(fontfile, size, intervals, style_id=0, force_autohint=F
     for i_start, i_end in intervals:
         start = i_start
         for code_point in range(i_start, i_end + 1):
+            if not include_codepoint(code_point, hanzi_allowlist):
+                if start < code_point:
+                    validated_intervals.append((start, code_point - 1))
+                start = code_point + 1
+                continue
             has_primary = face.get_char_index(code_point) != 0 or code_point in ligature_glyph_indices
             has_fallback = fallback_face and fallback_face.get_char_index(code_point) != 0
             if not has_primary and not has_fallback:
@@ -624,7 +676,10 @@ def rasterize_font_style(fontfile, size, intervals, style_id=0, force_autohint=F
             validated_intervals.append((start, i_end))
 
     intervals = validated_intervals
-    total_glyphs = sum(end - start + 1 for start, end in intervals)
+    total_glyphs = sum(
+        sum(1 for cp in range(start, end + 1) if include_codepoint(cp, hanzi_allowlist))
+        for start, end in intervals
+    )
     print(f"  [{style_label}] Validated: {len(intervals)} intervals, {total_glyphs} glyphs", file=sys.stderr)
 
     # Rasterize all glyphs
@@ -633,6 +688,8 @@ def rasterize_font_style(fontfile, size, intervals, style_id=0, force_autohint=F
 
     for i_start, i_end in intervals:
         for code_point in range(i_start, i_end + 1):
+            if not include_codepoint(code_point, hanzi_allowlist):
+                continue
             f = load_glyph(code_point)
             if f is None:
                 glyph = GlyphProps(0, 0, 0, 0, 0, 0, total_bitmap_size, code_point)
@@ -827,7 +884,8 @@ def style_sections_total_size(sections):
 # --- File writers ---
 
 def generate_cpfont_multistyle(style_fonts, size, intervals, output_path,
-                               force_autohint=False, fallback_style_fonts=None):
+                               force_autohint=False, fallback_style_fonts=None,
+                               hanzi_allowlist=None):
     """Generate a multi-style v4 .cpfont file.
 
     style_fonts: dict of {style_id: fontfile_path} e.g. {0: "Regular.ttf", 2: "Italic.ttf"}
@@ -849,7 +907,8 @@ def generate_cpfont_multistyle(style_fonts, size, intervals, output_path,
         raster_data[style_id] = rasterize_font_style(
             fontfile, size, intervals, style_id=style_id,
             force_autohint=force_autohint,
-            fallback_fontfile=fallback_fontfile)
+            fallback_fontfile=fallback_fontfile,
+            hanzi_allowlist=hanzi_allowlist)
 
     # Pack binary sections for each style
     packed_sections = {}  # style_id -> tuple of section bytearrays
@@ -950,6 +1009,12 @@ def main():
                         help="Output directory for multi-size mode.")
     parser.add_argument("--list-presets", action="store_true",
                         help="List available interval presets and exit.")
+    parser.add_argument(
+        "--codepoints-file",
+        action="append",
+        dest="codepoints_files",
+        help="Restrict CJK ideographs to codepoints listed in this file (hex or UTF-8). Repeatable.",
+    )
 
     # Multi-style mode: per-style font file arguments (generates v4 .cpfont)
     parser.add_argument("--regular", dest="font_regular",
@@ -1009,6 +1074,12 @@ def main():
         sys.exit(1)
 
     intervals = resolve_intervals(args.intervals)
+    hanzi_allowlist = None
+    if args.codepoints_files:
+        hanzi_allowlist = load_hanzi_allowlist(args.codepoints_files)
+        if not hanzi_allowlist:
+            print("Error: --codepoints-file did not yield any codepoints", file=sys.stderr)
+            sys.exit(1)
 
     # Determine sizes
     if args.sizes:
@@ -1067,7 +1138,8 @@ def main():
         total_size += generate_cpfont_multistyle(
             style_fonts, sz, intervals, output_path,
             force_autohint=args.force_autohint,
-            fallback_style_fonts=fallback_style_fonts)
+            fallback_style_fonts=fallback_style_fonts,
+            hanzi_allowlist=hanzi_allowlist)
     print(f"\nTotal: {len(sizes)} files, {total_size / 1024 / 1024:.2f} MB", file=sys.stderr)
 
 

@@ -26,6 +26,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import os
 import shutil
 import subprocess
@@ -48,6 +49,35 @@ DEFAULT_OUTPUT = SCRIPT_DIR / "output"
 DOWNLOAD_DIR = SCRIPT_DIR / "downloaded_fonts"
 INSTANCE_DIR = SCRIPT_DIR / "instanced_fonts"
 DEFAULT_FALLBACK_FONT = EPDFONTS_DIR / "builtinFonts/source/NotoSans/NotoSans-Regular.ttf"
+NOTO_SANS_BOLD_FALLBACK = EPDFONTS_DIR / "builtinFonts/source/NotoSans/NotoSans-Bold.ttf"
+REPO_ROOT = SCRIPT_DIR.parent.parent.parent
+NOTO_HANZI_ALLOWLIST = SCRIPT_DIR / "noto_m1_b4_hanzi_coverage.txt"
+HANZI_FILTER_RANGES = (
+    (0x3400, 0x4DBF),
+    (0x4E00, 0x9FFF),
+    (0xF900, 0xFAFF),
+    (0x20000, 0x2FFFF),
+)
+
+
+def _in_hanzi_range(codepoint: int) -> bool:
+    return any(lo <= codepoint <= hi for lo, hi in HANZI_FILTER_RANGES)
+
+
+def ensure_noto_hanzi_allowlist() -> None:
+    """Require committed m1-b4 legacy bitmap codepoint list (see core_font_coverage_pins.yaml)."""
+    if NOTO_HANZI_ALLOWLIST.is_file():
+        return
+    print(f"ERROR: Missing {NOTO_HANZI_ALLOWLIST.name}", file=sys.stderr)
+    sys.exit(1)
+
+
+def fallback_font_for(family_name: str, style_name: str) -> Path:
+    if family_name == "NotoSansSC" and style_name == "bold":
+        if not NOTO_SANS_BOLD_FALLBACK.is_file():
+            raise FileNotFoundError(f"Missing NotoSans Bold fallback: {NOTO_SANS_BOLD_FALLBACK}")
+        return NOTO_SANS_BOLD_FALLBACK
+    return DEFAULT_FALLBACK_FONT
 
 
 _orig_getaddrinfo = socket.getaddrinfo
@@ -96,15 +126,15 @@ def download_font(url: str, dest: Path, retries: int = 3) -> Path:
 def extract_static_instance(source_path: Path, axes: dict, family_name: str, style_name: str) -> Path:
     """Use fonttools instancer to pin variable font axes, producing a static TTF.
 
-    Caches the result in INSTANCE_DIR/<family>/<style>_<axes>_<mtime>.ttf.
+    Caches the result in INSTANCE_DIR/<family>/<style>_<axes>_<source_sha8>.ttf.
     Returns the path to the static font file.
     """
     from fontTools.varLib.instancer import instantiateVariableFont
     from fontTools.ttLib import TTFont
 
-    mtime = int(source_path.stat().st_mtime)
+    source_sha8 = hashlib.sha256(source_path.read_bytes()).hexdigest()[:8]
     axis_key = "_".join(f"{k}{v}" for k, v in sorted(axes.items()))
-    cache_name = f"{style_name}_{axis_key}_{mtime}.ttf"
+    cache_name = f"{style_name}_{axis_key}_{source_sha8}.ttf"
     cached = INSTANCE_DIR / family_name / cache_name
 
     if cached.exists():
@@ -215,7 +245,7 @@ def build_family(
         # Multi-style mode
         for style_name, font_path in resolved_styles.items():
             cmd.extend([f"--{style_name}", str(font_path)])
-            cmd.extend([f"--fallback-{style_name}", str(DEFAULT_FALLBACK_FONT)])
+            cmd.extend([f"--fallback-{style_name}", str(fallback_font_for(name, style_name))])
     else:
         # Single-style mode
         style_name = next(iter(resolved_styles))
@@ -228,6 +258,15 @@ def build_family(
     cmd.extend(["--sizes", sizes])
     cmd.extend(["--name", name])
     cmd.extend(["--output-dir", str(output_dir) + "/"])
+
+    codepoints_file = family.get("codepoints_file")
+    if codepoints_file:
+        paths = [codepoints_file] if isinstance(codepoints_file, str) else list(codepoints_file)
+        for rel_path in paths:
+            cp_path = Path(rel_path)
+            if not cp_path.is_absolute():
+                cp_path = SCRIPT_DIR / rel_path
+            cmd.extend(["--codepoints-file", str(cp_path)])
 
     if family.get("force_autohint", False):
         cmd.append("--force-autohint")
@@ -388,6 +427,9 @@ def main():
         shutil.rmtree(output_base)
 
     output_base.mkdir(parents=True, exist_ok=True)
+
+    if any(f.get("name") == "NotoSansSC" for f in families):
+        ensure_noto_hanzi_allowlist()
 
     # Download phase (sequential — avoids hammering servers)
     print(f"\n=== Resolving {len(families)} font families ===\n")

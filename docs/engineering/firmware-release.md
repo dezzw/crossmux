@@ -21,16 +21,36 @@ aliased by the compatibility `global` and `zh-CN` pointers.
 
 1. Run `python3 scripts/ota_keygen.py` locally. Commit the updated
    `src/network/OtaSigningPublicKey.h` and keep the generated private PEM offline.
-2. Add the private PEM text to the repository secret **`OTA_SIGNING_KEY`**.
+2. Add the private PEM text to the repository secret **`OTA_SIGNING_KEY`**
+   (required for every stable and nightly publish job that signs OTA manifests).
 3. Set GitHub **Settings → Actions → General → Workflow permissions** to
    **Read and write**.
-4. Tag the first stable release on `main` as `vX.Y.Z` matching `platformio.ini`
-   `[crosspoint] version`.
+4. Tag stable releases on `main` with a semver tag that **exactly equals**
+   `[crosspoint] version` in `platformio.ini` (for example tag `1.6.0` when
+   `version = 1.6.0`). The workflow rejects mismatched tag/version pairs.
 5. Flash one device over USB with the firmware that embeds the matching public key
    before relying on OTA.
 
+### One-time font + stable OTA bootstrap (Desmond)
+
+After merging self-hosted fonts firmware, run these once on a **public**
+`dezzw/crossmux` repository:
+
+1. **Actions → Build & Publish SD Card Fonts → Run workflow.** This builds the core
+   set, publishes immutable `fonts-m1-b4-r1` (revision increments on reruns), and
+   updates the rolling `fonts-m1-b4` release (never marked GitHub “Latest”).
+2. **Tag the first semver firmware release** on `main` (for example `1.6.0`) so
+   **Firmware Release** publishes signed binaries and uploads
+   `waveshare-epaper-397-global-manifest.json` to the rolling **`stable`** release.
+3. Confirm anonymous HTTPS downloads work for both release tags (fonts and stable
+   manifest) before shipping devices on this firmware. Stable publish verifies
+   each signed global manifest’s `firmware.url` returns HTTP **200** before
+   uploading the manifest to the rolling **`stable`** release (uploaded last,
+   after the semver release assets exist).
+
 Devices fetch Stable manifests from
-`https://github.com/dezzw/crossmux/releases/latest/download/waveshare-epaper-397-global-manifest.json`,
+`https://github.com/dezzw/crossmux/releases/download/stable/waveshare-epaper-397-global-manifest.json`
+(the rolling `stable` GitHub Release is updated on each semver tag publish and is not marked Latest),
 verify SHA-256 and an ECDSA P-256 signature, require a matching board tag, and
 refuse downgrades. TLS uses the embedded CA bundle for GitHub and crossmux.com.
 

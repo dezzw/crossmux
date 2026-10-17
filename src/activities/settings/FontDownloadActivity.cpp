@@ -461,14 +461,10 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   lastHttpStatus_ = 0;
   fontInstaller_.refreshRegistry();
 
-  char githubUrl[192];
-  char legacyUrl[192];
-  const int githubLen = CrossMuxEndpoints::formatFontGithubManifestUrl(githubUrl, sizeof(githubUrl),
-                                                                       FONTS_MANIFEST_VERSION, CPFONT_VERSION);
-  const int legacyLen = CrossMuxEndpoints::formatFontLegacyManifestUrl(legacyUrl, sizeof(legacyUrl),
-                                                                       FONTS_MANIFEST_VERSION, CPFONT_VERSION);
-  if (githubLen < 0 || static_cast<size_t>(githubLen) >= sizeof(githubUrl) || legacyLen < 0 ||
-      static_cast<size_t>(legacyLen) >= sizeof(legacyUrl)) {
+  char manifestUrl[192];
+  const int manifestUrlLen = CrossMuxEndpoints::formatFontGithubManifestUrl(manifestUrl, sizeof(manifestUrl),
+                                                                            FONTS_MANIFEST_VERSION, CPFONT_VERSION);
+  if (manifestUrlLen < 0 || static_cast<size_t>(manifestUrlLen) >= sizeof(manifestUrl)) {
     LOG_ERR("FONT", "Manifest URL exceeds buffer");
     manifestFailure_ = ManifestFailure::Network;
     return false;
@@ -476,85 +472,58 @@ bool FontDownloadActivity::fetchAndParseManifest() {
 
   FontManifestCatalog::Catalog catalog;
   const HttpDownloader::FetchOptions verifiedTls{.verifyTlsPeer = true};
-  struct ManifestSource {
-    const char* url;
-    FontManifestCatalog::IngestMode mode;
-    FontManifestCatalog::ManifestBundleSource bundleSource;
-  };
-  const ManifestSource sources[] = {
-      {legacyUrl, FontManifestCatalog::IngestMode::Replace, FontManifestCatalog::ManifestBundleSource::CrossMux},
-      {githubUrl, FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames,
-       FontManifestCatalog::ManifestBundleSource::UpstreamGithub}};
-  bool loadedAny = false;
-
-  for (const ManifestSource& source : sources) {
-    const auto downloadResult = HttpDownloader::downloadToFile(source.url, MANIFEST_TMP, nullptr, nullptr, verifiedTls);
-    if (downloadResult != HttpDownloader::OK) {
-      if (manifestFailure_ == ManifestFailure::None) {
-        recordTransportFailure(manifestFailure_, lastHttpStatus_);
-      }
-      const int failedHttpStatus = HttpDownloader::lastHttpStatusCode();
-      if (failedHttpStatus > 0) {
-        LOG_ERR("FONT", "Manifest fetch failed (manifest): %s HTTP %d", source.url, failedHttpStatus);
-      } else {
-        LOG_ERR("FONT", "Manifest fetch failed (manifest): %s", source.url);
-      }
-      Storage.remove(MANIFEST_TMP);
-      continue;
-    }
-
-    JsonDocument doc;
-    DeserializationError err;
-    bool manifestTooLarge = false;
-    {
-      HalFile manifestFile;
-      if (!Storage.openFileForRead("FONT", MANIFEST_TMP, manifestFile)) {
-        LOG_ERR("FONT", "Failed to open temp manifest");
-        Storage.remove(MANIFEST_TMP);
-        if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
-          manifestFailure_ = ManifestFailure::SdWrite;
-        }
-        continue;
-      }
-      manifestTooLarge = manifestFile.fileSize() > FontManifestCatalog::Limits::kMaxManifestBytes;
-      if (!manifestTooLarge) err = deserializeJson(doc, manifestFile);
+  const auto downloadResult = HttpDownloader::downloadToFile(manifestUrl, MANIFEST_TMP, nullptr, nullptr, verifiedTls);
+  if (downloadResult != HttpDownloader::OK) {
+    recordTransportFailure(manifestFailure_, lastHttpStatus_);
+    const int failedHttpStatus = HttpDownloader::lastHttpStatusCode();
+    if (failedHttpStatus > 0) {
+      LOG_ERR("FONT", "Manifest fetch failed (manifest): %s HTTP %d", manifestUrl, failedHttpStatus);
+    } else {
+      LOG_ERR("FONT", "Manifest fetch failed (manifest): %s", manifestUrl);
     }
     Storage.remove(MANIFEST_TMP);
-
-    if (manifestTooLarge) {
-      LOG_ERR("FONT", "Manifest exceeds %zu bytes", FontManifestCatalog::Limits::kMaxManifestBytes);
-      if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
-        manifestFailure_ = ManifestFailure::Parse;
-      }
-      continue;
-    }
-    if (err) {
-      LOG_ERR("FONT", "Manifest parse error: %s", err.c_str());
-      if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
-        manifestFailure_ = ManifestFailure::Parse;
-      }
-      continue;
-    }
-
-    const FontManifestCatalog::IngestResult ingestResult =
-        FontManifestCatalog::ingestDocument(doc, catalog, source.mode, source.url, source.bundleSource);
-    if (ingestResult != FontManifestCatalog::IngestResult::Ok) {
-      LOG_ERR("FONT", "Manifest ingest failed from %s", source.url);
-      if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
-        if (ingestResult == FontManifestCatalog::IngestResult::Version) {
-          manifestFailure_ = ManifestFailure::Version;
-        } else {
-          manifestFailure_ = ManifestFailure::Parse;
-        }
-      }
-      continue;
-    }
-
-    loadedAny = true;
-    LOG_INF("FONT", "Loaded manifest from %s (%zu families total)", source.url, catalog.families.size());
+    return false;
   }
 
-  if (!loadedAny) return false;
+  JsonDocument doc;
+  DeserializationError err;
+  bool manifestTooLarge = false;
+  {
+    HalFile manifestFile;
+    if (!Storage.openFileForRead("FONT", MANIFEST_TMP, manifestFile)) {
+      LOG_ERR("FONT", "Failed to open temp manifest");
+      Storage.remove(MANIFEST_TMP);
+      manifestFailure_ = ManifestFailure::SdWrite;
+      return false;
+    }
+    manifestTooLarge = manifestFile.fileSize() > FontManifestCatalog::Limits::kMaxManifestBytes;
+    if (!manifestTooLarge) err = deserializeJson(doc, manifestFile);
+  }
+  Storage.remove(MANIFEST_TMP);
+
+  if (manifestTooLarge) {
+    LOG_ERR("FONT", "Manifest exceeds %zu bytes", FontManifestCatalog::Limits::kMaxManifestBytes);
+    manifestFailure_ = ManifestFailure::Parse;
+    return false;
+  }
+  if (err) {
+    LOG_ERR("FONT", "Manifest parse error: %s", err.c_str());
+    manifestFailure_ = ManifestFailure::Parse;
+    return false;
+  }
+
+  const FontManifestCatalog::IngestResult ingestResult = FontManifestCatalog::ingestDocument(doc, catalog, manifestUrl);
+  if (ingestResult != FontManifestCatalog::IngestResult::Ok) {
+    LOG_ERR("FONT", "Manifest ingest failed from %s", manifestUrl);
+    if (ingestResult == FontManifestCatalog::IngestResult::Version) {
+      manifestFailure_ = ManifestFailure::Version;
+    } else {
+      manifestFailure_ = ManifestFailure::Parse;
+    }
+    return false;
+  }
+
+  LOG_INF("FONT", "Loaded manifest from %s (%zu families)", manifestUrl, catalog.families.size());
 
   for (const FontManifestCatalog::Family& family : catalog.families) {
     if (family.baseUrlIndex >= catalog.baseUrls.size()) {
