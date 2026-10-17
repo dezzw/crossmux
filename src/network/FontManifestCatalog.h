@@ -60,7 +60,6 @@ enum class IngestResult { Ok, Parse, Version, Overflow };
 
 enum class IngestMode {
   Replace,
-  MergeSkipDuplicateNames,
   MergeReplaceDuplicateNames,
 };
 
