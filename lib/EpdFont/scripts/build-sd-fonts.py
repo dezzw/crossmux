@@ -26,6 +26,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import os
 import shutil
 import subprocess
@@ -125,14 +126,15 @@ def download_font(url: str, dest: Path, retries: int = 3) -> Path:
 def extract_static_instance(source_path: Path, axes: dict, family_name: str, style_name: str) -> Path:
     """Use fonttools instancer to pin variable font axes, producing a static TTF.
 
-    Caches the result in INSTANCE_DIR/<family>/<style>_<axes>_<mtime>.ttf.
+    Caches the result in INSTANCE_DIR/<family>/<style>_<axes>_<source_sha8>.ttf.
     Returns the path to the static font file.
     """
     from fontTools.varLib.instancer import instantiateVariableFont
     from fontTools.ttLib import TTFont
 
+    source_sha8 = hashlib.sha256(source_path.read_bytes()).hexdigest()[:8]
     axis_key = "_".join(f"{k}{v}" for k, v in sorted(axes.items()))
-    cache_name = f"{style_name}_{axis_key}.ttf"
+    cache_name = f"{style_name}_{axis_key}_{source_sha8}.ttf"
     cached = INSTANCE_DIR / family_name / cache_name
 
     if cached.exists():

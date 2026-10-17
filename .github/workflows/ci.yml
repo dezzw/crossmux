@@ -247,9 +247,7 @@ jobs:
           path: |
             lib/EpdFont/builtinFonts/source/NotoSansSC
             lib/EpdFont/scripts/downloaded_fonts
-            lib/EpdFont/scripts/instanced_fonts
           key: core-font-masters-${{ hashFiles('lib/EpdFont/scripts/font-release-pins.yaml', 'lib/EpdFont/scripts/sd-fonts.yaml') }}
-          restore-keys: core-font-masters-
 
       - name: Install font tools
         run: |
