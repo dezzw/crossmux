@@ -358,6 +358,39 @@ TEST(FontManifestCatalog, MergeReplaceDuplicateInMiddleShiftsFileOffsets) {
   EXPECT_EQ(catalog.files[2].pointSize, 12);
 }
 
+TEST(FontManifestCatalog, MergeSkipsDuplicateScriptTagWithinManifest) {
+  JsonDocument doc;
+  doc["version"] = 1;
+  doc["baseUrl"] = "https://github.com/example/fonts/";
+  JsonArray groups = doc["scriptGroups"].to<JsonArray>();
+  JsonObject first = groups.add<JsonObject>();
+  first["tag"] = "latn";
+  first["label"] = "Latin";
+  JsonObject duplicate = groups.add<JsonObject>();
+  duplicate["tag"] = "latn";
+  duplicate["label"] = "Latin again";
+  JsonArray families = doc["families"].to<JsonArray>();
+  JsonObject family = families.add<JsonObject>();
+  family["name"] = "Literata";
+  family["description"] = "desc";
+  JsonArray scripts = family["scripts"].to<JsonArray>();
+  scripts.add("latn");
+  JsonArray files = family["files"].to<JsonArray>();
+  JsonObject file = files.add<JsonObject>();
+  file["name"] = "Literata_12.cpfont";
+  file["size"] = 1000;
+  file["crc32"] = 305419896;
+
+  FontManifestCatalog::Catalog catalog;
+  ASSERT_EQ(
+      FontManifestCatalog::ingestDocument(doc, catalog, FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames,
+                                          "github", FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
+      FontManifestCatalog::IngestResult::Ok);
+  ASSERT_EQ(catalog.scriptGroupTags.size(), 1u);
+  EXPECT_EQ(catalog.scriptGroupTags.front(), "latn");
+  EXPECT_EQ(catalog.scriptGroupLabels.front(), "Latin");
+}
+
 TEST(FontManifestCatalog, MergeMalformedScriptGroupsLeavePriorCatalogUntouched) {
   JsonDocument legacyDoc;
   ASSERT_TRUE(loadLegacyManifest("https://assets.crossmux.cn/legacy/", "NotoSansSC", legacyDoc));

@@ -111,6 +111,9 @@ bool planMergeScriptGroups(JsonArrayConst groupsArr, const Catalog& catalog, std
     if (findScriptGroupIndex(catalog.scriptGroupTags, tag) < catalog.scriptGroupTags.size()) {
       continue;
     }
+    if (findScriptGroupIndex(outTags, tag) < outTags.size()) {
+      continue;
+    }
     if (projectedCount >= Limits::kMaxScriptGroups) {
       continue;
     }
