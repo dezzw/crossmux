@@ -131,9 +131,8 @@ def extract_static_instance(source_path: Path, axes: dict, family_name: str, sty
     from fontTools.varLib.instancer import instantiateVariableFont
     from fontTools.ttLib import TTFont
 
-    mtime = int(source_path.stat().st_mtime)
     axis_key = "_".join(f"{k}{v}" for k, v in sorted(axes.items()))
-    cache_name = f"{style_name}_{axis_key}_{mtime}.ttf"
+    cache_name = f"{style_name}_{axis_key}.ttf"
     cached = INSTANCE_DIR / family_name / cache_name
 
     if cached.exists():

@@ -38,8 +38,8 @@ jobs:
           echo "binary=$(python3 -c 'from cpfont_version import CPFONT_VERSION; print(CPFONT_VERSION)')" >> "$GITHUB_OUTPUT"
           echo "metadata=$(python3 -c 'from cpfont_version import FONTS_MANIFEST_VERSION; print(FONTS_MANIFEST_VERSION)')" >> "$GITHUB_OUTPUT"
 
-      - name: Fetch pinned NotoSansSC source
-        run: python3 scripts/fetch_notosans_sc_source.py
+      - name: Fetch pinned core font sources
+        run: python3 scripts/fetch_core_font_sources.py
 
       - name: Build SD card fonts
         run: python3 lib/EpdFont/scripts/build-sd-fonts.py --clean --verbose -j 1

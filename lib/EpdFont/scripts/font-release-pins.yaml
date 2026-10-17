@@ -10,10 +10,10 @@ NotoSansSC:
   sources:
     - url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf
       sha256: faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9
-      relative_path: NotoSansSC-Regular.otf
+      relative_path: builtinFonts/source/NotoSansSC/NotoSansSC-Regular.otf
     - url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Bold.otf
       sha256: c6cb5a93abaa9edc8ee7463b7ebb7f42d618d40e6ed2f7a5371c97b0b64767c0
-      relative_path: NotoSansSC-Bold.otf
+      relative_path: builtinFonts/source/NotoSansSC/NotoSansSC-Bold.otf
   ofl_url: https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE
   bold_fallback_ofl_path: builtinFonts/source/NotoSans/OFL.txt
 
@@ -21,8 +21,34 @@ Literata:
   repository: googlefonts/literata
   commit: 0c2761b727a1b3a7cffd313c37f0f5163dfc7a63
   ofl_url: https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/OFL.txt
+  sources:
+    regular:
+      url: https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/ttf/Literata-Regular.ttf
+      sha256: 0390890de9bb9d5862a6ba4125b82c61792ccc3d66b63e73eee75c1a16fcd208
+    bold:
+      url: https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/ttf/Literata-Bold.ttf
+      sha256: b6af95b3b443cdbce964aa06741596987f2f5c3ede46a2bc846e5addd99d061f
+    italic:
+      url: https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/ttf/Literata-Italic.ttf
+      sha256: 198f70cc9a17bab578553fa274b81984d58c440efe26bc06f1d841c194b6691a
+    bolditalic:
+      url: https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/ttf/Literata-BoldItalic.ttf
+      sha256: 1dade59381ad02f4679d7e993a7a406472e587ac332af7a6168d3ad9214a99dc
 
 Inter:
   repository: google/fonts
   commit: 47d54ca1ebb14fd864695f1d39dc734f39017c33
   ofl_url: https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/OFL.txt
+  sources:
+    regular:
+      url: https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf
+      sha256: 29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031
+    bold:
+      url: https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf
+      sha256: 29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031
+    italic:
+      url: https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/Inter-Italic%5Bopsz%2Cwght%5D.ttf
+      sha256: acd98e64795781b2058f07b18475e0ecee2a0fe2b42a49e2f9e37d0d6bf66ce6
+    bolditalic:
+      url: https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/Inter-Italic%5Bopsz%2Cwght%5D.ttf
+      sha256: acd98e64795781b2058f07b18475e0ecee2a0fe2b42a49e2f9e37d0d6bf66ce6

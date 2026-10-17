@@ -1,34 +1,23 @@
 #!/usr/bin/env python3
-"""Verify pinned NotoSansSC masters (offline; no network)."""
+"""Download pinned NotoSansSC masters (compat wrapper)."""
 
 from __future__ import annotations
 
-import hashlib
 import sys
 from pathlib import Path
 
-import yaml
-
 ROOT = Path(__file__).resolve().parent.parent
-PINS = ROOT / "lib/EpdFont/scripts/font-release-pins.yaml"
-PINNED = ROOT / "lib/EpdFont/scripts/pinned_sources"
+sys.path.insert(0, str(ROOT / "scripts"))
 
+from fetch_core_font_sources import fetch_noto_sans_sc, PINS  # noqa: E402
 
-def verify_file(path: Path, expected: str) -> None:
-    if not path.is_file():
-        raise SystemExit(f"::error::Missing pinned font: {path}")
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    if digest != expected.lower():
-        raise SystemExit(f"::error::{path.name} sha256 mismatch: expected {expected}, got {digest}")
+import yaml  # noqa: E402
 
 
 def main() -> int:
-    pins = yaml.safe_load(PINS.read_text())
-    spec = pins["NotoSansSC"]
-    for entry in spec["sources"]:
-        dest = PINNED / entry["relative_path"]
-        verify_file(dest, entry["sha256"])
-    print("NotoSansSC pinned sources verified.")
+    pins = yaml.safe_load(PINS.read_text(encoding="utf-8"))
+    fetch_noto_sans_sc(pins)
+    print("NotoSansSC sources verified.")
     return 0
 
 

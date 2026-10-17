@@ -227,17 +227,44 @@ jobs:
           bash freeink-sdk/libs/book/FreeInkBook/test/host/run.sh
           bash freeink-sdk/libs/ui/FreeInkUI/test/host/run.sh
 
-      - name: Verify core SD font build
-        run: |
-          set -euo pipefail
-          pip install freetype-py fonttools pyyaml
-          sudo apt-get install -y libfreetype6-dev
-          python3 scripts/fetch_notosans_sc_source.py
-          python3 lib/EpdFont/scripts/build-sd-fonts.py --clean -j 2
-          python3 scripts/verify_core_font_build.py
+      - name: Offline core font coverage pins
+        run: python3 -m unittest scripts.tests.test_core_font_coverage_offline -v
 
       - name: Run hardware packaging tests
         run: python3 -m unittest discover -v -s scripts/tests
+
+  core-font-build:
+    name: Verify core SD font build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Cache font masters (pinned URLs + sha256)
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/EpdFont/builtinFonts/source/NotoSansSC
+            lib/EpdFont/scripts/downloaded_fonts
+            lib/EpdFont/scripts/instanced_fonts
+          key: core-font-masters-${{ hashFiles('lib/EpdFont/scripts/font-release-pins.yaml', 'lib/EpdFont/scripts/sd-fonts.yaml') }}
+          restore-keys: core-font-masters-
+
+      - name: Install font tools
+        run: |
+          pip install freetype-py fonttools pyyaml
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6-dev
+
+      - name: Fetch pinned font masters
+        run: python3 scripts/fetch_core_font_sources.py
+
+      - name: Build core SD fonts
+        run: python3 lib/EpdFont/scripts/build-sd-fonts.py --clean -j 2
+
+      - name: Verify coverage and size limits
+        run: python3 scripts/verify_core_font_build.py
 
   # This job is used as the PR required actions check, allows for changes to other steps in the future without breaking
   # PR requirements.
@@ -249,6 +276,7 @@ jobs:
       - cppcheck
       - select_runner
       - unit-tests
+      - core-font-build
     if: always()
     runs-on: ubuntu-latest
     steps:

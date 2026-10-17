@@ -16,10 +16,10 @@ families:
     intervals: latin-ext,greek,cyrillic,ipa-chars
     sizes: [12, 14, 16, 18]
     styles:
-      regular:    {path: "scripts/pinned_sources/Literata-Regular.ttf"}
-      bold:       {path: "scripts/pinned_sources/Literata-Bold.ttf"}
-      italic:     {path: "scripts/pinned_sources/Literata-Italic.ttf"}
-      bolditalic: {path: "scripts/pinned_sources/Literata-BoldItalic.ttf"}
+      regular:    {url: "https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/ttf/Literata-Regular.ttf"}
+      bold:       {url: "https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/ttf/Literata-Bold.ttf"}
+      italic:     {url: "https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/ttf/Literata-Italic.ttf"}
+      bolditalic: {url: "https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/ttf/Literata-BoldItalic.ttf"}
 
   - name: Inter
     description: "Modern sans-serif (Latin, Greek, Cyrillic)"
@@ -27,10 +27,10 @@ families:
     intervals: latin-ext,greek,cyrillic,ipa-chars
     sizes: [12, 14, 16, 18]
     styles:
-      regular:    {path: "scripts/pinned_sources/regular_opsz14_wght400_1792208625.ttf"}
-      bold:       {path: "scripts/pinned_sources/bold_opsz14_wght700_1792208625.ttf"}
-      italic:     {path: "scripts/pinned_sources/italic_opsz14_wght400_1792208629.ttf"}
-      bolditalic: {path: "scripts/pinned_sources/bolditalic_opsz14_wght700_1792208629.ttf"}
+      regular:    {url: "https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf", variable: {wght: 400, opsz: 14}}
+      bold:       {url: "https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf", variable: {wght: 700, opsz: 14}}
+      italic:     {url: "https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/Inter-Italic%5Bopsz%2Cwght%5D.ttf", variable: {wght: 400, opsz: 14}}
+      bolditalic: {url: "https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/inter/Inter-Italic%5Bopsz%2Cwght%5D.ttf", variable: {wght: 700, opsz: 14}}
 
   - name: NotoSansSC
     description: "Simplified Chinese (Noto Sans SC, OFL)"
@@ -39,5 +39,5 @@ families:
     codepoints_file: noto_m1_b4_hanzi_coverage.txt
     sizes: [8, 10, 12, 14, 16, 18]
     styles:
-      regular:    {path: "scripts/pinned_sources/NotoSansSC-Regular.otf"}
-      bold:       {path: "scripts/pinned_sources/NotoSansSC-Bold.otf"}
+      regular:    {path: "builtinFonts/source/NotoSansSC/NotoSansSC-Regular.otf"}
+      bold:       {path: "builtinFonts/source/NotoSansSC/NotoSansSC-Bold.otf"}

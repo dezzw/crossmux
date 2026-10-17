@@ -42,7 +42,7 @@ def write_notice(dest: Path, family: str, meta: dict) -> None:
             lines.extend(
                 [
                     "",
-                    f"Master: pinned_sources/{src['relative_path']}",
+                    f"Master: {src['relative_path']}",
                     f"Upstream URL: {src['url']}",
                     f"SHA-256: {src['sha256']}",
                 ]
