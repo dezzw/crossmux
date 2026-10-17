@@ -11,11 +11,10 @@ namespace FontManifestCatalog {
 namespace {
 
 constexpr int kExpectedManifestSchemaVersion = 1;
-constexpr char kDefaultCjkScriptTag[] = "cjk";
 
-bool isCrossMuxSourcedFamilyBaseUrl(const std::string& baseUrl) {
-  if (baseUrl.find("assets.crossmux.cn") != std::string::npos) return true;
-  return baseUrl.find("crossmux.com") != std::string::npos;
+bool isCrossMuxBundleSource(const Catalog& catalog, uint8_t baseUrlIndex) {
+  return baseUrlIndex < catalog.baseUrlSources.size() &&
+         catalog.baseUrlSources[baseUrlIndex] == ManifestBundleSource::CrossMux;
 }
 
 bool isValidFamilyName(const char* name) {
@@ -120,9 +119,13 @@ void removeFamilyAt(Catalog& catalog, size_t familyIndex) {
   }
 }
 
-bool internBaseUrl(Catalog& catalog, const std::string& baseUrl, uint8_t& outIndex) {
+bool internBaseUrl(Catalog& catalog, const std::string& baseUrl, ManifestBundleSource source, uint8_t& outIndex) {
   for (size_t index = 0; index < catalog.baseUrls.size(); index++) {
     if (catalog.baseUrls[index] == baseUrl) {
+      if (catalog.baseUrlSources[index] != source) {
+        LOG_ERR("FONT", "Conflicting manifest bundle source for baseUrl");
+        return false;
+      }
       outIndex = static_cast<uint8_t>(index);
       return true;
     }
@@ -132,6 +135,7 @@ bool internBaseUrl(Catalog& catalog, const std::string& baseUrl, uint8_t& outInd
     return false;
   }
   catalog.baseUrls.push_back(baseUrl);
+  catalog.baseUrlSources.push_back(source);
   outIndex = static_cast<uint8_t>(catalog.baseUrls.size() - 1);
   return true;
 }
@@ -182,73 +186,113 @@ bool countAfterIngest(const Catalog& scratch, JsonArrayConst familiesArr, Ingest
   return true;
 }
 
-bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, IngestMode mode, uint8_t baseUrlIndex) {
+bool parseFamilyFromJson(JsonObjectConst fObj, const std::vector<std::string>& scriptGroupTags, uint8_t baseUrlIndex,
+                         Family& family, std::vector<File>& pendingFiles) {
+  family = Family{};
+  pendingFiles.clear();
+  family.name = fObj["name"] | "";
+  family.description = fObj["description"] | "";
+  family.baseUrlIndex = baseUrlIndex;
+  if (!isValidFamilyName(family.name.c_str()) || family.name.size() > Limits::kMaxFamilyNameBytes ||
+      family.description.empty() || family.description.size() > Limits::kMaxDescriptionBytes) {
+    LOG_ERR("FONT", "Malformed manifest family name: %s", family.name.c_str());
+    return false;
+  }
+
+  const JsonArrayConst familyFiles = fObj["files"].as<JsonArrayConst>();
+  if (familyFiles.isNull() || familyFiles.size() == 0 || familyFiles.size() > Limits::kMaxFilesPerFamily) {
+    LOG_ERR("FONT", "Manifest has invalid file count");
+    return false;
+  }
+
+  pendingFiles.reserve(familyFiles.size());
+  family.scriptMask = scriptMaskForTags(scriptGroupTags, fObj["scripts"].as<JsonArrayConst>());
+  family.totalSize = 0;
+
+  for (JsonObjectConst fileObj : familyFiles) {
+    File file;
+    const char* fileName = fileObj["name"] | "";
+    file.size = fileObj["size"] | 0;
+
+    if (!isValidCpfontFilename(fileName) || !parsePointSize(family.name.c_str(), fileName, file.pointSize) ||
+        file.size == 0 || file.size >= Limits::kMaxFontFileBytes || !fileObj["crc32"].is<uint32_t>()) {
+      LOG_ERR("FONT", "Malformed manifest file entry: %s", fileName);
+      return false;
+    }
+    const bool duplicatePointSize =
+        std::any_of(pendingFiles.begin(), pendingFiles.end(),
+                    [&file](const File& existing) { return existing.pointSize == file.pointSize; });
+    if (duplicatePointSize) {
+      LOG_ERR("FONT", "Duplicate manifest point size: %s", fileName);
+      return false;
+    }
+    file.crc32 = fileObj["crc32"].as<uint32_t>();
+    family.totalSize += file.size;
+    pendingFiles.push_back(file);
+  }
+  return true;
+}
+
+bool validateIncomingFamilies(JsonArrayConst familiesArr, const Catalog& catalog, IngestMode mode) {
   for (JsonObjectConst fObj : familiesArr) {
     const char* familyName = fObj["name"] | "";
     if (mode == IngestMode::MergeSkipDuplicateNames && familyNameExists(catalog, familyName)) {
       continue;
     }
+    Family family;
+    std::vector<File> pendingFiles;
+    if (!parseFamilyFromJson(fObj, catalog.scriptGroupTags, 0, family, pendingFiles)) {
+      return false;
+    }
+    if (familyNameExists(catalog, family.name) && mode != IngestMode::MergeReplaceDuplicateNames) {
+      LOG_ERR("FONT", "Duplicate manifest family name: %s", family.name.c_str());
+      return false;
+    }
+  }
+  return true;
+}
+
+bool ingestFamilies(JsonArrayConst familiesArr, Catalog& catalog, IngestMode mode, uint8_t baseUrlIndex) {
+  if (!validateIncomingFamilies(familiesArr, catalog, mode)) {
+    return false;
+  }
+
+  for (JsonObjectConst fObj : familiesArr) {
+    const char* familyName = fObj["name"] | "";
+    if (mode == IngestMode::MergeSkipDuplicateNames && familyNameExists(catalog, familyName)) {
+      continue;
+    }
+
+    size_t insertIndex = catalog.families.size();
     if (mode == IngestMode::MergeReplaceDuplicateNames) {
       const int existingIndex = findFamilyIndex(catalog, familyName);
       if (existingIndex >= 0) {
-        removeFamilyAt(catalog, static_cast<size_t>(existingIndex));
+        insertIndex = static_cast<size_t>(existingIndex);
+        removeFamilyAt(catalog, insertIndex);
       }
     }
 
     Family family;
-    family.name = familyName;
-    family.description = fObj["description"] | "";
-    family.baseUrlIndex = baseUrlIndex;
-    if (!isValidFamilyName(family.name.c_str()) || family.name.size() > Limits::kMaxFamilyNameBytes ||
-        family.description.empty() || family.description.size() > Limits::kMaxDescriptionBytes ||
-        familyNameExists(catalog, family.name)) {
-      LOG_ERR("FONT", "Malformed manifest family name: %s", family.name.c_str());
-      return false;
-    }
-
-    const JsonArrayConst familyFiles = fObj["files"].as<JsonArrayConst>();
-    if (familyFiles.isNull() || familyFiles.size() == 0 || familyFiles.size() > Limits::kMaxFilesPerFamily) {
-      LOG_ERR("FONT", "Manifest has invalid file count");
-      return false;
-    }
-
     std::vector<File> pendingFiles;
-    pendingFiles.reserve(familyFiles.size());
-    family.scriptMask = scriptMaskForTags(catalog.scriptGroupTags, fObj["scripts"].as<JsonArrayConst>());
-    family.totalSize = 0;
-
-    for (JsonObjectConst fileObj : familyFiles) {
-      File file;
-      const char* fileName = fileObj["name"] | "";
-      file.size = fileObj["size"] | 0;
-
-      if (!isValidCpfontFilename(fileName) || !parsePointSize(family.name.c_str(), fileName, file.pointSize) ||
-          file.size == 0 || file.size >= Limits::kMaxFontFileBytes || !fileObj["crc32"].is<uint32_t>()) {
-        LOG_ERR("FONT", "Malformed manifest file entry: %s", fileName);
-        return false;
-      }
-      const bool duplicatePointSize =
-          std::any_of(pendingFiles.begin(), pendingFiles.end(),
-                      [&file](const File& existing) { return existing.pointSize == file.pointSize; });
-      if (duplicatePointSize) {
-        LOG_ERR("FONT", "Duplicate manifest point size: %s", fileName);
-        return false;
-      }
-      file.crc32 = fileObj["crc32"].as<uint32_t>();
-      family.totalSize += file.size;
-      pendingFiles.push_back(file);
+    if (!parseFamilyFromJson(fObj, catalog.scriptGroupTags, baseUrlIndex, family, pendingFiles)) {
+      return false;
+    }
+    if (familyNameExists(catalog, family.name)) {
+      LOG_ERR("FONT", "Duplicate manifest family name: %s", family.name.c_str());
+      return false;
     }
 
     family.fileOffset = catalog.files.size();
     family.fileCount = pendingFiles.size();
     catalog.files.insert(catalog.files.end(), pendingFiles.begin(), pendingFiles.end());
-    catalog.families.push_back(std::move(family));
+    catalog.families.insert(catalog.families.begin() + static_cast<ptrdiff_t>(insertIndex), std::move(family));
   }
 
   return true;
 }
 
-IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl) {
+IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl,
+                                    ManifestBundleSource bundleSource) {
   const int version = doc["version"] | 0;
   if (version != kExpectedManifestSchemaVersion) {
     LOG_ERR("FONT", "Unsupported manifest version: %d", version);
@@ -290,6 +334,7 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
     scratch.families.clear();
     scratch.files.clear();
     scratch.baseUrls.clear();
+    scratch.baseUrlSources.clear();
     if (!groupsArr.isNull()) {
       const size_t groupCount = std::min(groupsArr.size(), Limits::kMaxScriptGroups);
       scratch.scriptGroupTags.reserve(groupCount);
@@ -341,18 +386,11 @@ IngestResult applyDocumentToCatalog(const JsonDocument& doc, Catalog& catalog, I
   }
 
   uint8_t baseUrlIndex = 0;
-  if (!internBaseUrl(scratch, baseUrl, baseUrlIndex)) {
+  if (!internBaseUrl(scratch, baseUrl, bundleSource, baseUrlIndex)) {
     return failIngest(IngestResult::Parse);
   }
 
-  Catalog preIngestCheckpoint;
-  if (restoreCatalogOnFailure) {
-    preIngestCheckpoint = scratch;
-  }
   if (!ingestFamilies(familiesArr, scratch, mode, baseUrlIndex)) {
-    if (restoreCatalogOnFailure) {
-      scratch = std::move(preIngestCheckpoint);
-    }
     return failIngest(IngestResult::Parse);
   }
 
@@ -383,22 +421,23 @@ bool parsePointSize(const char* familyName, const char* fileName, uint8_t& point
   return true;
 }
 
-IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl) {
+IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl,
+                            ManifestBundleSource bundleSource) {
   if (sourceUrl == nullptr) sourceUrl = "(unknown)";
-  return applyDocumentToCatalog(doc, catalog, mode, sourceUrl);
+  return applyDocumentToCatalog(doc, catalog, mode, sourceUrl, bundleSource);
 }
 
 void applyDefaultScriptGroupForUnscriptedFamilies(Catalog& catalog) {
   if (catalog.families.empty()) return;
 
-  size_t cjkIndex = findScriptGroupIndex(catalog.scriptGroupTags, kDefaultCjkScriptTag);
+  size_t cjkIndex = findScriptGroupIndex(catalog.scriptGroupTags, kCjkScriptGroupTag);
   bool addedCjkGroup = false;
   if (cjkIndex >= catalog.scriptGroupTags.size()) {
     if (catalog.scriptGroupTags.size() >= Limits::kMaxScriptGroups) {
       LOG_ERR("FONT", "Cannot add default CJK script group; catalog full");
       return;
     }
-    catalog.scriptGroupTags.emplace_back(kDefaultCjkScriptTag);
+    catalog.scriptGroupTags.emplace_back(kCjkScriptGroupTag);
     catalog.scriptGroupLabels.emplace_back("");
     cjkIndex = catalog.scriptGroupTags.size() - 1;
     addedCjkGroup = true;
@@ -408,9 +447,8 @@ void applyDefaultScriptGroupForUnscriptedFamilies(Catalog& catalog) {
   bool appliedCjkDefault = false;
   for (Family& family : catalog.families) {
     if (family.scriptMask != 0) continue;
-    if (family.baseUrlIndex >= catalog.baseUrls.size() ||
-        !isCrossMuxSourcedFamilyBaseUrl(catalog.baseUrls[family.baseUrlIndex])) {
-      LOG_INF("FONT", "WARN: unscripted GitHub family %s stays in All fonts", family.name.c_str());
+    if (!isCrossMuxBundleSource(catalog, family.baseUrlIndex)) {
+      LOG_ERR("FONT", "Unscripted family %s has no script group; listing under All fonts", family.name.c_str());
       continue;
     }
     family.scriptMask = cjkBit;
@@ -428,6 +466,7 @@ size_t estimateCatalogHeapBytes(const Catalog& catalog) {
   for (const auto& baseUrl : catalog.baseUrls) {
     bytes += baseUrl.capacity();
   }
+  bytes += catalog.baseUrlSources.capacity() * sizeof(ManifestBundleSource);
   bytes += catalog.scriptGroupTags.capacity() * sizeof(std::string);
   for (const auto& tag : catalog.scriptGroupTags) {
     bytes += tag.capacity();

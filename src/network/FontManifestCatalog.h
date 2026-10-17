@@ -9,6 +9,13 @@
 
 namespace FontManifestCatalog {
 
+inline constexpr char kCjkScriptGroupTag[] = "cjk";
+
+enum class ManifestBundleSource : uint8_t {
+  CrossMux,
+  UpstreamGithub,
+};
+
 struct Limits {
   static constexpr size_t kMaxManifestBytes = 96 * 1024;
   static constexpr size_t kMaxManifestFamilies = 64;
@@ -42,6 +49,7 @@ struct Family {
 
 struct Catalog {
   std::vector<std::string> baseUrls;
+  std::vector<ManifestBundleSource> baseUrlSources;
   std::vector<std::string> scriptGroupTags;
   std::vector<std::string> scriptGroupLabels;
   std::vector<Family> families;
@@ -58,7 +66,8 @@ enum class IngestMode {
 
 bool parsePointSize(const char* familyName, const char* fileName, uint8_t& pointSize);
 
-IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl);
+IngestResult ingestDocument(const JsonDocument& doc, Catalog& catalog, IngestMode mode, const char* sourceUrl,
+                            ManifestBundleSource bundleSource);
 
 void applyDefaultScriptGroupForUnscriptedFamilies(Catalog& catalog);
 

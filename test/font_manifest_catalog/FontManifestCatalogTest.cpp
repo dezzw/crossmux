@@ -77,10 +77,12 @@ TEST(FontManifestCatalog, MergeAddsMissingFamilyFromSecondaryManifest) {
   ASSERT_TRUE(loadManifest("https://github.com/example/sd-fonts-m1-b4/", "Literata", githubDoc));
 
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy"),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy",
+                                                FontManifestCatalog::ManifestBundleSource::CrossMux),
             FontManifestCatalog::IngestResult::Ok);
   ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog,
-                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github"),
+                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
             FontManifestCatalog::IngestResult::Ok);
 
   bool hasLiterata = false;
@@ -101,11 +103,13 @@ TEST(FontManifestCatalog, MergePrefersGithubOnDuplicateName) {
   ASSERT_TRUE(loadManifest("https://github.com/example/primary/", "Literata", githubDoc));
 
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy"),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy",
+                                                FontManifestCatalog::ManifestBundleSource::CrossMux),
             FontManifestCatalog::IngestResult::Ok);
   const uint8_t legacyBaseIndex = catalog.families.front().baseUrlIndex;
   ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog,
-                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github"),
+                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
             FontManifestCatalog::IngestResult::Ok);
 
   ASSERT_EQ(catalog.families.size(), 1u);
@@ -129,7 +133,8 @@ TEST(FontManifestCatalog, OverflowRejectsBeforeMutatingCatalog) {
   JsonDocument doc;
   ASSERT_TRUE(loadManyFamiliesManifest(FontManifestCatalog::Limits::kMaxManifestFamilies + 1, doc));
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(doc, catalog, FontManifestCatalog::IngestMode::Replace, "overflow"),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(doc, catalog, FontManifestCatalog::IngestMode::Replace, "overflow",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
             FontManifestCatalog::IngestResult::Overflow);
   EXPECT_TRUE(catalog.families.empty());
   EXPECT_TRUE(catalog.files.empty());
@@ -140,7 +145,8 @@ TEST(FontManifestCatalog, MidIngestFailureLeavesPriorCatalogIntact) {
   ASSERT_TRUE(loadLegacyManifest("https://assets.crossmux.cn/legacy/", "NotoSansSC", legacyDoc));
 
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy"),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy",
+                                                FontManifestCatalog::ManifestBundleSource::CrossMux),
             FontManifestCatalog::IngestResult::Ok);
   ASSERT_EQ(catalog.families.size(), 1u);
 
@@ -172,7 +178,8 @@ TEST(FontManifestCatalog, MidIngestFailureLeavesPriorCatalogIntact) {
   badFile["crc32"] = 305419896;
 
   ASSERT_EQ(FontManifestCatalog::ingestDocument(badGithub, catalog,
-                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github"),
+                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
             FontManifestCatalog::IngestResult::Parse);
   ASSERT_EQ(catalog.families.size(), 1u);
   EXPECT_EQ(catalog.families.front().name, "NotoSansSC");
@@ -182,7 +189,8 @@ TEST(FontManifestCatalog, LegacyOnlyThenGithubFailureKeepsLegacy) {
   JsonDocument legacyDoc;
   ASSERT_TRUE(loadLegacyManifest("https://assets.crossmux.cn/legacy/", "NotoSansSC", legacyDoc));
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy"),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy",
+                                                FontManifestCatalog::ManifestBundleSource::CrossMux),
             FontManifestCatalog::IngestResult::Ok);
 
   JsonDocument badVersion;
@@ -190,7 +198,8 @@ TEST(FontManifestCatalog, LegacyOnlyThenGithubFailureKeepsLegacy) {
   badVersion["baseUrl"] = "https://github.com/example/";
   badVersion["families"].to<JsonArray>();
   ASSERT_EQ(FontManifestCatalog::ingestDocument(badVersion, catalog,
-                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github"),
+                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
             FontManifestCatalog::IngestResult::Version);
   ASSERT_EQ(catalog.families.size(), 1u);
 }
@@ -213,10 +222,12 @@ TEST(FontManifestCatalog, GithubOnlyWhenLegacyFails) {
   badFile["crc32"] = 1;
 
   FontManifestCatalog::Catalog catalog;
-  ASSERT_NE(FontManifestCatalog::ingestDocument(badLegacy, catalog, FontManifestCatalog::IngestMode::Replace, "legacy"),
+  ASSERT_NE(FontManifestCatalog::ingestDocument(badLegacy, catalog, FontManifestCatalog::IngestMode::Replace, "legacy",
+                                                FontManifestCatalog::ManifestBundleSource::CrossMux),
             FontManifestCatalog::IngestResult::Ok);
   ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog,
-                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github"),
+                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
             FontManifestCatalog::IngestResult::Ok);
   ASSERT_EQ(catalog.families.size(), 1u);
   EXPECT_EQ(catalog.families.front().name, "Literata");
@@ -226,12 +237,35 @@ TEST(FontManifestCatalog, UnscriptedFamiliesDefaultToCjkGroup) {
   JsonDocument legacyDoc;
   ASSERT_TRUE(loadLegacyManifest("https://assets.crossmux.cn/legacy/", "NotoSansSC", legacyDoc));
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy"),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy",
+                                                FontManifestCatalog::ManifestBundleSource::CrossMux),
             FontManifestCatalog::IngestResult::Ok);
   EXPECT_EQ(catalog.families.front().scriptMask, 0u);
   FontManifestCatalog::applyDefaultScriptGroupForUnscriptedFamilies(catalog);
   ASSERT_FALSE(catalog.scriptGroupTags.empty());
-  EXPECT_EQ(catalog.scriptGroupTags.back(), "cjk");
+  EXPECT_EQ(catalog.scriptGroupTags.back(), FontManifestCatalog::kCjkScriptGroupTag);
+  EXPECT_NE(catalog.families.front().scriptMask, 0u);
+}
+
+TEST(FontManifestCatalog, UnscriptedCrossMuxBundleOnForeignHostGetsCjk) {
+  JsonDocument legacyDoc;
+  legacyDoc["version"] = 1;
+  legacyDoc["baseUrl"] = "https://unrelated.cdn.example/fonts/";
+  JsonArray families = legacyDoc["families"].to<JsonArray>();
+  JsonObject family = families.add<JsonObject>();
+  family["name"] = "NotoSansSC";
+  family["description"] = "CJK family";
+  JsonArray files = family["files"].to<JsonArray>();
+  JsonObject file = files.add<JsonObject>();
+  file["name"] = "NotoSansSC_12.cpfont";
+  file["size"] = 1000;
+  file["crc32"] = 305419896;
+
+  FontManifestCatalog::Catalog catalog;
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy",
+                                                FontManifestCatalog::ManifestBundleSource::CrossMux),
+            FontManifestCatalog::IngestResult::Ok);
+  FontManifestCatalog::applyDefaultScriptGroupForUnscriptedFamilies(catalog);
   EXPECT_NE(catalog.families.front().scriptMask, 0u);
 }
 
@@ -250,7 +284,8 @@ TEST(FontManifestCatalog, UnscriptedGithubFamilyStaysInAllGroup) {
   file["crc32"] = 305419896;
 
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog, FontManifestCatalog::IngestMode::Replace, "github"),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog, FontManifestCatalog::IngestMode::Replace, "github",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
             FontManifestCatalog::IngestResult::Ok);
   FontManifestCatalog::applyDefaultScriptGroupForUnscriptedFamilies(catalog);
   EXPECT_EQ(catalog.families.front().scriptMask, 0u);
@@ -299,12 +334,14 @@ TEST(FontManifestCatalog, MergeReplaceDuplicateInMiddleShiftsFileOffsets) {
   group["label"] = "Latin";
 
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy"),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(legacyDoc, catalog, FontManifestCatalog::IngestMode::Replace, "legacy",
+                                                FontManifestCatalog::ManifestBundleSource::CrossMux),
             FontManifestCatalog::IngestResult::Ok);
   ASSERT_EQ(catalog.families.size(), 3u);
   ASSERT_EQ(catalog.files.size(), 3u);
   ASSERT_EQ(FontManifestCatalog::ingestDocument(githubDoc, catalog,
-                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github"),
+                                                FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames, "github",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
             FontManifestCatalog::IngestResult::Ok);
 
   ASSERT_EQ(catalog.families.size(), 3u);
@@ -312,12 +349,12 @@ TEST(FontManifestCatalog, MergeReplaceDuplicateInMiddleShiftsFileOffsets) {
   EXPECT_EQ(catalog.families[0].name, "Alpha");
   EXPECT_EQ(catalog.families[0].fileOffset, 0u);
   EXPECT_EQ(catalog.families[0].fileCount, 1u);
-  EXPECT_EQ(catalog.families[1].name, "Omega");
-  EXPECT_EQ(catalog.families[1].fileOffset, 1u);
-  EXPECT_EQ(catalog.families[1].fileCount, 1u);
-  EXPECT_EQ(catalog.families[2].name, "DupMiddle");
-  EXPECT_EQ(catalog.families[2].fileOffset, 2u);
-  EXPECT_EQ(catalog.families[2].fileCount, 2u);
+  EXPECT_EQ(catalog.families[1].name, "DupMiddle");
+  EXPECT_EQ(catalog.families[1].fileOffset, 2u);
+  EXPECT_EQ(catalog.families[1].fileCount, 2u);
+  EXPECT_EQ(catalog.families[2].name, "Omega");
+  EXPECT_EQ(catalog.families[2].fileOffset, 1u);
+  EXPECT_EQ(catalog.families[2].fileCount, 1u);
   EXPECT_EQ(catalog.files[1].pointSize, 12);
 }
 
@@ -346,7 +383,8 @@ TEST(FontManifestCatalog, SharesBaseUrlAcrossFamiliesFromSameSource) {
   }
 
   FontManifestCatalog::Catalog catalog;
-  ASSERT_EQ(FontManifestCatalog::ingestDocument(doc, catalog, FontManifestCatalog::IngestMode::Replace, "shared"),
+  ASSERT_EQ(FontManifestCatalog::ingestDocument(doc, catalog, FontManifestCatalog::IngestMode::Replace, "shared",
+                                                FontManifestCatalog::ManifestBundleSource::UpstreamGithub),
             FontManifestCatalog::IngestResult::Ok);
   ASSERT_EQ(catalog.families.size(), 2u);
   EXPECT_EQ(catalog.baseUrls.size(), 1u);

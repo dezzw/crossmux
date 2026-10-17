@@ -479,9 +479,12 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   struct ManifestSource {
     const char* url;
     FontManifestCatalog::IngestMode mode;
+    FontManifestCatalog::ManifestBundleSource bundleSource;
   };
-  const ManifestSource sources[] = {{legacyUrl, FontManifestCatalog::IngestMode::Replace},
-                                    {githubUrl, FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames}};
+  const ManifestSource sources[] = {
+      {legacyUrl, FontManifestCatalog::IngestMode::Replace, FontManifestCatalog::ManifestBundleSource::CrossMux},
+      {githubUrl, FontManifestCatalog::IngestMode::MergeReplaceDuplicateNames,
+       FontManifestCatalog::ManifestBundleSource::UpstreamGithub}};
   bool loadedAny = false;
 
   for (const ManifestSource& source : sources) {
@@ -534,7 +537,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     }
 
     const FontManifestCatalog::IngestResult ingestResult =
-        FontManifestCatalog::ingestDocument(doc, catalog, source.mode, source.url);
+        FontManifestCatalog::ingestDocument(doc, catalog, source.mode, source.url, source.bundleSource);
     if (ingestResult != FontManifestCatalog::IngestResult::Ok) {
       LOG_ERR("FONT", "Manifest ingest failed from %s", source.url);
       if (manifestFailure_ == ManifestFailure::None && !loadedAny) {
@@ -553,9 +556,17 @@ bool FontDownloadActivity::fetchAndParseManifest() {
 
   if (!loadedAny) return false;
 
+  for (const FontManifestCatalog::Family& family : catalog.families) {
+    if (family.baseUrlIndex >= catalog.baseUrls.size()) {
+      LOG_ERR("FONT", "Manifest family %s has invalid baseUrl index", family.name.c_str());
+      manifestFailure_ = ManifestFailure::Parse;
+      return false;
+    }
+  }
+
   FontManifestCatalog::applyDefaultScriptGroupForUnscriptedFamilies(catalog);
   for (size_t groupIndex = 0; groupIndex < catalog.scriptGroupTags.size(); groupIndex++) {
-    if (catalog.scriptGroupTags[groupIndex] == "cjk") {
+    if (catalog.scriptGroupTags[groupIndex] == FontManifestCatalog::kCjkScriptGroupTag) {
       catalog.scriptGroupLabels[groupIndex] = tr(STR_FONT_SCRIPT_GROUP_CJK);
       break;
     }
@@ -828,7 +839,8 @@ FontDownloadActivity::DownloadResult FontDownloadActivity::downloadFile(const Ma
 
   if (family.baseUrlIndex >= manifestBaseUrls_.size()) {
     LOG_ERR("FONT", "Manifest baseUrl index out of range for %s", family.name.c_str());
-    fileFailure_ = FileFailure::Header;
+    manifestFailure_ = ManifestFailure::Parse;
+    fileFailure_ = FileFailure::None;
     return DownloadResult::Failed;
   }
   std::string url = manifestBaseUrls_[family.baseUrlIndex];
