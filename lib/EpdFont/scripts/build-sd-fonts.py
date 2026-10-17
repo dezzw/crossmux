@@ -229,6 +229,15 @@ def build_family(
     cmd.extend(["--name", name])
     cmd.extend(["--output-dir", str(output_dir) + "/"])
 
+    codepoints_file = family.get("codepoints_file")
+    if codepoints_file:
+        paths = [codepoints_file] if isinstance(codepoints_file, str) else list(codepoints_file)
+        for rel_path in paths:
+            cp_path = Path(rel_path)
+            if not cp_path.is_absolute():
+                cp_path = SCRIPT_DIR / rel_path
+            cmd.extend(["--codepoints-file", str(cp_path)])
+
     if family.get("force_autohint", False):
         cmd.append("--force-autohint")
 

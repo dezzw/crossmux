@@ -30,14 +30,17 @@ def write_notice(dest: Path, family: str, meta: dict) -> None:
         "for this family at the commit above.",
     ]
     if family == "NotoSansSC":
-        src = meta["source"]
-        lines.extend(
-            [
-                "",
-                f"Download URL: {src['url']}",
-                f"SHA-256: {src['sha256']}",
-            ]
-        )
+        lines.append("")
+        lines.append(f"Hanzi allowlist: lib/EpdFont/scripts/{meta.get('hanzi_allowlist', 'chinese_gb2312_hanzi.txt')}")
+        for src in meta.get("sources", []):
+            lines.extend(
+                [
+                    "",
+                    f"Master: {src['relative_path']}",
+                    f"Download URL: {src['url']}",
+                    f"SHA-256: {src['sha256']}",
+                ]
+            )
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
