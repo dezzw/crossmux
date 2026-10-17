@@ -48,6 +48,37 @@ DEFAULT_OUTPUT = SCRIPT_DIR / "output"
 DOWNLOAD_DIR = SCRIPT_DIR / "downloaded_fonts"
 INSTANCE_DIR = SCRIPT_DIR / "instanced_fonts"
 DEFAULT_FALLBACK_FONT = EPDFONTS_DIR / "builtinFonts/source/NotoSans/NotoSans-Regular.ttf"
+REPO_ROOT = SCRIPT_DIR.parent.parent.parent
+LEGACY_NOTO_FIXTURE = REPO_ROOT / "test/fixtures/legacy/NotoSansSC_12.cpfont"
+NOTO_HANZI_ALLOWLIST = SCRIPT_DIR / "noto_m1_b4_hanzi_coverage.txt"
+HANZI_FILTER_RANGES = (
+    (0x3400, 0x4DBF),
+    (0x4E00, 0x9FFF),
+    (0xF900, 0xFAFF),
+    (0x20000, 0x2FFFF),
+)
+
+
+def _in_hanzi_range(codepoint: int) -> bool:
+    return any(lo <= codepoint <= hi for lo, hi in HANZI_FILTER_RANGES)
+
+
+def ensure_noto_hanzi_allowlist() -> None:
+    """Regenerate hanzi allowlist from vendored legacy m1-b4 fixture (not committed)."""
+    if not LEGACY_NOTO_FIXTURE.is_file():
+        return
+    import sys
+
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    from cpfont_codepoints import cpfont_codepoints  # noqa: WPS433
+
+    bitmap_cps = cpfont_codepoints(LEGACY_NOTO_FIXTURE, require_bitmap=True)
+    hanzi = sorted({cp for cp in bitmap_cps if _in_hanzi_range(cp)})
+    lines = []
+    for cp in hanzi:
+        lines.append(f"{cp:X}" if cp <= 0xFFFF else f"{cp:06X}")
+    NOTO_HANZI_ALLOWLIST.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"  Wrote {NOTO_HANZI_ALLOWLIST.name} ({len(hanzi)} hanzi codepoints)")
 
 
 _orig_getaddrinfo = socket.getaddrinfo
@@ -397,6 +428,15 @@ def main():
         shutil.rmtree(output_base)
 
     output_base.mkdir(parents=True, exist_ok=True)
+
+    if any(f.get("name") == "NotoSansSC" for f in families):
+        ensure_noto_hanzi_allowlist()
+        if not NOTO_HANZI_ALLOWLIST.is_file():
+            print(
+                f"ERROR: Missing {NOTO_HANZI_ALLOWLIST} (need {LEGACY_NOTO_FIXTURE})",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     # Download phase (sequential — avoids hammering servers)
     print(f"\n=== Resolving {len(families)} font families ===\n")

@@ -1,3 +1,4 @@
+import importlib.util
 import sys
 import tempfile
 import unittest
@@ -9,9 +10,20 @@ sys.path.insert(0, str(SCRIPTS))
 import fontconvert_sdcard as fc  # noqa: E402
 
 
+def _load_build_sd_fonts():
+    spec = importlib.util.spec_from_file_location("build_sd_fonts", SCRIPTS / "build-sd-fonts.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 class HanziAllowlistTest(unittest.TestCase):
-    def test_noto_legacy_hanzi_file_non_empty(self):
+    def test_generated_noto_allowlist_from_fixture(self):
+        build = _load_build_sd_fonts()
+        build.ensure_noto_hanzi_allowlist()
         path = SCRIPTS / "noto_m1_b4_hanzi_coverage.txt"
+        self.assertTrue(path.is_file(), "legacy fixture should generate allowlist")
         allow = fc.load_hanzi_allowlist([path])
         self.assertGreater(len(allow), 8000)
 

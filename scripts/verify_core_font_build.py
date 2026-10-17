@@ -37,6 +37,9 @@ def main() -> int:
 
     errors: list[str] = []
 
+    sys.path.insert(0, str(SCRIPTS))
+    from cpfont_reader import load_cpfont_style  # noqa: E402
+
     for family in ("Literata", "Inter"):
         path = OUTPUT / family / f"{family}_12.cpfont"
         if not path.is_file():
@@ -45,6 +48,14 @@ def main() -> int:
         _styles, glyphs, size = cpfont_glyph_stats(path)
         if glyphs != EXPECTED_LATIN_GLYPHS:
             errors.append(f"{family}_12: expected {EXPECTED_LATIN_GLYPHS} glyphs/style, got {glyphs}")
+
+    lit_bold = OUTPUT / "Literata/Literata_12.cpfont"
+    if lit_bold.is_file():
+        bold = load_cpfont_style(lit_bold, 1)
+        ga = bold.get_glyph(ord("a"))
+        gA = bold.get_glyph(ord("A"))
+        if not ga or not gA or ga.bitmap == gA.bitmap:
+            errors.append("Literata bold: lowercase 'a' must differ from 'A' in .cpfont")
 
     noto_dir = OUTPUT / "NotoSansSC"
     if noto_dir.is_dir():

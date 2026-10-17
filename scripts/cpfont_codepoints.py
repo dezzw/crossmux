@@ -7,7 +7,7 @@ import struct
 from pathlib import Path
 
 STYLE_TOC = struct.Struct("<B3xIIBhhHHBBBI4x")
-GLYPH = struct.Struct("<BBHhhH2x")
+GLYPH = struct.Struct("<BBHhhH2xI")
 
 
 def cpfont_codepoints(path: Path, *, require_bitmap: bool = False) -> list[int]:
@@ -33,7 +33,7 @@ def cpfont_codepoints(path: Path, *, require_bitmap: bool = False) -> list[int]:
         for cp in range(first, last + 1):
             if gi >= glyph_count:
                 break
-            _w, _h, _ax, _l, _t, data_length = GLYPH.unpack_from(data, glyphs_off + gi * 16)
+            _w, _h, _ax, _l, _t, data_length, _doff = GLYPH.unpack_from(data, glyphs_off + gi * 16)
             if not require_bitmap or data_length > 0:
                 codepoints.append(cp)
             gi += 1
