@@ -14,6 +14,7 @@ enum class TransportFailure : uint8_t {
   TlsHandshake,
   HttpStatus,
   Incomplete,
+  EmptyResponse,
   FileIo,
 };
 

@@ -2,51 +2,57 @@
 
 #include <I18n.h>
 
-const char* fontTransportFailureText(const HttpDownloader::TransportFailure failure) {
+const char* fontTransportFailureText(const HttpTransportTypes::TransportFailure failure) {
   switch (failure) {
-    case HttpDownloader::TransportFailure::ClockNotSet:
+    case HttpTransportTypes::TransportFailure::ClockNotSet:
       return tr(STR_FONT_ERR_CLOCK);
-    case HttpDownloader::TransportFailure::TlsCert:
+    case HttpTransportTypes::TransportFailure::TlsCert:
       return tr(STR_FONT_ERR_TLS_CERT);
-    case HttpDownloader::TransportFailure::TlsDate:
+    case HttpTransportTypes::TransportFailure::TlsDate:
       return tr(STR_FONT_ERR_TLS_DATE);
-    case HttpDownloader::TransportFailure::TlsMemory:
+    case HttpTransportTypes::TransportFailure::TlsMemory:
       return tr(STR_FONT_ERR_TLS_MEMORY);
-    case HttpDownloader::TransportFailure::TlsHandshake:
+    case HttpTransportTypes::TransportFailure::TlsHandshake:
       return tr(STR_FONT_ERR_TLS_HANDSHAKE);
-    case HttpDownloader::TransportFailure::Connect:
-    case HttpDownloader::TransportFailure::Incomplete:
+    case HttpTransportTypes::TransportFailure::Connect:
       return tr(STR_FONT_ERR_NETWORK);
-    case HttpDownloader::TransportFailure::HttpStatus:
+    case HttpTransportTypes::TransportFailure::Incomplete:
+      return tr(STR_FONT_ERR_DOWNLOAD_INTERRUPTED);
+    case HttpTransportTypes::TransportFailure::EmptyResponse:
+      return tr(STR_FONT_ERR_EMPTY_RESPONSE);
+    case HttpTransportTypes::TransportFailure::HttpStatus:
       return tr(STR_FONT_ERR_HTTP);
-    case HttpDownloader::TransportFailure::FileIo:
+    case HttpTransportTypes::TransportFailure::FileIo:
       return tr(STR_FONT_ERR_SD);
-    case HttpDownloader::TransportFailure::None:
+    case HttpTransportTypes::TransportFailure::None:
       break;
   }
   return tr(STR_FONT_ERR_TLS);
 }
 
-const char* otaTransportFailureText(const HttpDownloader::TransportFailure failure) {
+const char* otaTransportFailureText(const HttpTransportTypes::TransportFailure failure) {
   switch (failure) {
-    case HttpDownloader::TransportFailure::ClockNotSet:
+    case HttpTransportTypes::TransportFailure::ClockNotSet:
       return tr(STR_OTA_ERR_CLOCK);
-    case HttpDownloader::TransportFailure::TlsCert:
+    case HttpTransportTypes::TransportFailure::TlsCert:
       return tr(STR_OTA_ERR_TLS_CERT);
-    case HttpDownloader::TransportFailure::TlsDate:
+    case HttpTransportTypes::TransportFailure::TlsDate:
       return tr(STR_OTA_ERR_TLS_DATE);
-    case HttpDownloader::TransportFailure::TlsMemory:
+    case HttpTransportTypes::TransportFailure::TlsMemory:
       return tr(STR_OTA_ERR_TLS_MEMORY);
-    case HttpDownloader::TransportFailure::TlsHandshake:
+    case HttpTransportTypes::TransportFailure::TlsHandshake:
       return tr(STR_OTA_ERR_TLS_HANDSHAKE);
-    case HttpDownloader::TransportFailure::Connect:
-    case HttpDownloader::TransportFailure::Incomplete:
+    case HttpTransportTypes::TransportFailure::Connect:
       return tr(STR_OTA_ERR_NETWORK);
-    case HttpDownloader::TransportFailure::HttpStatus:
+    case HttpTransportTypes::TransportFailure::Incomplete:
+      return tr(STR_OTA_ERR_DOWNLOAD_INTERRUPTED);
+    case HttpTransportTypes::TransportFailure::EmptyResponse:
+      return tr(STR_OTA_ERR_EMPTY_RESPONSE);
+    case HttpTransportTypes::TransportFailure::HttpStatus:
       return tr(STR_OTA_ERR_HTTP);
-    case HttpDownloader::TransportFailure::FileIo:
+    case HttpTransportTypes::TransportFailure::FileIo:
       return tr(STR_OTA_ERR_STORAGE);
-    case HttpDownloader::TransportFailure::None:
+    case HttpTransportTypes::TransportFailure::None:
       break;
   }
   return tr(STR_OTA_ERR_TLS);

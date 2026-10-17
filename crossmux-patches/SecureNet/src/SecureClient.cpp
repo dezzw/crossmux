@@ -215,6 +215,15 @@ size_t SecureClient::write(const uint8_t* buf, size_t size) {
 }
 
 int SecureClient::read(uint8_t* buf, size_t size) {
+#if defined(CROSSPOINT_SECURECLIENT_HOST_TEST)
+  if (_hostTestBufferedRead != kHostTestBufferedReadUnset) {
+    if (_hostTestBufferedRead > 0 && size > 0) {
+      buf[0] = static_cast<uint8_t>(_hostTestBufferedRead);
+      return 1;
+    }
+    return _hostTestBufferedRead;
+  }
+#endif
   if (!_connected) return -1;
   auto* ssl = static_cast<WOLFSSL*>(_ssl);
   const int n = wolfSSL_read(ssl, buf, size);
@@ -276,8 +285,18 @@ size_t SecureClient::write(const uint8_t* buf, size_t size) {
   return 0;
 }
 int SecureClient::read(uint8_t* buf, size_t size) {
+#if defined(CROSSPOINT_SECURECLIENT_HOST_TEST)
+  if (_hostTestBufferedRead != kHostTestBufferedReadUnset) {
+    if (_hostTestBufferedRead > 0 && size > 0) {
+      buf[0] = static_cast<uint8_t>(_hostTestBufferedRead);
+      return 1;
+    }
+    return _hostTestBufferedRead;
+  }
+#endif
   (void)buf;
   (void)size;
+  if (!_connected) return -1;
   return -1;
 }
 int SecureClient::available() { return 0; }
@@ -293,7 +312,9 @@ uint8_t SecureClient::connected() { return 0; }
 size_t SecureClient::write(uint8_t b) { return write(&b, 1); }
 int SecureClient::read() {
   uint8_t b;
-  return read(&b, 1) == 1 ? b : -1;
+  const int n = read(&b, 1);
+  if (n == 1) return static_cast<int>(b);
+  return -1;
 }
 int SecureClient::peek() { return -1; }
 void SecureClient::flush() {}
