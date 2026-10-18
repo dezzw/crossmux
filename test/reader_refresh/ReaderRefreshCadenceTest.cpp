@@ -18,11 +18,28 @@ TEST(ReaderRefreshCadence, ConsumeRefreshModeHalfResetsCounter) {
   EXPECT_EQ(pages, 15);
 }
 
-TEST(ReaderRefreshCadence, DeferCleanKeepsHalfDebtOnTransition) {
+TEST(ReaderRefreshCadence, DeferCleanOnlyWhileCounterAboveDue) {
   SETTINGS.refreshFrequency = 15;
-  int pages = 1;
+  int pages = 2;
   EXPECT_EQ(ReaderUtils::consumeRefreshMode(pages, true), HalDisplay::FAST_REFRESH);
   EXPECT_EQ(pages, 1);
+}
+
+TEST(ReaderRefreshCadence, DueHalfNotDeferredOnTransition) {
+  SETTINGS.refreshFrequency = 15;
+  int pages = 1;
+  EXPECT_EQ(ReaderUtils::consumeRefreshMode(pages, true), HalDisplay::HALF_REFRESH);
+  EXPECT_EQ(pages, 15);
+}
+
+TEST(ReaderRefreshCadence, DuePageUsesHalfThroughCombinedPath) {
+  GfxRenderer renderer;
+  renderer.combinedBase_ = true;
+  renderer.transition_ = true;
+  int pages = 1;
+  ReaderUtils::displayBaseWithRefreshCycle(renderer, pages, false);
+  EXPECT_EQ(renderer.lastGrayscaleMode, HalDisplay::HALF_REFRESH);
+  EXPECT_EQ(pages, 15);
 }
 
 TEST(ReaderRefreshCadence, CombinedTextAaPathCallsGrayscaleBase) {

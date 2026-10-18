@@ -50,7 +50,10 @@ inline void displayBaseWithRefreshCycle(const GfxRenderer& renderer, int& pagesU
     pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
     mode = HalDisplay::FAST_REFRESH;
   } else {
-    mode = consumeRefreshMode(pagesUntilFullRefresh, transition);
+    // Trusted transitions may defer a clean only while the counter is still > 1.
+    // When pagesUntilFullRefresh == 1 the HALF debt is due and must not be
+    // postponed again (otherwise every turn stays FAST forever).
+    mode = consumeRefreshMode(pagesUntilFullRefresh, transition && pagesUntilFullRefresh > 1);
   }
   renderer.displayGrayscaleBase(mode, DisplayRefreshContext::TextOnlyAntiAliasing);
 }
