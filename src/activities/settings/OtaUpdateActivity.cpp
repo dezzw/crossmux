@@ -32,7 +32,6 @@ namespace fui = freeink::ui;
 
 enum ReadyRow {
   CHECK_UPDATES_ROW,
-  NIGHTLY_ROW,
   READY_ROW_COUNT,
 };
 
@@ -97,14 +96,12 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
   NetworkStartup::prepare(renderer);
   LOG_INF("OTA", "TLS preflight (manifest): free=%u, maxAlloc=%u", static_cast<unsigned>(ESP.getFreeHeap()),
           static_cast<unsigned>(ESP.getMaxAllocHeap()));
-  const auto res = updater.checkForUpdate(selectedChannel);
+  const auto res = updater.checkForUpdate();
   if (res != OtaUpdater::OK) {
     LOG_DBG("OTA", "Update check failed: %d", res);
     {
       RenderLock lock(*this);
-      if (res == OtaUpdater::UNSUPPORTED_CHANNEL) {
-        failedDetail = tr(STR_OTA_CHANNEL_UNSUPPORTED);
-      } else if (res == OtaUpdater::HTTP_ERROR) {
+      if (res == OtaUpdater::HTTP_ERROR) {
         failedDetail = otaTransportFailureText(HttpDownloader::lastTransportFailure());
       } else {
         failedDetail = nullptr;
@@ -143,7 +140,6 @@ void OtaUpdateActivity::onEnter() {
   app.on(ACTION_INSTALL_UPDATE, &OtaUpdateActivity::onInstallUpdate, this);
   app.setScreen(&OtaUpdateActivity::updateScreen, this);
   state = State::Ready;
-  selectedChannel = SETTINGS.otaNightlyEnabled ? OtaUpdater::Channel::Nightly : OtaUpdater::Channel::Stable;
   selectedReadyRow = CHECK_UPDATES_ROW;
   waitForConfirmRelease = mappedInput.isPressed(MappedInputManager::Button::Confirm);
   requestUpdate();
@@ -153,13 +149,6 @@ void OtaUpdateActivity::activateReadyRow() {
   switch (static_cast<ReadyRow>(selectedReadyRow)) {
     case CHECK_UPDATES_ROW:
       beginWifiSelection();
-      break;
-    case NIGHTLY_ROW:
-      selectedChannel =
-          selectedChannel == OtaUpdater::Channel::Stable ? OtaUpdater::Channel::Nightly : OtaUpdater::Channel::Stable;
-      SETTINGS.otaNightlyEnabled = selectedChannel == OtaUpdater::Channel::Nightly;
-      SETTINGS.saveToFile();
-      requestUpdate();
       break;
     case READY_ROW_COUNT:
       break;
@@ -413,25 +402,9 @@ void OtaUpdateActivity::render(RenderLock&&) {
       const Rect readyList = getReadyListRect(renderer);
       GUI.drawList(
           renderer, readyList, READY_ROW_COUNT, selectedReadyRow,
-          [](const int index) {
-            return std::string(index == CHECK_UPDATES_ROW ? tr(STR_CHECK_UPDATES) : tr(STR_UPDATE_NIGHTLY));
-          },
-          nullptr, nullptr,
-          [this](const int index) {
-            if (index != NIGHTLY_ROW) return std::string();
-            return selectedChannel == OtaUpdater::Channel::Nightly ? std::string(tr(STR_STATE_ON))
-                                                                   : std::string(tr(STR_STATE_OFF));
-          },
-          true);
-      if (selectedChannel == OtaUpdater::Channel::Nightly) {
-        const int warningTop = readyList.y + readyList.height + relatedGap;
-        renderer.drawText(SMALL_FONT_ID, safeArea.x + metrics.contentSidePadding, warningTop, tr(STR_NIGHTLY_WARNING));
-        renderer.drawText(SMALL_FONT_ID, safeArea.x + metrics.contentSidePadding,
-                          warningTop + renderer.getLineHeight(SMALL_FONT_ID) + relatedGap,
-                          tr(STR_NIGHTLY_LOCKED_WARNING));
-      }
+          [](const int /*index*/) { return std::string(tr(STR_CHECK_UPDATES)); }, nullptr, nullptr, nullptr, true);
 
-      const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+      const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), "", "");
       GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
       break;
     }

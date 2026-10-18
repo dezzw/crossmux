@@ -69,18 +69,15 @@ bool decodeBase64Signature(const std::string& encoded, uint8_t* out, size_t outC
 
 }  // namespace
 
-OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate(const Channel requestedChannel) {
-  channel = requestedChannel;
+OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
   char manifestUrl[kManifestUrlCapacity];
-  const int manifestUrlLength = channel == Channel::Stable
-                                    ? CrossMuxEndpoints::formatOtaStableManifestUrl(manifestUrl, sizeof(manifestUrl))
-                                    : CrossMuxEndpoints::formatOtaNightlyManifestUrl(manifestUrl, sizeof(manifestUrl));
+  const int manifestUrlLength =
+      CrossMuxEndpoints::formatOtaStableManifestUrl(manifestUrl, sizeof(manifestUrl));
   if (manifestUrlLength < 0 || static_cast<size_t>(manifestUrlLength) >= sizeof(manifestUrl)) {
     LOG_ERR("OTA", "Manifest URL exceeds %zu bytes", sizeof(manifestUrl));
     return INTERNAL_UPDATE_ERROR;
   }
-  LOG_DBG("OTA", "Checking %s channel (current: %s)", channel == Channel::Nightly ? "nightly" : "stable",
-          CROSSPOINT_VERSION);
+  LOG_DBG("OTA", "Checking stable channel (current: %s)", CROSSPOINT_VERSION);
 
   OtaManifestParser manifestParser(releaseNotes);
   const bool ok = HttpDownloader::fetchUrl(

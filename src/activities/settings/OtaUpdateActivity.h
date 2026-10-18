@@ -26,7 +26,6 @@ class OtaUpdateActivity : public Activity, private UiAppHost {
   static constexpr unsigned int UNINITIALIZED_PERCENTAGE = 111;
 
   State state = State::Ready;
-  OtaUpdater::Channel selectedChannel = OtaUpdater::Channel::Stable;
   int selectedReadyRow = 0;
   bool waitForConfirmRelease = false;
   bool readingStatsReleased = false;

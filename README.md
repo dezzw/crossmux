@@ -26,13 +26,13 @@
 | Hardware | [Waveshare ESP32-S3 ePaper 3.97](https://www.waveshare.com/) |
 | Chip | ESP32-S3 (16 MiB flash, 8 MiB OPI PSRAM) |
 | Panel | 800×480 SSD1677 |
-| Channels | Nightly (see [releases](https://github.com/0x1abin/crossmux/releases)) |
+| OTA updates | Stable channel on [github.com/dezzw/crossmux](https://github.com/dezzw/crossmux/releases) |
 
 Build environment and version: [platformio.ini](./platformio.ini). Packaging and OTA: [firmware-release.md](./docs/engineering/firmware-release.md). Hardware notes and acceptance: [waveshare-epaper-397.md](./docs/engineering/waveshare-epaper-397.md).
 
 ## Install firmware
 
-1. Open [CrossMux Releases](https://github.com/0x1abin/crossmux/releases), pick the **Waveshare ePaper 3.97** Nightly asset, and follow that release’s install notes.
+1. Open [CrossMux Releases](https://github.com/dezzw/crossmux/releases), pick the **Waveshare ePaper 3.97** stable release asset for your version, and follow that release’s install notes.
 2. Back up SD card data before changing firmware. Use the full install package for first flash; application-only `firmware.bin` is not a complete first-install image.
 3. Flash and recovery commands (offsets, USB port) are board-specific—follow [waveshare-epaper-397.md](./docs/engineering/waveshare-epaper-397.md), not generic ESP32-C3/Xteink instructions.
 

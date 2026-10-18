@@ -12,7 +12,6 @@ ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 
 import build_nightly_index
-import nightly_retention
 import nightly_targets
 import ota_manifest
 import package_nightly_target
@@ -36,23 +35,9 @@ class NightlyTargetTest(unittest.TestCase):
             )
         self.assertEqual(urlopen.call_count, 2)
 
-    def test_matrix_has_single_waveshare_target_per_channel(self):
-        nightly = package_nightly_target.matrix('nightly')['include']
+    def test_release_matrix_is_stable_only(self):
         stable = package_nightly_target.matrix('stable')['include']
-        self.assertEqual(len(nightly), 1)
         self.assertEqual(len(stable), 1)
-        self.assertEqual(
-            {entry['targetId'] for entry in nightly},
-            set(nightly_targets.TARGETS),
-        )
-        self.assertEqual(
-            nightly[0],
-            {
-                'targetId': 'waveshare_epaper_397',
-                'deviceSlug': 'waveshare-epaper-397',
-                'environment': 'waveshare_epaper_397_nightly',
-            },
-        )
         self.assertEqual(
             stable[0],
             {
@@ -62,6 +47,38 @@ class NightlyTargetTest(unittest.TestCase):
             },
         )
 
+    def test_nightly_env_packages_as_rc_build_profile(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build = root / '.pio/build/waveshare_epaper_397_nightly'
+            build.mkdir(parents=True)
+            (build / 'bootloader.bin').write_bytes(b'bootloader')
+            (build / 'partitions.bin').write_bytes(b'partitions')
+            nightly_version = '1.6.0-waveshare-epaper-397-rc.0'
+            (build / 'firmware.bin').write_bytes(
+                self.write_image(board='waveshare_epaper_397', version=nightly_version).read_bytes()
+            )
+            boot_app0 = root / 'boot_app0.bin'
+            boot_app0.write_bytes(b'boot_app0')
+            (root / 'platformio.ini').write_text('[crosspoint]\nversion = 1.6.0\n')
+            output = root / 'dist/nightly/waveshare_epaper_397'
+
+            def git_value(_root, *args):
+                return 'a' * (7 if '--short=7' in args else 40)
+
+            with (
+                mock.patch.object(package_nightly_target, 'verify_partition_csv'),
+                mock.patch.object(package_nightly_target, 'find_boot_app0', return_value=boot_app0),
+                mock.patch.object(package_nightly_target, 'git_value', side_effect=git_value),
+            ):
+                package_nightly_target.package_target(root, 'waveshare_epaper_397', 'nightly', output)
+
+            manifest = json.loads(
+                (output / nightly_targets.manifest_name('waveshare_epaper_397', 'global')).read_text()
+            )
+            self.assertEqual(manifest['environment'], 'waveshare_epaper_397_nightly')
+            self.assertEqual(manifest['supportedChannels'], ['stable'])
+
     def test_runtime_models_and_board_tags_are_explicit(self):
         targets = nightly_targets.TARGETS
         target = targets['waveshare_epaper_397']
@@ -70,7 +87,7 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertEqual(target['deviceSlug'], 'waveshare-epaper-397')
         self.assertEqual(target['environments']['nightly'], 'waveshare_epaper_397_nightly')
         self.assertEqual(target['environments']['stable'], 'waveshare_epaper_397')
-        self.assertEqual(target['supportedChannels'], ['nightly', 'stable'])
+        self.assertEqual(target['supportedChannels'], ['stable'])
         self.assertTrue(target['fullInstall'])
         self.assertEqual(
             nightly_targets.environment_for('waveshare_epaper_397', 'nightly', 'global'),
@@ -122,32 +139,22 @@ class NightlyTargetTest(unittest.TestCase):
 
     def test_workflow_fails_closed_and_verifies_github_index(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
-        self.assertIn("group: firmware-${{ github.event_name == 'push'", workflow)
+        self.assertIn('group: firmware-stable-publish', workflow)
+        self.assertNotIn('workflow_dispatch:', workflow)
         self.assertIn("if: needs.prepare.outputs.channel == 'stable'", workflow)
-        self.assertGreaterEqual(workflow.count("if: needs.prepare.outputs.channel == 'nightly'"), 3)
+        self.assertNotIn("if: needs.prepare.outputs.channel == 'nightly'", workflow)
         self.assertNotIn("if: always() && needs.prepare.result == 'success'", workflow)
-        self.assertNotIn('--dir previous/global || true', workflow)
-        self.assertNotIn('-o previous/cn.json || true', workflow)
-        self.assertNotIn('--previous previous/', workflow)
-        self.assertNotIn('name: nightly-previous-', workflow)
-        self.assertNotIn('  publish_cn:', workflow)
-        self.assertNotIn('  cleanup_cn:', workflow)
-        self.assertNotIn('assets.crossmux.cn', workflow)
+        self.assertNotIn('  cleanup_github:', workflow)
+        self.assertNotIn('python3 scripts/nightly_retention.py', workflow)
         rolling = workflow.split('- name: Publish rolling channel release last', 1)[1].split(
             '  verify_publish:', 1
         )[0]
         self.assertIn('--latest=false', rolling)
-        self.assertIn('if [ "$CHANNEL" != stable ]', rolling)
-        self.assertIn("*-global-manifest.json", rolling)
+        self.assertNotIn('if [ "$CHANNEL" != stable ]', rolling)
         self.assertIn('legacy_assets=', rolling)
-        self.assertNotIn('xteink-firmware.bin', rolling)
         verify = workflow.split('  verify_publish:', 1)[1]
         self.assertIn('needs: [prepare, publish_github]', verify)
         self.assertEqual(verify.count('python3 scripts/verify_nightly_release.py'), 1)
-        self.assertIn('  cleanup_github:\n    if:', workflow)
-        self.assertEqual(workflow.count('python3 scripts/nightly_retention.py'), 1)
-        self.assertIn('gh release delete "$build_tag"', workflow)
-        self.assertIn('--cleanup-tag --yes', workflow)
 
     def test_signed_manifest_firmware_url_matches_sign_script(self):
         private_pem = (ROOT / 'test/fixtures/ota_test_private.pem').read_text()
@@ -242,7 +249,7 @@ class NightlyTargetTest(unittest.TestCase):
 
             self.assertEqual(manifests[0]['channel'], 'nightly')
             self.assertEqual(manifests[0]['version'], '1.6.0-waveshare-epaper-397-rc.0')
-            self.assertEqual(manifests[0]['supportedChannels'], ['nightly', 'stable'])
+            self.assertEqual(manifests[0]['supportedChannels'], ['stable'])
 
     def test_publish_github_job_runs_on_github_hosted_runner(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
@@ -297,14 +304,19 @@ class NightlyTargetTest(unittest.TestCase):
             )
 
 
-class NightlyIndexTest(unittest.TestCase):
+class StableIndexTest(unittest.TestCase):
+    SAMPLE_RELEASE_NOTES = {
+        'en': ['Stable note one', 'Stable note two'],
+        'zh': ['稳定说明一', '稳定说明二'],
+    }
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
     def write_pair(
-        self, target_id, revision='a' * 40, sdk_revision='b' * 40, channel='nightly'
+        self, target_id, revision='a' * 40, sdk_revision='b' * 40, channel='stable'
     ):
         target = nightly_targets.TARGETS[target_id]
         for flavor in nightly_targets.FLAVOR_TOKENS:
@@ -319,7 +331,7 @@ class NightlyIndexTest(unittest.TestCase):
                 'environment': nightly_targets.environment_for(target_id, channel, flavor),
                 'chip': target['chip'],
                 'flavor': flavor,
-                'version': '1.5.8' if channel == 'stable' else f'1.5.7-rc+{revision[:7]}',
+                'version': '1.5.8',
                 'crossmuxSha': revision,
                 'sdkSha': sdk_revision,
                 'assets': [{
@@ -330,7 +342,7 @@ class NightlyIndexTest(unittest.TestCase):
             }
             (self.root / nightly_targets.manifest_name(target_id, flavor)).write_text(json.dumps(manifest))
 
-    def write_all_pairs(self, revision='a' * 40, sdk_revision='b' * 40, channel='nightly'):
+    def write_all_pairs(self, revision='a' * 40, sdk_revision='b' * 40, channel='stable'):
         for target_id in nightly_targets.targets_for(channel):
             self.write_pair(target_id, revision, sdk_revision, channel)
 
@@ -338,15 +350,16 @@ class NightlyIndexTest(unittest.TestCase):
         self.write_all_pairs()
         index = build_nightly_index.build_index(
             self.root,
-            'https://example.com/nightly/',
+            'https://example.com/stable/',
             '2026-08-26T00:00:00Z',
-            'nightly-test',
-            'nightly',
+            'stable-test',
+            'stable',
+            release_notes=self.SAMPLE_RELEASE_NOTES,
         )
         self.assertEqual(set(index['targets']), set(nightly_targets.TARGETS))
         self.assertEqual(
             index['targets']['waveshare_epaper_397']['variants']['zh-CN']['manifestUrl'],
-            'https://example.com/nightly/waveshare-epaper-397-cn-manifest.json',
+            'https://example.com/stable/waveshare-epaper-397-cn-manifest.json',
         )
 
     def test_rejects_incomplete_target_set(self):
@@ -354,7 +367,12 @@ class NightlyIndexTest(unittest.TestCase):
         (self.root / nightly_targets.manifest_name('waveshare_epaper_397', 'zh-CN')).unlink()
         with self.assertRaisesRegex(ValueError, 'expected one waveshare_epaper_397/zh-CN manifest'):
             build_nightly_index.build_index(
-                self.root, 'https://example.com/', 'now', 'test', 'nightly'
+                self.root,
+                'https://example.com/',
+                'now',
+                'test',
+                'stable',
+                release_notes=self.SAMPLE_RELEASE_NOTES,
             )
 
     def test_rejects_mismatched_sdk_pair(self):
@@ -365,7 +383,12 @@ class NightlyIndexTest(unittest.TestCase):
         chinese.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, 'SDK revisions do not match'):
             build_nightly_index.build_index(
-                self.root, 'https://example.com/', 'now', 'test', 'nightly'
+                self.root,
+                'https://example.com/',
+                'now',
+                'test',
+                'stable',
+                release_notes=self.SAMPLE_RELEASE_NOTES,
             )
 
     def test_rejects_mismatched_asset_pair(self):
@@ -376,7 +399,12 @@ class NightlyIndexTest(unittest.TestCase):
         chinese.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, 'assets do not match'):
             build_nightly_index.build_index(
-                self.root, 'https://example.com/', 'now', 'test', 'nightly'
+                self.root,
+                'https://example.com/',
+                'now',
+                'test',
+                'stable',
+                release_notes=self.SAMPLE_RELEASE_NOTES,
             )
 
     def test_rejects_mixed_target_revisions(self):
@@ -387,140 +415,60 @@ class NightlyIndexTest(unittest.TestCase):
         chinese.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, 'flavor revisions do not match'):
             build_nightly_index.build_index(
-                self.root, 'https://example.com/', 'now', 'test', 'nightly'
+                self.root,
+                'https://example.com/',
+                'now',
+                'test',
+                'stable',
+                release_notes=self.SAMPLE_RELEASE_NOTES,
             )
-
-
-class NightlyRetentionTest(unittest.TestCase):
-    github_owner = '0x1abin'
-    github_repo = 'crossmux'
-
-    def previous_index(self, first_build, second_build, owner=None, repo=None):
-        owner = owner if owner is not None else self.github_owner
-        repo = repo if repo is not None else self.github_repo
-        targets = {}
-        for index, target_id in enumerate(nightly_targets.TARGETS):
-            build = second_build if index == 0 else first_build
-            base = f'https://github.com/{owner}/{repo}/releases/download/{build}/'
-            targets[target_id] = {
-                'targetId': target_id,
-                'variants': {
-                    flavor: {
-                        'manifestUrl': base + nightly_targets.manifest_name(target_id, flavor)
-                    }
-                    for flavor in nightly_targets.FLAVOR_TOKENS
-                },
-            }
-        return {'schemaVersion': 1, 'channel': 'nightly', 'targets': targets}
-
-    def test_github_keeps_current_and_every_build_in_previous_index(self):
-        current = f'nightly-build-{"a" * 40}-10-1'
-        previous = f'nightly-build-{"b" * 40}-9-1'
-        previous_fallback = f'nightly-build-{"c" * 40}-8-1'
-        obsolete = f'nightly-build-{"d" * 40}-7-1'
-        candidates = '\n'.join((current, previous, previous_fallback, obsolete, 'v1.5.7'))
-        self.assertEqual(
-            nightly_retention.obsolete_builds(
-                current,
-                self.previous_index(previous, previous_fallback),
-                candidates,
-            ),
-            sorted([previous, obsolete]),
-        )
-
-    def test_rejects_unexpected_previous_url_and_incomplete_listing(self):
-        current = f'nightly-build-{"a" * 40}-10-1'
-        previous = f'nightly-build-{"b" * 40}-9-1'
-        index = self.previous_index(previous, previous)
-        index['targets']['waveshare_epaper_397']['variants']['global']['manifestUrl'] = (
-            'https://example.com/firmware.bin'
-        )
-        with self.assertRaisesRegex(ValueError, 'unexpected'):
-            nightly_retention.obsolete_builds(current, index, current)
-        with self.assertRaisesRegex(ValueError, 'missing from the candidate list'):
-            nightly_retention.obsolete_builds(
-                current, self.previous_index(previous, previous), previous
-            )
-
-    def test_dezzw_fork_manifest_urls_are_accepted(self):
-        current = f'nightly-build-{"a" * 40}-10-1'
-        previous = f'nightly-build-{"b" * 40}-9-1'
-        previous_fallback = f'nightly-build-{"c" * 40}-8-1'
-        obsolete = f'nightly-build-{"d" * 40}-7-1'
-        candidates = '\n'.join((current, previous, previous_fallback, obsolete))
-        self.assertEqual(
-            nightly_retention.obsolete_builds(
-                current,
-                self.previous_index(previous, previous_fallback, owner='dezzw', repo='crossmux'),
-                candidates,
-            ),
-            sorted([previous, obsolete]),
-        )
-
-    def test_rejects_non_https_manifest_url(self):
-        current = f'nightly-build-{"a" * 40}-10-1'
-        previous = f'nightly-build-{"b" * 40}-9-1'
-        index = self.previous_index(previous, previous)
-        manifest_url = index['targets']['waveshare_epaper_397']['variants']['global']['manifestUrl']
-        index['targets']['waveshare_epaper_397']['variants']['global']['manifestUrl'] = manifest_url.replace(
-            'https://', 'http://', 1
-        )
-        with self.assertRaisesRegex(ValueError, 'unexpected manifest URL path'):
-            nightly_retention.obsolete_builds(current, index, current)
-
-    def test_rejects_manifest_owner_mismatch(self):
-        current = f'nightly-build-{"a" * 40}-10-1'
-        previous = f'nightly-build-{"b" * 40}-9-1'
-        index = self.previous_index(previous, previous, owner='dezzw', repo='crossmux')
-        foreign_url = self.previous_index(previous, previous)['targets']['waveshare_epaper_397'][
-            'variants'
-        ]['global']['manifestUrl']
-        index['targets']['waveshare_epaper_397']['variants']['zh-CN']['manifestUrl'] = foreign_url
-        with self.assertRaisesRegex(ValueError, 'unexpected previous waveshare_epaper_397/zh-CN'):
-            nightly_retention.obsolete_builds(current, index, current)
 
 
 class ValidatePublishedUrlTest(unittest.TestCase):
     def test_accepts_urls_under_index_repository(self):
-        index = 'https://github.com/dezzw/crossmux/releases/download/nightly/release-index.json'
+        index = 'https://github.com/dezzw/crossmux/releases/download/stable/release-index.json'
         manifest = (
-            'https://github.com/dezzw/crossmux/releases/download/nightly-build-deadbeef-1-1/'
+            'https://github.com/dezzw/crossmux/releases/download/stable-build-deadbeef-1-1/'
             'waveshare-epaper-397-global-manifest.json'
         )
-        verify_nightly_release.validate_url(manifest, index, 'nightly')
+        verify_nightly_release.validate_url(manifest, index, 'stable')
 
     def test_rejects_manifest_from_different_owner_than_index(self):
-        index = 'https://github.com/dezzw/crossmux/releases/download/nightly/release-index.json'
+        index = 'https://github.com/dezzw/crossmux/releases/download/stable/release-index.json'
         manifest = (
-            'https://github.com/0x1abin/crossmux/releases/download/nightly-build-deadbeef-1-1/'
+            'https://github.com/0x1abin/crossmux/releases/download/stable-build-deadbeef-1-1/'
             'waveshare-epaper-397-global-manifest.json'
         )
         with self.assertRaisesRegex(ValueError, 'outside the expected release path'):
-            verify_nightly_release.validate_url(manifest, index, 'nightly')
+            verify_nightly_release.validate_url(manifest, index, 'stable')
 
     def test_rejects_index_from_different_owner_than_manifest(self):
-        index = 'https://github.com/0x1abin/crossmux/releases/download/nightly/release-index.json'
+        index = 'https://github.com/0x1abin/crossmux/releases/download/stable/release-index.json'
         manifest = (
-            'https://github.com/dezzw/crossmux/releases/download/nightly-build-deadbeef-1-1/'
+            'https://github.com/dezzw/crossmux/releases/download/stable-build-deadbeef-1-1/'
             'waveshare-epaper-397-global-manifest.json'
         )
         with self.assertRaisesRegex(ValueError, 'outside the expected release path'):
-            verify_nightly_release.validate_url(manifest, index, 'nightly')
+            verify_nightly_release.validate_url(manifest, index, 'stable')
 
     def test_rejects_non_https_index_url(self):
-        index = 'http://github.com/dezzw/crossmux/releases/download/nightly/release-index.json'
+        index = 'http://github.com/dezzw/crossmux/releases/download/stable/release-index.json'
         with self.assertRaisesRegex(ValueError, 'index URL is not a GitHub releases download path'):
             verify_nightly_release.github_repo_prefix(index)
 
 
-class PublishedNightlyTest(unittest.TestCase):
+class PublishedStableTest(unittest.TestCase):
     github_owner = '0x1abin'
     github_repo = 'crossmux'
+    RELEASE_NOTES = {
+        'global': ['Stable note one', 'Stable note two'],
+        'zh-CN': ['稳定说明一', '稳定说明二'],
+    }
 
     def setUp(self):
         base = f'https://github.com/{self.github_owner}/{self.github_repo}/releases/download'
-        self.index_url = f'{base}/nightly/release-index.json'
-        self.release_url = f'{base}/nightly-build-test/'
+        self.index_url = f'{base}/stable/release-index.json'
+        self.release_url = f'{base}/stable-build-test/'
         self.current_sha = 'a' * 40
         self.old_sha = 'c' * 40
         self.sdk_sha = 'b' * 40
@@ -530,7 +478,7 @@ class PublishedNightlyTest(unittest.TestCase):
         for target_id, target in nightly_targets.TARGETS.items():
             revision = self.current_sha
             assets = []
-            for role, name, offset in verify_nightly_release.expected_assets(target_id, 'nightly'):
+            for role, name, offset in verify_nightly_release.expected_assets(target_id, 'stable'):
                 data = f'{target_id}/{role}'.encode()
                 self.store[self.release_url + name] = data
                 assets.append({
@@ -542,16 +490,16 @@ class PublishedNightlyTest(unittest.TestCase):
                 })
             variants = {}
             for flavor in nightly_targets.FLAVOR_TOKENS:
-                version = f'1.5.7-rc+{revision[:7]}'
+                version = '1.5.8'
                 manifest = {
                     'schemaVersion': 1,
-                    'channel': 'nightly',
+                    'channel': 'stable',
                     'targetId': target_id,
                     'models': target['models'],
                     'deviceSlug': target['deviceSlug'],
                     'boardTag': target['boardTag'],
                     'supportedChannels': target['supportedChannels'],
-                    'environment': nightly_targets.environment_for(target_id, 'nightly', flavor),
+                    'environment': nightly_targets.environment_for(target_id, 'stable', flavor),
                     'flavor': flavor,
                     'version': version,
                     'crossmuxSha': revision,
@@ -577,9 +525,10 @@ class PublishedNightlyTest(unittest.TestCase):
             }
         self.index = {
             'schemaVersion': 1,
-            'channel': 'nightly',
+            'channel': 'stable',
             'updatedAt': 'now',
             'buildId': 'test',
+            'releaseNotes': self.RELEASE_NOTES,
             'targets': targets,
         }
         self.write_index()
@@ -593,7 +542,7 @@ class PublishedNightlyTest(unittest.TestCase):
 
     def test_verifies_complete_current_release_with_one_asset_fetch(self):
         result = verify_nightly_release.verify_release(
-            self.index_url, self.current_sha, 'nightly', self.fetch
+            self.index_url, self.current_sha, 'stable', self.fetch
         )
         self.assertEqual(result['targets'], len(nightly_targets.TARGETS))
         self.assertEqual(result['currentTargets'], len(nightly_targets.TARGETS))
@@ -611,13 +560,13 @@ class PublishedNightlyTest(unittest.TestCase):
             self.index['targets'][target_id]['variants'][flavor]['crossmuxSha'] = self.old_sha
         self.write_index()
         with self.assertRaisesRegex(ValueError, 'does not point to the current revision'):
-            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
+            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'stable', self.fetch)
 
     def test_rejects_missing_target(self):
         self.index['targets'].pop('waveshare_epaper_397')
         self.write_index()
         with self.assertRaisesRegex(ValueError, 'canonical target set'):
-            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
+            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'stable', self.fetch)
 
     def test_rejects_manifest_difference(self):
         url = self.release_url + nightly_targets.manifest_name('waveshare_epaper_397', 'zh-CN')
@@ -625,19 +574,19 @@ class PublishedNightlyTest(unittest.TestCase):
         manifest['unexpected'] = True
         self.store[url] = json.dumps(manifest).encode()
         with self.assertRaisesRegex(ValueError, 'differ beyond flavor'):
-            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
+            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'stable', self.fetch)
 
     def test_rejects_corrupt_asset(self):
         url = self.release_url + nightly_targets.asset_name('waveshare_epaper_397', 'firmware.bin')
         self.store[url] += b'corrupt'
         with self.assertRaisesRegex(ValueError, 'size or SHA-256'):
-            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
+            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'stable', self.fetch)
 
     def test_rejects_manifest_owner_mismatch(self):
         foreign_owner = 'dezzw' if self.github_owner == '0x1abin' else '0x1abin'
         foreign = (
             f'https://github.com/{foreign_owner}/{self.github_repo}/releases/download/'
-            'nightly-build-test/'
+            'stable-build-test/'
         )
         target_id = 'waveshare_epaper_397'
         flavor = 'global'
@@ -646,10 +595,10 @@ class PublishedNightlyTest(unittest.TestCase):
         self.index['targets'][target_id]['variants'][flavor]['manifestUrl'] = foreign + name
         self.write_index()
         with self.assertRaisesRegex(ValueError, 'outside the expected release path'):
-            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
+            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'stable', self.fetch)
 
 
-class PublishedNightlyDezzwTest(PublishedNightlyTest):
+class PublishedStableDezzwTest(PublishedStableTest):
     github_owner = 'dezzw'
     github_repo = 'crossmux'
 

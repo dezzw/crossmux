@@ -14,8 +14,6 @@ inline constexpr char FONT_GITHUB_MANIFEST_FORMAT[] =
 
 inline constexpr char OTA_STABLE_MANIFEST_FORMAT[] =
     "https://github.com/%s/releases/download/stable/%s-global-manifest.json";
-inline constexpr char OTA_NIGHTLY_MANIFEST_FORMAT[] =
-    "https://github.com/%s/releases/download/nightly/%s-global-manifest.json";
 
 #if defined(FREEINK_DEVICE_WAVESHARE_EPAPER_397)
 inline constexpr char OTA_DEVICE_SLUG[] = "waveshare-epaper-397";
@@ -33,10 +31,6 @@ inline int formatFontGithubManifestUrl(char* buffer, size_t capacity, int manife
 
 inline int formatOtaStableManifestUrl(char* buffer, size_t capacity) {
   return snprintf(buffer, capacity, OTA_STABLE_MANIFEST_FORMAT, OTA_GITHUB_REPO, OTA_DEVICE_SLUG);
-}
-
-inline int formatOtaNightlyManifestUrl(char* buffer, size_t capacity) {
-  return snprintf(buffer, capacity, OTA_NIGHTLY_MANIFEST_FORMAT, OTA_GITHUB_REPO, OTA_DEVICE_SLUG);
 }
 
 inline constexpr const char* legacyHost() { return LEGACY_HOST; }
