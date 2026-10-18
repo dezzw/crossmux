@@ -50,4 +50,3 @@ TEST_F(TlsCaChainVerifyTest, GithubSectigoE36Intermediate) {
   EXPECT_TRUE(rc == ASN_SIG_HASH_E || rc == ASN_SIG_CONFIRM_E || rc == SIG_VERIFY_E) << "unexpected rc=" << rc;
 #endif
 }
-
