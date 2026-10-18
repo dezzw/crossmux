@@ -14,10 +14,22 @@ BUILD_ID = r'[0-9a-f]{40}-[0-9]+-[0-9]+'
 NIGHTLY_BUILD = rf'nightly-build-{BUILD_ID}'
 NAMESPACE = re.compile(rf'^{NIGHTLY_BUILD}$')
 FIND_NAMESPACE = re.compile(rf'(?<![a-z0-9-])({NIGHTLY_BUILD})(?![a-z0-9-])')
-MANIFEST_PATH = re.compile(
-    rf'^/0x1abin/crossmux/releases/download/({NIGHTLY_BUILD})/[^/]+-manifest\.json$'
-)
 HOST = 'github.com'
+
+
+def github_repo_prefix(manifest_url):
+    parsed = urlparse(manifest_url)
+    parts = [part for part in parsed.path.split('/') if part]
+    if len(parts) < 4 or parts[2] != 'releases' or parts[3] != 'download':
+        raise ValueError(f'unexpected manifest URL path: {manifest_url}')
+    return f'/{parts[0]}/{parts[1]}'
+
+
+def manifest_path_pattern(repo_prefix):
+    escaped = re.escape(repo_prefix)
+    return re.compile(
+        rf'^{escaped}/releases/download/({NIGHTLY_BUILD})/[^/]+-manifest\.json$'
+    )
 
 
 def referenced_builds(index):
@@ -28,6 +40,7 @@ def referenced_builds(index):
         raise ValueError('previous Nightly index does not contain the canonical target set')
 
     builds = set()
+    manifest_path = None
     for target_id, entry in targets.items():
         variants = entry.get('variants') if isinstance(entry, dict) else None
         if not isinstance(entry, dict) or entry.get('targetId') != target_id or not isinstance(
@@ -39,7 +52,9 @@ def referenced_builds(index):
             if not isinstance(manifest_url, str):
                 raise ValueError(f'invalid previous {target_id}/{flavor} manifest URL')
             parsed = urlparse(manifest_url)
-            match = MANIFEST_PATH.match(parsed.path)
+            if manifest_path is None:
+                manifest_path = manifest_path_pattern(github_repo_prefix(manifest_url))
+            match = manifest_path.match(parsed.path)
             if parsed.scheme != 'https' or parsed.hostname != HOST or parsed.query or not match:
                 raise ValueError(f'unexpected previous {target_id}/{flavor} manifest URL')
             builds.add(match.group(1))

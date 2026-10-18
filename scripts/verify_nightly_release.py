@@ -41,16 +41,25 @@ def read_json(url, fetch):
         raise ValueError(f'invalid JSON at {url}') from error
 
 
+def github_repo_prefix(index_url):
+    parsed = urlparse(index_url)
+    if parsed.hostname != 'github.com':
+        raise ValueError(f'index URL is not a GitHub releases download path: {index_url}')
+    parts = [part for part in parsed.path.split('/') if part]
+    if len(parts) < 4 or parts[2] != 'releases' or parts[3] != 'download':
+        raise ValueError(f'index URL is not a GitHub releases download path: {index_url}')
+    return f'/{parts[0]}/{parts[1]}'
+
+
 def validate_url(url, index_url, channel):
     parsed = urlparse(url)
     index_host = urlparse(index_url).hostname
     if parsed.scheme != 'https':
         raise ValueError(f'published URL is not HTTPS: {url}')
-    valid = (
-        index_host == 'github.com'
-        and parsed.hostname == 'github.com'
-        and parsed.path.startswith(f'/0x1abin/crossmux/releases/download/{channel}-build-')
-    )
+    valid = False
+    if index_host == 'github.com' and parsed.hostname == 'github.com':
+        repo_prefix = github_repo_prefix(index_url)
+        valid = parsed.path.startswith(f'{repo_prefix}/releases/download/{channel}-build-')
     if not valid:
         raise ValueError(f'published URL is outside the expected release path: {url}')
 

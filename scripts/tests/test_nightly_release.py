@@ -392,11 +392,16 @@ class NightlyIndexTest(unittest.TestCase):
 
 
 class NightlyRetentionTest(unittest.TestCase):
-    def previous_index(self, first_build, second_build):
+    github_owner = '0x1abin'
+    github_repo = 'crossmux'
+
+    def previous_index(self, first_build, second_build, owner=None, repo=None):
+        owner = owner if owner is not None else self.github_owner
+        repo = repo if repo is not None else self.github_repo
         targets = {}
         for index, target_id in enumerate(nightly_targets.TARGETS):
             build = second_build if index == 0 else first_build
-            base = f'https://github.com/0x1abin/crossmux/releases/download/{build}/'
+            base = f'https://github.com/{owner}/{repo}/releases/download/{build}/'
             targets[target_id] = {
                 'targetId': target_id,
                 'variants': {
@@ -430,22 +435,76 @@ class NightlyRetentionTest(unittest.TestCase):
         index['targets']['waveshare_epaper_397']['variants']['global']['manifestUrl'] = (
             'https://example.com/firmware.bin'
         )
-        with self.assertRaisesRegex(ValueError, 'unexpected previous waveshare_epaper_397/global'):
+        with self.assertRaisesRegex(ValueError, 'unexpected'):
             nightly_retention.obsolete_builds(current, index, current)
         with self.assertRaisesRegex(ValueError, 'missing from the candidate list'):
             nightly_retention.obsolete_builds(
                 current, self.previous_index(previous, previous), previous
             )
 
+    def test_dezzw_fork_manifest_urls_are_accepted(self):
+        current = f'nightly-build-{"a" * 40}-10-1'
+        previous = f'nightly-build-{"b" * 40}-9-1'
+        previous_fallback = f'nightly-build-{"c" * 40}-8-1'
+        obsolete = f'nightly-build-{"d" * 40}-7-1'
+        candidates = '\n'.join((current, previous, previous_fallback, obsolete))
+        self.assertEqual(
+            nightly_retention.obsolete_builds(
+                current,
+                self.previous_index(previous, previous_fallback, owner='dezzw', repo='crossmux'),
+                candidates,
+            ),
+            sorted([previous, obsolete]),
+        )
+
+    def test_rejects_manifest_owner_mismatch(self):
+        current = f'nightly-build-{"a" * 40}-10-1'
+        previous = f'nightly-build-{"b" * 40}-9-1'
+        index = self.previous_index(previous, previous, owner='dezzw', repo='crossmux')
+        foreign_url = self.previous_index(previous, previous)['targets']['waveshare_epaper_397'][
+            'variants'
+        ]['global']['manifestUrl']
+        index['targets']['waveshare_epaper_397']['variants']['zh-CN']['manifestUrl'] = foreign_url
+        with self.assertRaisesRegex(ValueError, 'unexpected previous waveshare_epaper_397/zh-CN'):
+            nightly_retention.obsolete_builds(current, index, current)
+
+
+class ValidatePublishedUrlTest(unittest.TestCase):
+    def test_accepts_urls_under_index_repository(self):
+        index = 'https://github.com/dezzw/crossmux/releases/download/nightly/release-index.json'
+        manifest = (
+            'https://github.com/dezzw/crossmux/releases/download/nightly-build-deadbeef-1-1/'
+            'waveshare-epaper-397-global-manifest.json'
+        )
+        verify_nightly_release.validate_url(manifest, index, 'nightly')
+
+    def test_rejects_manifest_from_different_owner_than_index(self):
+        index = 'https://github.com/dezzw/crossmux/releases/download/nightly/release-index.json'
+        manifest = (
+            'https://github.com/0x1abin/crossmux/releases/download/nightly-build-deadbeef-1-1/'
+            'waveshare-epaper-397-global-manifest.json'
+        )
+        with self.assertRaisesRegex(ValueError, 'outside the expected release path'):
+            verify_nightly_release.validate_url(manifest, index, 'nightly')
+
+    def test_rejects_index_from_different_owner_than_manifest(self):
+        index = 'https://github.com/0x1abin/crossmux/releases/download/nightly/release-index.json'
+        manifest = (
+            'https://github.com/dezzw/crossmux/releases/download/nightly-build-deadbeef-1-1/'
+            'waveshare-epaper-397-global-manifest.json'
+        )
+        with self.assertRaisesRegex(ValueError, 'outside the expected release path'):
+            verify_nightly_release.validate_url(manifest, index, 'nightly')
+
 
 class PublishedNightlyTest(unittest.TestCase):
+    github_owner = '0x1abin'
+    github_repo = 'crossmux'
+
     def setUp(self):
-        self.index_url = (
-            'https://github.com/0x1abin/crossmux/releases/download/nightly/release-index.json'
-        )
-        self.release_url = (
-            'https://github.com/0x1abin/crossmux/releases/download/nightly-build-test/'
-        )
+        base = f'https://github.com/{self.github_owner}/{self.github_repo}/releases/download'
+        self.index_url = f'{base}/nightly/release-index.json'
+        self.release_url = f'{base}/nightly-build-test/'
         self.current_sha = 'a' * 40
         self.old_sha = 'c' * 40
         self.sdk_sha = 'b' * 40
@@ -557,6 +616,27 @@ class PublishedNightlyTest(unittest.TestCase):
         self.store[url] += b'corrupt'
         with self.assertRaisesRegex(ValueError, 'size or SHA-256'):
             verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
+
+    def test_rejects_manifest_owner_mismatch(self):
+        foreign_owner = 'dezzw' if self.github_owner == '0x1abin' else '0x1abin'
+        foreign = (
+            f'https://github.com/{foreign_owner}/{self.github_repo}/releases/download/'
+            'nightly-build-test/'
+        )
+        target_id = 'waveshare_epaper_397'
+        flavor = 'global'
+        name = nightly_targets.manifest_name(target_id, flavor)
+        self.store[foreign + name] = self.store[self.release_url + name]
+        self.index['targets'][target_id]['variants'][flavor]['manifestUrl'] = foreign + name
+        self.write_index()
+        with self.assertRaisesRegex(ValueError, 'outside the expected release path'):
+            verify_nightly_release.verify_release(self.index_url, self.current_sha, 'nightly', self.fetch)
+
+
+class PublishedNightlyDezzwTest(PublishedNightlyTest):
+    github_owner = 'dezzw'
+    github_repo = 'crossmux'
+
 
 if __name__ == '__main__':
     unittest.main()
