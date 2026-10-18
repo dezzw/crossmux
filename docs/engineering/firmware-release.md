@@ -1,28 +1,31 @@
 # Firmware Release Architecture
 
-CrossMux has two release channels, `stable` and `nightly`, managed by one
-channel-aware pipeline. In the **dezzw/crossmux** fork the canonical hardware
-target is **Waveshare ESP32-S3 ePaper 3.97**, published on both **Stable**
-(tag `vX.Y.Z` on `main`) and **Nightly** channels from GitHub Releases only.
+CrossMux publishes **stable** firmware OTA through one tag-driven pipeline. In
+the **dezzw/crossmux** fork the canonical hardware target is **Waveshare
+ESP32-S3 ePaper 3.97**, released on **Stable** when a semver tag matching
+`platformio.ini` is pushed to `main` (GitHub Releases only).
 
 ## Canonical targets
 
 [`scripts/nightly_targets.py`](../../scripts/nightly_targets.py) is the release
 source of truth despite its compatibility filename. Each target defines its
-runtime models, artifact slug, embedded board tag, per-channel PlatformIO
-environment, chip, install capability, and supported channels. The workflow,
-packager, index builder, and tests import this table rather than copy it.
+runtime models, artifact slug, embedded board tag, PlatformIO environments, chip,
+install capability, and supported OTA channels (`stable` only on device). The
+workflow, packager, index builder, and tests import this table rather than copy
+it.
 
-The sole entry is `waveshare_epaper_397`, built with `waveshare_epaper_397`
-(Stable) and `waveshare_epaper_397_nightly` (Nightly). Each published image is
-aliased by the compatibility `global` and `zh-CN` pointers.
+The sole entry is `waveshare_epaper_397`. **Firmware Release** builds and
+packages with `waveshare_epaper_397` (stable). CI also uses
+`waveshare_epaper_397_nightly` as an RC packaging build env (not an OTA channel).
+Each published image is aliased by the compatibility `global` and `zh-CN`
+pointers.
 
 ## dezzw fork OTA signing (maintainers)
 
 1. Run `python3 scripts/ota_keygen.py` locally. Commit the updated
    `src/network/OtaSigningPublicKey.h` and keep the generated private PEM offline.
 2. Add the private PEM text to the repository secret **`OTA_SIGNING_KEY`**
-   (required for every stable and nightly publish job that signs OTA manifests).
+   (required for stable publish jobs that sign OTA manifests).
 3. Set GitHub **Settings → Actions → General → Workflow permissions** to
    **Read and write**.
 4. Tag stable releases on `main` with a semver tag that **exactly equals**
@@ -66,15 +69,12 @@ Publishing writes in this order:
 2. immutable target manifests;
 3. the rolling GitHub index.
 
-Every target selected for a channel must build successfully before publish runs.
-Nightly also requires its previous rolling index because that index protects the
-immediately preceding build during cleanup. After publish, CI resolves every
-manifest and verifies each distinct asset's size and SHA-256. Cleanup then runs
-for Nightly only.
+Every target must build successfully before publish runs. After publish, CI
+resolves every manifest and verifies each distinct asset's size and SHA-256.
 
-The rolling index is the `release-index.json` asset of the `stable` or `nightly`
-GitHub Release. Binaries and compatibility manifests live in an immutable
-`<channel>-build-<sha>-<run>-<attempt>` GitHub Release.
+The rolling index is the `release-index.json` asset of the **`stable`** GitHub
+Release. Binaries and compatibility manifests live in an immutable
+`stable-build-<sha>-<run>-<attempt>` GitHub Release.
 
 ## Index contract and failure behavior
 
