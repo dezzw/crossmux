@@ -27,6 +27,38 @@ def spki_fingerprint_pem(pem: str) -> str:
     return hashlib.sha256(out).hexdigest()
 
 
+def decode_c_string_escapes(s: str) -> str:
+    """Decode C string literal escapes (\\n, \\r, \\t, \\", \\\\) for embedded PEM."""
+    out: list[str] = []
+    i = 0
+    while i < len(s):
+        if s[i] == '\\' and i + 1 < len(s):
+            esc = s[i + 1]
+            if esc == 'n':
+                out.append('\n')
+                i += 2
+                continue
+            if esc == 'r':
+                out.append('\r')
+                i += 2
+                continue
+            if esc == 't':
+                out.append('\t')
+                i += 2
+                continue
+            if esc == '"':
+                out.append('"')
+                i += 2
+                continue
+            if esc == '\\':
+                out.append('\\')
+                i += 2
+                continue
+        out.append(s[i])
+        i += 1
+    return ''.join(out)
+
+
 def read_embedded_public_pem() -> str:
     text = HEADER.read_text()
     match = re.search(r'inline constexpr char OTA_SIGNING_PUBLIC_KEY_PEM\[\] =\s*(.*?);', text, re.S)
@@ -34,7 +66,7 @@ def read_embedded_public_pem() -> str:
         raise SystemExit(f'could not parse public key from {HEADER}')
     body = match.group(1)
     lines = re.findall(r'"([^"]*)"', body)
-    return ''.join(lines)
+    return decode_c_string_escapes(''.join(lines))
 
 
 def test_fixture_fingerprint() -> str:
