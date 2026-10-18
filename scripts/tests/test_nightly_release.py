@@ -457,6 +457,17 @@ class NightlyRetentionTest(unittest.TestCase):
             sorted([previous, obsolete]),
         )
 
+    def test_rejects_non_https_manifest_url(self):
+        current = f'nightly-build-{"a" * 40}-10-1'
+        previous = f'nightly-build-{"b" * 40}-9-1'
+        index = self.previous_index(previous, previous)
+        manifest_url = index['targets']['waveshare_epaper_397']['variants']['global']['manifestUrl']
+        index['targets']['waveshare_epaper_397']['variants']['global']['manifestUrl'] = manifest_url.replace(
+            'https://', 'http://', 1
+        )
+        with self.assertRaisesRegex(ValueError, 'unexpected manifest URL path'):
+            nightly_retention.obsolete_builds(current, index, current)
+
     def test_rejects_manifest_owner_mismatch(self):
         current = f'nightly-build-{"a" * 40}-10-1'
         previous = f'nightly-build-{"b" * 40}-9-1'
@@ -495,6 +506,11 @@ class ValidatePublishedUrlTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, 'outside the expected release path'):
             verify_nightly_release.validate_url(manifest, index, 'nightly')
+
+    def test_rejects_non_https_index_url(self):
+        index = 'http://github.com/dezzw/crossmux/releases/download/nightly/release-index.json'
+        with self.assertRaisesRegex(ValueError, 'index URL is not a GitHub releases download path'):
+            verify_nightly_release.github_repo_prefix(index)
 
 
 class PublishedNightlyTest(unittest.TestCase):

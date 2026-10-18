@@ -43,6 +43,8 @@ def read_json(url, fetch):
 
 def github_repo_prefix(index_url):
     parsed = urlparse(index_url)
+    if parsed.scheme != 'https':
+        raise ValueError(f'index URL is not a GitHub releases download path: {index_url}')
     if parsed.hostname != 'github.com':
         raise ValueError(f'index URL is not a GitHub releases download path: {index_url}')
     parts = [part for part in parsed.path.split('/') if part]

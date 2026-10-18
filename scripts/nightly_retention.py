@@ -19,6 +19,8 @@ HOST = 'github.com'
 
 def github_repo_prefix(manifest_url):
     parsed = urlparse(manifest_url)
+    if parsed.scheme != 'https':
+        raise ValueError(f'unexpected manifest URL path: {manifest_url}')
     parts = [part for part in parsed.path.split('/') if part]
     if len(parts) < 4 or parts[2] != 'releases' or parts[3] != 'download':
         raise ValueError(f'unexpected manifest URL path: {manifest_url}')
