@@ -4,11 +4,7 @@
 
 namespace ReaderUtils {
 inline HalDisplay::RefreshMode consumeRefreshMode(int& pagesUntilFullRefresh, bool deferClean = false) {
-  if (deferClean && pagesUntilFullRefresh <= 1) {
-    // Keep the debt: the next ordinary page must still clean.
-    pagesUntilFullRefresh = 1;
-    return HalDisplay::FAST_REFRESH;
-  }
+  (void)deferClean;
   const auto mode = (pagesUntilFullRefresh <= 1) ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH;
   if (pagesUntilFullRefresh <= 1) {
     pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
@@ -50,10 +46,7 @@ inline void displayBaseWithRefreshCycle(const GfxRenderer& renderer, int& pagesU
     pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
     mode = HalDisplay::FAST_REFRESH;
   } else {
-    // Trusted transitions may defer a clean only while the counter is still > 1.
-    // When pagesUntilFullRefresh == 1 the HALF debt is due and must not be
-    // postponed again (otherwise every turn stays FAST forever).
-    mode = consumeRefreshMode(pagesUntilFullRefresh, transition && pagesUntilFullRefresh > 1);
+    mode = consumeRefreshMode(pagesUntilFullRefresh, transition);
   }
   renderer.displayGrayscaleBase(mode, DisplayRefreshContext::TextOnlyAntiAliasing);
 }

@@ -18,14 +18,7 @@ TEST(ReaderRefreshCadence, ConsumeRefreshModeHalfResetsCounter) {
   EXPECT_EQ(pages, 15);
 }
 
-TEST(ReaderRefreshCadence, DeferCleanOnlyWhileCounterAboveDue) {
-  SETTINGS.refreshFrequency = 15;
-  int pages = 2;
-  EXPECT_EQ(ReaderUtils::consumeRefreshMode(pages, true), HalDisplay::FAST_REFRESH);
-  EXPECT_EQ(pages, 1);
-}
-
-TEST(ReaderRefreshCadence, DueHalfNotDeferredOnTransition) {
+TEST(ReaderRefreshCadence, DueHalfNotDeferredByTransitionFlag) {
   SETTINGS.refreshFrequency = 15;
   int pages = 1;
   EXPECT_EQ(ReaderUtils::consumeRefreshMode(pages, true), HalDisplay::HALF_REFRESH);
