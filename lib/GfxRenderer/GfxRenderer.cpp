@@ -2400,11 +2400,16 @@ size_t GfxRenderer::getBufferSize() const { return frameBufferSize; }
 // void GfxRenderer::grayscaleRevert() const { display.grayscaleRevert(); }
 
 void GfxRenderer::displayGrayscaleBase(HalDisplay::RefreshMode fallback, DisplayRefreshContext context) const {
+  HalDisplay::RefreshMode effectiveRefreshMode = fallback;
+  if (nextRefreshOverridePending) {
+    effectiveRefreshMode = nextRefreshOverride;
+    nextRefreshOverridePending = false;
+  }
 #ifdef SIMULATOR
   (void)context;
-  display.displayGrayscaleBase(fallback, fadingFix);
+  display.displayGrayscaleBase(effectiveRefreshMode, fadingFix);
 #else
-  display.displayGrayscaleBase(fallback, fadingFix, context);
+  display.displayGrayscaleBase(effectiveRefreshMode, fadingFix, context);
 #endif
 }
 

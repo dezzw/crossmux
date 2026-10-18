@@ -161,3 +161,5 @@ add_test(NAME TlsWolfSslLegacyBuildNetwork
 set_tests_properties(TlsWolfSslLegacyBuildNetwork PROPERTIES LABELS "network")
 add_test(NAME WolfSslSha384Patch
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wolfssl_sha384_patch.py)
+add_test(NAME Ssd1677HostDriver
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/run_ssd1677_host_test.py)
