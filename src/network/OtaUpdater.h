@@ -68,6 +68,11 @@ class OtaUpdater {
     }
   }
 #endif
+#ifdef CROSSPOINT_SIMULATOR_OTA_CHANNELS
+  enum class Channel : uint8_t { Stable, Nightly };
+  OtaUpdaterError checkForUpdate(Channel requestedChannel = Channel::Stable);
+#else
   OtaUpdaterError checkForUpdate();
+#endif
   OtaUpdaterError installUpdate(ProgressCallback onProgress = nullptr, void* ctx = nullptr);
 };
