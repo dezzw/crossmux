@@ -1,22 +1,12 @@
 name: Firmware Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      notes_en:
-        description: 'English OTA release notes (2-8 lines, max 96 ASCII bytes each)'
-        required: true
-        type: string
-      notes_zh:
-        description: 'Chinese OTA release notes (2-8 lines, max 32 characters each)'
-        required: true
-        type: string
   push:
     tags:
       - '*.*.*'
 
 concurrency:
-  group: firmware-${{ github.event_name == 'push' && 'stable' || 'nightly' }}-publish
+  group: firmware-stable-publish
   cancel-in-progress: false
 
 permissions:
@@ -40,15 +30,11 @@ jobs:
       - id: release
         run: |
           set -euo pipefail
-          if [ "$GITHUB_EVENT_NAME" = push ]; then
-            channel=stable
-            version="$(python3 -c 'import configparser; c=configparser.ConfigParser(); c.read("platformio.ini"); print(c["crosspoint"]["version"])')"
-            if [[ ! "$GITHUB_REF_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || [ "$GITHUB_REF_NAME" != "$version" ]; then
-              echo "::error::Stable tag $GITHUB_REF_NAME does not match firmware version $version"
-              exit 1
-            fi
-          else
-            channel=nightly
+          channel=stable
+          version="$(python3 -c 'import configparser; c=configparser.ConfigParser(); c.read("platformio.ini"); print(c["crosspoint"]["version"])')"
+          if [[ ! "$GITHUB_REF_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || [ "$GITHUB_REF_NAME" != "$version" ]; then
+            echo "::error::Stable tag $GITHUB_REF_NAME does not match firmware version $version"
+            exit 1
           fi
           build_id="${channel}-build-${GITHUB_SHA}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
@@ -72,31 +58,16 @@ jobs:
         with:
           fetch-depth: 0
       - name: Build release notes
-        env:
-          CHANNEL: ${{ needs.prepare.outputs.channel }}
-          NOTES_EN: ${{ inputs.notes_en }}
-          NOTES_ZH: ${{ inputs.notes_zh }}
         run: |
           set -euo pipefail
-          if [ "$CHANNEL" = stable ]; then
-            notes=".github/release-notes/${GITHUB_REF_NAME}.md"
-            test -f "$notes"
-            cp "$notes" release-body.md
-            git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > tag-message.txt
-            python3 scripts/generate_ota_notes.py --input tag-message.txt --output ota-notes.md
-            test -s ota-notes.md
-            printf '\n' >> release-body.md
-            cat ota-notes.md >> release-body.md
-          else
-            printf 'Nightly build `%s` from `main`.\n' "${GITHUB_SHA::7}" > release-body.md
-            if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-              python3 scripts/generate_ota_notes.py \
-                --en-notes="$NOTES_EN" --zh-notes="$NOTES_ZH" --output ota-notes.md
-              test -s ota-notes.md
-              printf '\n' >> release-body.md
-              cat ota-notes.md >> release-body.md
-            fi
-          fi
+          notes=".github/release-notes/${GITHUB_REF_NAME}.md"
+          test -f "$notes"
+          cp "$notes" release-body.md
+          git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > tag-message.txt
+          python3 scripts/generate_ota_notes.py --input tag-message.txt --output ota-notes.md
+          test -s ota-notes.md
+          printf '\n' >> release-body.md
+          cat ota-notes.md >> release-body.md
       - uses: actions/upload-artifact@v4
         with:
           name: firmware-release-notes
@@ -164,51 +135,6 @@ jobs:
           python-version: '3.14'
       - name: Install signing dependencies
         run: pip install 'cryptography==44.0.2'
-      - name: Sign OTA manifests
-        if: needs.prepare.outputs.channel == 'nightly'
-        env:
-          OTA_SIGNING_KEY: ${{ secrets.OTA_SIGNING_KEY }}
-          CHANNEL: ${{ needs.prepare.outputs.channel }}
-          BUILD_TAG: ${{ needs.prepare.outputs.build_tag }}
-        run: |
-          set -euo pipefail
-          if [ -z "${OTA_SIGNING_KEY:-}" ]; then
-            echo "::error::OTA_SIGNING_KEY secret is required to publish signed OTA manifests"
-            exit 1
-          fi
-          python3 scripts/verify_ota_public_key.py
-          mapfile -t manifests < <(find artifacts -name '*-global-manifest.json')
-          for manifest in "${manifests[@]}"; do
-            dir="$(dirname "$manifest")"
-            firmware="$(find "$dir" -name '*-firmware.bin' -print -quit)"
-            test -f "$firmware"
-            signed="${manifest%.json}-signed.json"
-            python3 scripts/sign_ota_release.py \
-              --firmware "$firmware" \
-              --manifest "$manifest" \
-              --download-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${BUILD_TAG}/$(basename "$firmware")" \
-              --output "$signed"
-            mv "$signed" "$manifest"
-          done
-      - name: Load previous global Nightly index
-        if: needs.prepare.outputs.channel == 'nightly'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p previous/global
-          if ! gh release download nightly --repo "$GITHUB_REPOSITORY" \
-            --pattern release-index.json --dir previous/global 2>/dev/null; then
-            echo "No prior nightly release-index.json (first publish)"
-            echo '{"schemaVersion":1,"channel":"nightly","targets":{}}' > previous/global/release-index.json
-          fi
-      - uses: actions/upload-artifact@v4
-        if: needs.prepare.outputs.channel == 'nightly'
-        with:
-          name: previous-global-index
-          path: previous/global/release-index.json
-          if-no-files-found: error
-          retention-days: 1
       - name: Build global index
         env:
           CHANNEL: ${{ needs.prepare.outputs.channel }}
@@ -240,27 +166,16 @@ jobs:
         run: |
           set -euo pipefail
           title="CrossMux ${CHANNEL^} (${GITHUB_SHA::7})"
-          latest_flag=(--latest=false)
-          prerelease_flag=(--prerelease)
-          if [ "$CHANNEL" = nightly ]; then
-            latest_flag=()
-          fi
           if gh release view "$CHANNEL" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release edit "$CHANNEL" --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" --title "$title" --notes-file notes/release-body.md \
-              "${prerelease_flag[@]}" "${latest_flag[@]}"
+              --prerelease --latest=false
           else
             gh release create "$CHANNEL" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
               --title "$title" --notes-file notes/release-body.md \
-              "${prerelease_flag[@]}" "${latest_flag[@]}"
+              --prerelease --latest=false
           fi
           gh release upload "$CHANNEL" release-index.json --repo "$GITHUB_REPOSITORY" --clobber
-          if [ "$CHANNEL" != stable ]; then
-            mapfile -t global_manifests < <(find artifacts -name '*-global-manifest.json')
-            if [ ${#global_manifests[@]} -gt 0 ]; then
-              gh release upload "$CHANNEL" "${global_manifests[@]}" --repo "$GITHUB_REPOSITORY" --clobber
-            fi
-          fi
           legacy_assets="$(gh release view "$CHANNEL" --repo "$GITHUB_REPOSITORY" \
             --json assets --jq '.assets[].name')"
           if grep -Fxq firmware-cn.bin <<< "$legacy_assets"; then
@@ -361,30 +276,3 @@ jobs:
           fi
           gh release upload stable "${global_manifests[@]}" --repo "$GITHUB_REPOSITORY" --clobber
 
-  cleanup_github:
-    if: needs.prepare.outputs.channel == 'nightly'
-    needs: [prepare, verify_publish, publish_github]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      BUILD_TAG: ${{ needs.prepare.outputs.build_tag }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v4
-        with:
-          name: previous-global-index
-          path: previous/global
-      - name: Delete obsolete GitHub Nightly builds
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName' \
-            > github-releases.txt
-          python3 scripts/nightly_retention.py --current "$BUILD_TAG" \
-            --previous-index previous/global/release-index.json --candidates github-releases.txt \
-            > obsolete-github-builds.txt
-          while IFS= read -r build_tag; do
-            gh release delete "$build_tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
-          done < obsolete-github-builds.txt

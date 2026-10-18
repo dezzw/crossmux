@@ -13,7 +13,7 @@ from pathlib import Path
 
 from nightly_targets import (
     FLAVOR_TOKENS,
-    CHANNELS,
+    PACKAGING_CHANNELS,
     TARGETS,
     asset_name,
     environment_for,
@@ -118,8 +118,8 @@ def verify_firmware(path, chip_id, board_tag, version):
 
 def package_target(root, target_id, channel, output):
     target = TARGETS[target_id]
-    if channel not in target['supportedChannels']:
-        raise SystemExit(f'{target_id} does not support the {channel} channel')
+    if channel not in PACKAGING_CHANNELS:
+        raise SystemExit(f'unsupported packaging channel: {channel}')
     environment = environment_for(target_id, channel, 'global')
     build = root / '.pio/build' / environment
     output.mkdir(parents=True, exist_ok=True)
@@ -193,7 +193,7 @@ def package_target(root, target_id, channel, output):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('target', nargs='?', choices=TARGETS)
-    parser.add_argument('--channel', choices=CHANNELS, required=True)
+    parser.add_argument('--channel', choices=PACKAGING_CHANNELS, required=True)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--matrix', action='store_true')
     args = parser.parse_args()

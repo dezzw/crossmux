@@ -12,16 +12,21 @@ TARGETS = {
             'nightly': 'waveshare_epaper_397_nightly',
             'stable': 'waveshare_epaper_397',
         },
-        'supportedChannels': ['nightly', 'stable'],
+        'supportedChannels': ['stable'],
         'fullInstall': True,
     },
 }
 
 FLAVOR_TOKENS = {'global': 'global', 'zh-CN': 'cn'}
-CHANNELS = ('stable', 'nightly')
+# OTA / rolling-release channels (device and publish_github index).
+CHANNELS = ('stable',)
+# RC packaging for waveshare_epaper_397_nightly CI builds (not an OTA channel).
+PACKAGING_CHANNELS = ('stable', 'nightly')
 
 
 def targets_for(channel):
+    if channel == 'nightly':
+        return dict(TARGETS)
     if channel not in CHANNELS:
         raise KeyError(channel)
     return {target_id: target for target_id, target in TARGETS.items() if channel in target['supportedChannels']}

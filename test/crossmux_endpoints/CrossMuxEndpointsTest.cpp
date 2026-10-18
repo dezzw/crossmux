@@ -30,6 +30,13 @@ TEST(CrossMuxEndpoints, FormatOtaStableManifestUrlUsesStableTag) {
                "https://github.com/dezzw/crossmux/releases/download/stable/waveshare-epaper-397-global-manifest.json");
 }
 
+TEST(CrossMuxEndpoints, OtaManifestUrlIsStableChannelOnly) {
+  char url[256];
+  CrossMuxEndpoints::formatOtaStableManifestUrl(url, sizeof(url));
+  EXPECT_NE(strstr(url, "/stable/"), nullptr);
+  EXPECT_EQ(strstr(url, "/nightly/"), nullptr);
+}
+
 TEST(CrossMuxEndpoints, FormatFontGithubManifestUrlTruncatesWhenBufferTooSmall) {
   char url[8];
   const int len =

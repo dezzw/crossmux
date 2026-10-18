@@ -11,12 +11,10 @@
 
 class OtaUpdater {
  public:
-  enum class Channel : uint8_t { Stable, Nightly };
   using ReleaseNote = OtaManifestParser::ReleaseNote;
 
  private:
   bool updateAvailable = false;
-  Channel channel = Channel::Stable;
   std::string latestVersion;
   std::string otaBoardTag;
   std::string otaUrl;
@@ -34,7 +32,6 @@ class OtaUpdater {
   enum OtaUpdaterError {
     OK = 0,
     NO_UPDATE,
-    UNSUPPORTED_CHANNEL,
     HTTP_ERROR,
     JSON_PARSE_ERROR,
     UPDATE_OLDER_ERROR,
@@ -71,6 +68,11 @@ class OtaUpdater {
     }
   }
 #endif
-  OtaUpdaterError checkForUpdate(Channel requestedChannel);
+#ifdef CROSSPOINT_SIMULATOR_OTA_CHANNELS
+  enum class Channel : uint8_t { Stable, Nightly };
+  OtaUpdaterError checkForUpdate(Channel requestedChannel = Channel::Stable);
+#else
+  OtaUpdaterError checkForUpdate();
+#endif
   OtaUpdaterError installUpdate(ProgressCallback onProgress = nullptr, void* ctx = nullptr);
 };

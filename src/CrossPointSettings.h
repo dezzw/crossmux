@@ -430,8 +430,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint16_t keyboardLayouts = 0;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.
   uint8_t quickResumeSleepScreen = QUICK_RESUME_NEVER;
-  // OTA update channel preference (0 = stable, 1 = nightly).
-  uint8_t otaNightlyEnabled = 0;
   // Reading Analytics suite settings.
   // Daily reading goal target (DAILY_GOAL_TARGET enum index).
   uint8_t dailyGoalTarget = DAILY_GOAL_30_MIN;
