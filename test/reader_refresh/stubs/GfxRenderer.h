@@ -10,8 +10,7 @@ class GfxRenderer {
   mutable HalDisplay::RefreshMode lastGrayscaleMode = HalDisplay::FAST_REFRESH;
   mutable HalDisplay::RefreshMode lastBufferMode = HalDisplay::FAST_REFRESH;
 
-  void displayGrayscaleBase(HalDisplay::RefreshMode mode,
-                            DisplayRefreshContext = DisplayRefreshContext::Normal) const {
+  void displayGrayscaleBase(HalDisplay::RefreshMode mode, DisplayRefreshContext = DisplayRefreshContext::Normal) const {
     ++displayGrayscaleBaseCalls;
     lastGrayscaleMode = mode;
   }
