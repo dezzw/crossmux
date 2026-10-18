@@ -1,0 +1,108 @@
+diff --git a/libs/display/FreeInkDisplay/src/driver/CrossMuxSsd1677Driver.cpp b/libs/display/FreeInkDisplay/src/driver/CrossMuxSsd1677Driver.cpp
+index 00c541a..818cfd1 100644
+--- a/libs/display/FreeInkDisplay/src/driver/CrossMuxSsd1677Driver.cpp
++++ b/libs/display/FreeInkDisplay/src/driver/CrossMuxSsd1677Driver.cpp
+@@ -135,6 +135,7 @@ static const CrossMuxSsd1677Config& crossmuxSsd1677Waveshare397Config() {
+     CrossMuxSsd1677Config value = crossmuxSsd1677DefaultConfig();
+     value.absoluteGrayscale = false;  // Local LUT/panel pairing is not validated for Absolute.
+     value.halfRefreshTemp = 0x6A;
++    value.initialFastPromoteFull = true;
+     value.grayLut = lut_grayscale_waveshare;
+     value.fastSeqOverride = 0xFF;
+     value.grayPowerUpFirst = true;
+@@ -553,7 +554,8 @@ CrossMuxSsd1677Driver::RefreshAction CrossMuxSsd1677Driver::resolveRefresh(Refre
+   // Honor an explicit HALF/FULL; only a differential FAST needs promotion.
+   if (_needsInitialFull) {
+     if (mode == RefreshMode::Fast) {
+-      mode = _cfg.halfSeqOverride ? RefreshMode::Half : RefreshMode::Full;
++      mode = _cfg.initialFastPromoteFull ? RefreshMode::Full
++                                       : (_cfg.halfSeqOverride ? RefreshMode::Half : RefreshMode::Full);
+     }
+     _needsInitialFull = false;
+   } else if (!turnOff && !_isScreenOn && _cfg.fullSeqOverride == 0) {
+diff --git a/libs/display/FreeInkDisplay/src/driver/CrossMuxSsd1677Driver.h b/libs/display/FreeInkDisplay/src/driver/CrossMuxSsd1677Driver.h
+index fab9108..ecc374a 100644
+--- a/libs/display/FreeInkDisplay/src/driver/CrossMuxSsd1677Driver.h
++++ b/libs/display/FreeInkDisplay/src/driver/CrossMuxSsd1677Driver.h
+@@ -63,6 +63,10 @@ struct CrossMuxSsd1677Config {
+   bool grayPowerUpFirst = false;
+   // Configurations supporting the factory four-tone LUT advertise it.
+   bool absoluteGrayscale = false;
++  // When set, the one-shot _needsInitialFull promotion from FAST uses FULL (fullSeqOverride)
++  // instead of HALF (halfSeqOverride). Waveshare 3.97 needs CTRL2 0xF7 on cold boot;
++  // periodic HALF cleans keep halfSeqOverride.
++  bool initialFastPromoteFull = false;
+   uint8_t powerOffSequence = 0x03;     // CTRL2, board-specific oscillator/analog shutdown
+   uint8_t borderWaveformPowerOff = 0;  // 0 keeps borderWaveformInit
+   CrossMuxSsd1677CleanPolicy cleanPolicy = CrossMuxSsd1677CleanPolicy::Legacy;
+diff --git a/libs/display/FreeInkDisplay/test/host/test_ssd1677.cpp b/libs/display/FreeInkDisplay/test/host/test_ssd1677.cpp
+index b898da5..87f4af8 100644
+--- a/libs/display/FreeInkDisplay/test/host/test_ssd1677.cpp
++++ b/libs/display/FreeInkDisplay/test/host/test_ssd1677.cpp
+@@ -212,9 +212,9 @@ void testDriverSequences() {
+   b.clear();
+   d.display(b, fb.data(), nullptr, Mode::Fast, false);
+   expect(b, {0xFC, 0xFC});
+-  // Legacy devices retain their wire behavior and RED-only gray cleanup.
+-  for (const auto* legacy : {&crossmuxSsd1677DefaultConfig(), &crossmuxSsd1677Waveshare397Config()}) {
+-    CrossMuxSsd1677Driver old(*legacy);
++  // Legacy X4-class devices promote the first FAST paint to HALF (0xD7).
++  {
++    CrossMuxSsd1677Driver old(crossmuxSsd1677DefaultConfig());
+     EpdBus bus;
+     old.begin(bus);
+     bus.clear();
+@@ -225,7 +225,25 @@ void testDriverSequences() {
+     old.cleanupGrayscaleBuffers(bus, fb.data());
+     bus.clear();
+     old.display(bus, fb.data(), nullptr, Mode::Fast, false);
+-    expect(bus, {legacy->fastSeqOverride});
++    expect(bus, {crossmuxSsd1677DefaultConfig().fastSeqOverride});
++    for (auto& e : bus.events)
++      if (e.cmd == 0x21) assert(e.bytes.size() == 1);
++  }
++  // Waveshare 3.97 cold boot must use true FULL (0xF7), then normal fast partials.
++  {
++    const auto& waveshare = crossmuxSsd1677Waveshare397Config();
++    CrossMuxSsd1677Driver panel(waveshare);
++    EpdBus bus;
++    panel.begin(bus);
++    bus.clear();
++    panel.display(bus, fb.data(), nullptr, Mode::Fast, false);
++    expect(bus, {0xF7});
++    bus.clear();
++    panel.displayGray(bus, fb.data(), false, nullptr, false);
++    panel.cleanupGrayscaleBuffers(bus, fb.data());
++    bus.clear();
++    panel.display(bus, fb.data(), nullptr, Mode::Fast, false);
++    expect(bus, {waveshare.fastSeqOverride});
+     for (auto& e : bus.events)
+       if (e.cmd == 0x21) assert(e.bytes.size() == 1);
+   }
+diff --git a/libs/display/FreeInkDisplay/test/host/test_ssd1677.py b/libs/display/FreeInkDisplay/test/host/test_ssd1677.py
+index 3c7c587..d8adde7 100644
+--- a/libs/display/FreeInkDisplay/test/host/test_ssd1677.py
++++ b/libs/display/FreeInkDisplay/test/host/test_ssd1677.py
+@@ -1,10 +1,13 @@
+ """Compile the real SSD1677 driver against a recording bus."""
++import os
+ import pathlib
+ import shutil
+ import subprocess
+ import tempfile
+ import unittest
+ 
++CXX = os.environ.get("CXX") or shutil.which("g++") or "c++"
++
+ HERE = pathlib.Path(__file__).resolve().parent
+ DISPLAY = HERE.parents[1]
+ 
+@@ -18,7 +21,7 @@ def run_trace(source=None, includes=(), defines=(), sources=()):
+         shutil.copy2(DISPLAY / "include/GrayscaleCapabilities.h", tmp / "GrayscaleCapabilities.h")
+         panel = tmp / "driver/PanelDriver.h"
+         panel.write_text(panel.read_text().replace("../../include/GrayscaleCapabilities.h", "../GrayscaleCapabilities.h"))
+-        command = ["c++", "-std=c++17", "-I", str(tmp), "-I", str(HERE),
++        command = [CXX, "-std=c++17", "-I", str(tmp), "-I", str(HERE),
+                    "-I", str(DISPLAY / "include"), "-I",
+                    str(DISPLAY.parents[1] / "hardware/BoardConfig/include")]
+         for directory in includes:
