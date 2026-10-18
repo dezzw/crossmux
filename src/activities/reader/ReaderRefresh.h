@@ -42,7 +42,7 @@ inline void displayBaseWithRefreshCycle(const GfxRenderer& renderer, int& pagesU
   const bool transition = !manualRefresh && renderer.canUseTextTransition();
   HalDisplay::RefreshMode mode;
   if (transition && pagesUntilFullRefresh == 0) {
-    // A trusted entry starts the cycle; a real due counter (1) keeps its debt.
+    // Trusted text entry: start the refresh cycle without consuming a due HALF yet.
     pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
     mode = HalDisplay::FAST_REFRESH;
   } else {
