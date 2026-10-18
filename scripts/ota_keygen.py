@@ -9,6 +9,17 @@ from pathlib import Path
 HEADER_PATH = Path('src/network/OtaSigningPublicKey.h')
 
 
+def format_ota_signing_header(public_pem: str) -> str:
+    lines = public_pem.strip().splitlines()
+    body = '\n'.join(f'    "{line}\\n"' for line in lines)
+    return f'''#pragma once
+
+// ECDSA P-256 OTA signing public key (PEM). Regenerate with scripts/ota_keygen.py.
+inline constexpr char OTA_SIGNING_PUBLIC_KEY_PEM[] =
+{body};
+'''
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output-dir', type=Path, default=Path('dist/ota-keys'))
@@ -23,16 +34,7 @@ def main():
     subprocess.check_call(['openssl', 'ec', '-in', str(private_path), '-pubout', '-out', str(public_path)])
 
     public_pem = public_path.read_text()
-    lines = public_pem.strip().splitlines()
-    body = '\n'.join(f'    "{line}\\n"' for line in lines)
-    header = f'''#pragma once
-
-// ECDSA P-256 OTA signing public key (PEM). Regenerate with scripts/ota_keygen.py.
-inline constexpr char OTA_SIGNING_PUBLIC_KEY_PEM[] =
-{body};
-
-'''
-    HEADER_PATH.write_text(header)
+    HEADER_PATH.write_text(format_ota_signing_header(public_pem))
     print(f'Wrote public key header to {HEADER_PATH}')
     print(f'Private key: {private_path}')
     print('Add the private key PEM to GitHub secret OTA_SIGNING_KEY (repo Settings -> Secrets).')
