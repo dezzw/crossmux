@@ -156,10 +156,6 @@ add_test(NAME OtaSigningKnownAnswerPython
 add_test(NAME TlsWolfSslLegacyBuildOffline
   WORKING_DIRECTORY ${REPO_ROOT}/scripts/tests
   COMMAND ${Python3_EXECUTABLE} -m unittest test_tls_wolfssl_legacy_build.TlsWolfSslOfflineTests -v)
-add_test(NAME TlsWolfSslLegacyBuildNetwork
-  WORKING_DIRECTORY ${REPO_ROOT}/scripts/tests
-  COMMAND ${Python3_EXECUTABLE} -m unittest test_tls_wolfssl_legacy_build.TlsWolfSslNetworkTests -v)
-set_tests_properties(TlsWolfSslLegacyBuildNetwork PROPERTIES LABELS "network")
 add_test(NAME WolfSslSha384Patch
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wolfssl_sha384_patch.py)
 add_test(NAME Ssd1677HostDriver

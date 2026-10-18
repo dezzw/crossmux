@@ -25,6 +25,5 @@ verify_host github.com
 verify_host objects.githubusercontent.com
 verify_host release-assets.githubusercontent.com
 verify_host raw.githubusercontent.com
-verify_host crossmux.com
 
 echo "All TLS host checks passed."

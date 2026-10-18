@@ -4,7 +4,7 @@
 
 **CrossMux** is a community fork of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader), tuned for the **Waveshare ESP32-S3 ePaper 3.97** (800×480, 16 MiB flash, 8 MiB PSRAM). Reading comes first, with lightweight apps, reading analytics, standby faces, and on-demand services alongside the reader.
 
-[Releases](https://github.com/0x1abin/crossmux/releases) · [User guide](./USER_GUIDE.md) · [Contributing](./docs/contributing/README.md)
+[Releases](https://github.com/dezzw/crossmux/releases) · [User guide](./USER_GUIDE.md) · [Contributing](./docs/contributing/README.md)
 
 ![CrossMux on e-ink hardware](./docs/images/cover.jpg)
 
@@ -13,7 +13,7 @@
 - **Reading and library**: EPUB, TXT, XTC/XTCH and images; chapter navigation, bookmarks, dictionaries, custom fonts, reading backgrounds, and KOReader progress sync.
 - **Wireless workflows**: browser file transfer and settings, Calibre wireless, OPDS downloads, WebDAV, and device OTA updates.
 - **Apps**: file transfer, OPDS browser, reading analytics, standby faces, and (China profile) WeRead. [Apps guide](./src/activities/apps/README.md).
-- **WeRead**: QR login, bookshelf browsing, EPUB downloads for offline reading, and progress sync. Available in the China content profile. [WeRead guide (Chinese)](./src/activities/apps/weread/README.md).
+- **WeRead**: first-class integration — QR login, bookshelf browsing, EPUB downloads for offline reading, and progress sync. Available in the China content profile. [WeRead guide (Chinese)](./src/activities/apps/weread/README.md).
 - **Reading analytics and standby**: reading statistics, heatmaps, profiles and achievements; clock and Chinese almanac faces. [Analytics guide](./src/activities/apps/reading-stats/README.md).
 - **Languages and development**: 33 UI languages in one firmware image, plus a desktop simulator for UI development.
 
@@ -26,13 +26,21 @@
 | Hardware | [Waveshare ESP32-S3 ePaper 3.97](https://www.waveshare.com/) |
 | Chip | ESP32-S3 (16 MiB flash, 8 MiB OPI PSRAM) |
 | Panel | 800×480 SSD1677 |
+<<<<<<< HEAD
 | OTA updates | Stable channel on [github.com/dezzw/crossmux](https://github.com/dezzw/crossmux/releases) |
+=======
+| Channels | Nightly (see [releases](https://github.com/dezzw/crossmux/releases)) |
+>>>>>>> 7db6b1ae ([refactor] Remove crossmux.com dependency and dictionary OTA path)
 
 Build environment and version: [platformio.ini](./platformio.ini). Packaging and OTA: [firmware-release.md](./docs/engineering/firmware-release.md). Hardware notes and acceptance: [waveshare-epaper-397.md](./docs/engineering/waveshare-epaper-397.md).
 
 ## Install firmware
 
+<<<<<<< HEAD
 1. Open [CrossMux Releases](https://github.com/dezzw/crossmux/releases), pick the **Waveshare ePaper 3.97** stable release asset for your version, and follow that release’s install notes.
+=======
+1. Open [CrossMux Releases](https://github.com/dezzw/crossmux/releases), pick the **Waveshare ePaper 3.97** Nightly asset, and follow that release’s install notes.
+>>>>>>> 7db6b1ae ([refactor] Remove crossmux.com dependency and dictionary OTA path)
 2. Back up SD card data before changing firmware. Use the full install package for first flash; application-only `firmware.bin` is not a complete first-install image.
 3. Flash and recovery commands (offsets, USB port) are board-specific—follow [waveshare-epaper-397.md](./docs/engineering/waveshare-epaper-397.md), not generic ESP32-C3/Xteink instructions.
 
@@ -40,18 +48,20 @@ Installed firmware can update over Wi-Fi when a matching package is published on
 
 ## Chinese fonts and content profiles
 
-One language-unified firmware per build. Simplified Chinese selects the China content profile for regional metadata and apps such as WeRead; OTA, font downloads, and other network services always use `crossmux.com` with the global OTA variant. Other UI languages use the Global content profile.
+One language-unified firmware per build. Simplified Chinese selects the China content profile for regional metadata and first-class apps such as WeRead. OTA updates and font downloads use [GitHub releases on `dezzw/crossmux`](https://github.com/dezzw/crossmux/releases) (global OTA variant). Other UI languages use the Global content profile.
 
 The UI includes compact 8/10/12pt Simplified-Chinese fallback fonts. Built-in reader font choices share a 12pt offline fallback; complete families, other sizes, style variants, and broader Unicode coverage use SD-card `.cpfont` files. Embedded fonts are a subset, so rare or Traditional Chinese characters may require an appropriate SD font.
 
-Download fonts from **Settings > Reader > Manage Fonts**, or copy converted fonts to the SD card. See [SD-card fonts](./docs/sd-card-fonts.md) and [Chinese support](./docs/engineering/chinese-build.md).
+Core reader fonts (Literata, Inter, NotoSansSC) are self-hosted in tagged font releases on this repository (`fonts-m<manifest>-b<binary>` assets). Download them from **Settings → Reader → Manage Fonts**, or copy converted fonts to the SD card. See [SD-card fonts](./docs/sd-card-fonts.md) and [Chinese support](./docs/engineering/chinese-build.md).
+
+StarDict dictionaries are loaded from the SD card (`/dictionaries/`); copy a dictionary folder manually or use sources listed in [docs/dictionary.md](./docs/dictionary.md).
 
 ## Development quick start
 
 Install PlatformIO Core (`pio`) and Python 3; the repository pins its pioarduino platform. Full code checks also need clang-format 21+, CMake, and Ninja. See [Getting Started](./docs/contributing/getting-started.md).
 
 ```bash
-git clone --recursive https://github.com/0x1abin/crossmux.git
+git clone --recursive https://github.com/dezzw/crossmux.git
 cd crossmux
 
 # If submodules were not initialized:
@@ -92,7 +102,7 @@ Use [Testing and Debugging](./docs/contributing/testing-debugging.md) for focuse
 - [Agent instructions](./AGENTS.md) · [Engineering reference](./docs/engineering/index.md) · [Buttons and UI](./docs/contributing/touch-and-ui.md)
 - [Cache management](./docs/engineering/cache-management.md) · [File formats](./docs/file-formats.md)
 
-Report bugs and propose changes in [CrossMux Issues](https://github.com/0x1abin/crossmux/issues). Contributions target **`0x1abin/crossmux:main`**; keep each PR focused and describe its verification. Existing CrossPoint class names and the `/.crosspoint` SD data directory remain compatibility details. That directory also holds settings and progress; do not delete it merely to clear a book cache.
+Report bugs and propose changes in [CrossMux Issues](https://github.com/dezzw/crossmux/issues). Contributions target **`dezzw/crossmux:main`**; keep each PR focused and describe its verification. Existing CrossPoint class names and the `/.crosspoint` SD data directory remain compatibility details. That directory also holds settings and progress; do not delete it merely to clear a book cache.
 
 ## Credits
 
