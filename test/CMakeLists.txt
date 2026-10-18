@@ -117,6 +117,7 @@ add_subdirectory(ble_key_mapping)
 add_subdirectory(ble_input)
 add_subdirectory(reader_build_failure)
 add_subdirectory(reader_font_preview)
+add_subdirectory(reader_refresh)
 
 # Font fallback reuses the existing Unicode mark classification.
 foreach(font_test DifferentialRoundingTest LigatureGuardTest SdCardFontMemoryTest SdCardFontPagedTest)
