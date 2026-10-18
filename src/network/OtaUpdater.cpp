@@ -71,8 +71,7 @@ bool decodeBase64Signature(const std::string& encoded, uint8_t* out, size_t outC
 
 OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
   char manifestUrl[kManifestUrlCapacity];
-  const int manifestUrlLength =
-      CrossMuxEndpoints::formatOtaStableManifestUrl(manifestUrl, sizeof(manifestUrl));
+  const int manifestUrlLength = CrossMuxEndpoints::formatOtaStableManifestUrl(manifestUrl, sizeof(manifestUrl));
   if (manifestUrlLength < 0 || static_cast<size_t>(manifestUrlLength) >= sizeof(manifestUrl)) {
     LOG_ERR("OTA", "Manifest URL exceeds %zu bytes", sizeof(manifestUrl));
     return INTERNAL_UPDATE_ERROR;
