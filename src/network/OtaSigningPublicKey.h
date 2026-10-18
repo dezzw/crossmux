@@ -6,4 +6,3 @@ inline constexpr char OTA_SIGNING_PUBLIC_KEY_PEM[] =
     "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExzuL9Ju3caOXzGOdgVKZkUaklrIu\n"
     "JjofVA9CFOdTYIyTTPYPEIqCtrNCFKKcMNmb6LEnndzyTVz3wMfVMDwdGw==\n"
     "-----END PUBLIC KEY-----\n";
-
