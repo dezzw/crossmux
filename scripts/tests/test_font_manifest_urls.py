@@ -16,8 +16,10 @@ class FontManifestUrlTest(unittest.TestCase):
         self.assertIn('FONT_GITHUB_REPO[] = "dezzw/crossmux"', header)
         self.assertIn("fonts-m%d-b%d", header)
         self.assertNotIn("crosspoint-fonts", header)
-        self.assertNotIn("crossmux.com/api/assets/fonts", header)
+        self.assertNotIn("crossmux.com", header)
         self.assertNotIn("assets.crossmux.cn", header)
+        self.assertNotIn("DICTIONARY_MANIFEST", header)
+        self.assertNotIn("legacyHost", header)
 
     def test_stable_ota_manifest_uses_stable_release_tag(self):
         header = (ROOT / "src/network/CrossMuxEndpoints.h").read_text()

@@ -8,7 +8,6 @@ namespace CrossMuxEndpoints {
 inline constexpr char OTA_GITHUB_REPO[] = "dezzw/crossmux";
 inline constexpr char FONT_GITHUB_REPO[] = "dezzw/crossmux";
 
-inline constexpr char LEGACY_HOST[] = "crossmux.com";
 inline constexpr char FONT_GITHUB_MANIFEST_FORMAT[] =
     "https://github.com/%s/releases/download/fonts-m%d-b%d/fonts.json";
 
@@ -32,8 +31,5 @@ inline int formatFontGithubManifestUrl(char* buffer, size_t capacity, int manife
 inline int formatOtaStableManifestUrl(char* buffer, size_t capacity) {
   return snprintf(buffer, capacity, OTA_STABLE_MANIFEST_FORMAT, OTA_GITHUB_REPO, OTA_DEVICE_SLUG);
 }
-
-inline constexpr const char* legacyHost() { return LEGACY_HOST; }
-inline constexpr char DICTIONARY_MANIFEST_FORMAT[] = "https://%s/api/assets/dictionaries/manifest?version=1&lang=%s";
 
 }  // namespace CrossMuxEndpoints

@@ -19,7 +19,6 @@
 #include "ClearCacheActivity.h"
 #include "CrossPointSettings.h"
 #include "DateTimeSettingsActivity.h"
-#include "DictionaryDownloadActivity.h"
 #include "FontDownloadActivity.h"
 #include "InxItemLayout.h"
 #include "KOReaderSettingsActivity.h"
@@ -346,13 +345,11 @@ void SettingsActivity::rebuildSettingsLists() {
                         SettingInfo::Action(StrId::STR_TEXT_SETTINGS, SettingAction::TextSettings));
   readerSettings.insert(readerSettings.begin() + 1,
                         SettingInfo::Action(StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts));
-  readerSettings.insert(readerSettings.begin() + 2,
-                        SettingInfo::Action(StrId::STR_MANAGE_DICTIONARIES, SettingAction::ManageDictionaries));
   const auto dictionarySetting =
-      std::find_if(readerSettings.begin() + 3, readerSettings.end(),
+      std::find_if(readerSettings.begin() + 2, readerSettings.end(),
                    [](const SettingInfo& setting) { return setting.nameId == StrId::STR_DICTIONARY; });
   if (dictionarySetting != readerSettings.end()) {
-    std::rotate(readerSettings.begin() + 3, dictionarySetting, dictionarySetting + 1);
+    std::rotate(readerSettings.begin() + 2, dictionarySetting, dictionarySetting + 1);
   }
   readerSettings.push_back(SettingInfo::Action(StrId::STR_CUSTOMISE_STATUS_BAR, SettingAction::CustomiseStatusBar));
   readerSettings.push_back(SettingInfo::Action(StrId::STR_READING_STATS, SettingAction::ReadingStatsSettings));
@@ -763,13 +760,6 @@ void SettingsActivity::toggleCurrentSetting() {
           rebuildSettingsLists();
           requestUpdate();
         }
-        break;
-      case SettingAction::ManageDictionaries:
-        startActivityForResultWith<DictionaryDownloadActivity>([this](const ActivityResult&) {
-          SETTINGS.saveToFile();
-          rebuildSettingsLists();
-          requestUpdate();
-        });
         break;
       case SettingAction::TextSettings:
         startActivityForResultWith<TextSettingsActivity>(

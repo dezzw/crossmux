@@ -40,11 +40,13 @@
 
 ## 中文字体与内容区
 
-每次构建产出一份统一语言固件。简体中文选择 China 内容区（用于微信读书等区域应用与元数据）；OTA、字体下载等网络服务统一使用 `crossmux.com` 与 global OTA 变体。其它 UI 语言使用 Global 内容区。
+每次构建产出一份统一语言固件。简体中文选择 China 内容区（用于微信读书等区域应用与元数据）。OTA 与字体下载使用 [GitHub `dezzw/crossmux` Releases](https://github.com/dezzw/crossmux/releases)（global OTA 变体）。其它 UI 语言使用 Global 内容区。
 
 UI 内置精简的 8/10/12pt 简体中文回退字体。内置阅读字体选项共用 12pt 离线回退；完整字族、其它字号、粗斜体和更广 Unicode 覆盖请使用 SD 卡 `.cpfont` 字体。内嵌字库是子集，生僻字或繁体字可能需要相应 SD 字体。
 
-可从 **设置 > 阅读器 > 管理字体** 下载字体，或将转换好的字体复制到 SD 卡。安装与转换见 [SD 卡字体](./docs/sd-card-fonts.md)，工具链见[中文支持](./docs/engineering/chinese-build.md)。
+核心阅读字体（Literata、Inter、NotoSansSC）托管在本仓库的字体发布标签（`fonts-m<manifest>-b<binary>` 资源）。可从 **设置 > 阅读器 > 管理字体** 下载，或将转换好的字体复制到 SD 卡。安装与转换见 [SD 卡字体](./docs/sd-card-fonts.md)，工具链见[中文支持](./docs/engineering/chinese-build.md)。
+
+StarDict 词典从 SD 卡加载（`/dictionaries/`）；请手动复制词典文件夹，或参考 [docs/dictionary.md](./docs/dictionary.md) 中的来源列表。
 
 ## 开发快速开始
 

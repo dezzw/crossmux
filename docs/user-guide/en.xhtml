@@ -11,7 +11,7 @@
 <p>4. Open a book from Library or Browse Files.</p>
 <p>5. Adjust the font, font size, and sleep timeout in Settings.</p>
 <blockquote><p>Do not casually delete <code>/.crosspoint/</code> from the SD card. It stores reading progress, caches, and some settings.</p></blockquote>
-<p>Official website: https://crossmux.com/</p>
+<p>Project repository: https://github.com/dezzw/crossmux</p>
 <h2>2. Basic Controls</h2>
 <p>Button positions and counts vary by device. Follow the on-screen hints and your current button mapping:</p>
 <ul>
@@ -41,8 +41,8 @@
 <p>Open File Transfer from home and choose an available mode, such as Join Network, Create Hotspot, or Calibre Wireless. After connecting, the device shows a QR code or web address. Open the address on a phone or computer to upload, download, or manage files.</p>
 <blockquote><p>The web file service has no login authentication. Use it only on trusted networks and exit File Transfer when finished.</p></blockquote>
 <h2>7. Fonts and Dictionaries</h2>
-<p>Install fonts from Settings &gt; Reader &gt; Manage Fonts. For manual installation, put font-family folders containing <code>.cpfont</code> files under <code>/.fonts/</code> or <code>/fonts/</code> on the SD card, following the font instructions.</p>
-<p>Offline dictionaries support StarDict and can be installed from Settings &gt; Reader &gt; Manage Dictionaries.</p>
+<p>Install core fonts (Literata, Inter, NotoSansSC) from Settings &gt; Reader &gt; Manage Fonts over Wi-Fi, using releases on <code>dezzw/crossmux</code> on GitHub. For manual installation, put font-family folders containing <code>.cpfont</code> files under <code>/.fonts/</code> or <code>/fonts/</code> on the SD card, following the font instructions.</p>
+<p>Offline StarDict dictionaries are loaded from the SD card. Copy a dictionary folder to <code>/dictionaries/</code>, then choose it under Settings &gt; Reader &gt; Dictionary.</p>
 <h2>8. Sleep and Battery Life</h2>
 <p>Set the idle sleep timeout under Settings &gt; System &gt; Time to Sleep.</p>
 <p>For longer battery life:</p>
@@ -54,9 +54,8 @@
 <h2>9. Firmware Updates</h2>
 <p>Only install CrossMux firmware intended for your exact device model. Update information is available at:</p>
 <ul>
-<li>Website: https://crossmux.com/</li>
-<li>GitHub: https://github.com/0x1abin/crossmux</li>
-<li>Releases: https://github.com/0x1abin/crossmux/releases</li>
+<li>GitHub: https://github.com/dezzw/crossmux</li>
+<li>Releases: https://github.com/dezzw/crossmux/releases</li>
 </ul>
 <p>On devices that support OTA updates, open Settings &gt; System &gt; Check for updates. Do not disconnect power, remove the SD card, or force-reset during an update.</p>
 <h2>10. Troubleshooting</h2>
@@ -79,6 +78,6 @@
 <li>Do not casually delete <code>/.crosspoint/</code>.</li>
 <li>Do not flash firmware intended for another device model.</li>
 </ul>
-<p>For more information: https://crossmux.com/</p>
+<p>For more information: https://github.com/dezzw/crossmux</p>
 </body>
 </html>
