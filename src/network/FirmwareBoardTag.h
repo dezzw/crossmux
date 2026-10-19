@@ -25,6 +25,9 @@ extern const char TAG[];
 const char* boardName();
 size_t boardNameLen();
 
+// True when a NUL-terminated OTA manifest boardTag equals this firmware's board name.
+bool manifestBoardTagMatches(const char* manifestBoardTag);
+
 // Incremental scanner: feed every byte of a candidate image in stream order,
 // then check mismatch(). State persists across feed() calls, so chunk
 // boundaries splitting the tag are handled.

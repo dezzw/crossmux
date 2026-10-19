@@ -97,7 +97,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
     return JSON_PARSE_ERROR;
   }
 
-  if (strcmp(manifestParser.getBoardTag(), board_tag::boardName()) != 0) {
+  if (!board_tag::manifestBoardTagMatches(manifestParser.getBoardTag())) {
     LOG_ERR("OTA", "Manifest boardTag mismatch: %s", manifestParser.getBoardTag());
     return WRONG_DEVICE_ERROR;
   }
