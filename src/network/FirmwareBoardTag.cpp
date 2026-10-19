@@ -1,6 +1,8 @@
 #include "FirmwareBoardTag.h"
 
+#if !defined(CROSSPOINT_HOST_TEST)
 #include <BoardConfig.h>
+#endif
 
 #include <cstring>
 
@@ -22,6 +24,14 @@ const char TAG[] = "CROSSPOINT-BOARD-V1:" CROSSPOINT_BOARD_NAME ";";
 
 const char* boardName() { return TAG + MAGIC_LEN; }
 size_t boardNameLen() { return sizeof(TAG) - 1 - MAGIC_LEN - 1; }
+
+bool manifestBoardTagMatches(const char* manifestBoardTag) {
+  if (manifestBoardTag == nullptr) {
+    return false;
+  }
+  const size_t tagLen = std::strlen(manifestBoardTag);
+  return tagLen == boardNameLen() && std::memcmp(manifestBoardTag, boardName(), tagLen) == 0;
+}
 
 void Scanner::feed(const uint8_t* data, size_t len) {
   if (mismatchFound) return;
