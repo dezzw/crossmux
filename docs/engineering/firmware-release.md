@@ -87,3 +87,10 @@ Every target advances together only when both compatibility manifests are valid
 for the same revision, SDK SHA, version string, and asset list. Mismatches fail
 publication. See [`scripts/verify_nightly_release.py`](../../scripts/verify_nightly_release.py)
 and [`scripts/tests/test_nightly_release.py`](../../scripts/tests/test_nightly_release.py).
+
+Stable semver publish embeds per-flavor `release_notes` in each compatibility
+manifest (`global` → English, `zh-CN` → Chinese) from the tag’s OTA notes
+marker before the immutable build upload; the stable signing step re-applies the
+same notes when writing the signed rolling `global` manifest. Notes are validated
+with [`scripts/generate_ota_notes.py`](../../scripts/generate_ota_notes.py) and
+are not part of the ECDSA signing payload.
