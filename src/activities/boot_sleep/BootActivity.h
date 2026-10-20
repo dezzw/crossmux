@@ -22,7 +22,6 @@ class BootActivity final : public Activity {
   bool preventAutoSleep() override { return mode_ == Mode::PostOta; }
 
   static bool postOtaImagePendingHomeConfirm();
-  static void postOtaPreloadFontCacheIfNeeded(GfxRenderer& renderer);
 
  private:
   enum class Stage : uint8_t {
@@ -44,6 +43,7 @@ class BootActivity final : public Activity {
 
   void renderSplash();
   void runPostOta();
+  void runPostOtaFontPreloadWithProgress();
 
   Mode mode_;
   bool allowAutoPreload_;

@@ -9,6 +9,7 @@
 
 #include "CrossPointSettings.h"
 #include "SdCardFontSystem.h"
+#include "activities/RenderLock.h"
 #include "components/FontPreloadView.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -42,8 +43,13 @@ void BootActivity::runPostOta() {
   LOG_INF("OTA", "Post-OTA boot; image confirmation deferred until Home UI");
 
   if (postOtaImagePendingHomeConfirm()) return;
+  if (!allowAutoPreload_) return;
 
-  if (!allowAutoPreload_ || SETTINGS.sdFontFlashPreload == 0 || SETTINGS.sdFontFamilyName[0] == '\0') return;
+  runPostOtaFontPreloadWithProgress();
+}
+
+void BootActivity::runPostOtaFontPreloadWithProgress() {
+  if (SETTINGS.sdFontFlashPreload == 0 || SETTINGS.sdFontFamilyName[0] == '\0') return;
 
   const auto* family = sdFontSystem.registry().findFamily(SETTINGS.sdFontFamilyName);
   const auto* file = family ? family->findNearestSize(SETTINGS.fontPointSize) : nullptr;
@@ -78,8 +84,6 @@ void BootActivity::runPostOta() {
       },
       this);
 
-  // The callback only queues refreshes. Keep the verified 100% state visible
-  // until the panel has physically completed that frame before showing Ready.
   if (result == SdCardFontCache::Result::Ok) requestUpdateAndWait();
 
   const bool succeeded = result == SdCardFontCache::Result::Ok || result == SdCardFontCache::Result::AlreadyCached;
@@ -185,18 +189,4 @@ void BootActivity::render(RenderLock&&) {
 
 bool BootActivity::postOtaImagePendingHomeConfirm() {
   return HalOtaSlot::runningImageState() == HalOtaSlot::RunningImageState::PendingVerify;
-}
-
-void BootActivity::postOtaPreloadFontCacheIfNeeded(GfxRenderer& renderer) {
-  if (SETTINGS.sdFontFlashPreload == 0 || SETTINGS.sdFontFamilyName[0] == '\0') return;
-
-  const auto* family = sdFontSystem.registry().findFamily(SETTINGS.sdFontFamilyName);
-  const auto* file = family ? family->findNearestSize(SETTINGS.fontPointSize) : nullptr;
-  if (!file || SdCardFontCache::isValidFor(file->path.c_str())) return;
-
-  sdFontSystem.releaseLoadedFont(renderer);
-  const auto result = SdCardFontCache::preload(file->path.c_str(), nullptr, nullptr);
-  sdFontSystem.ensureLoaded(renderer,
-                            result == SdCardFontCache::Result::Ok || result == SdCardFontCache::Result::AlreadyCached);
-  LOG_INF("SDFCACHE", "Post-OTA preload for %s: %s", file->path.c_str(), SdCardFontCache::resultName(result));
 }

@@ -68,6 +68,23 @@ constexpr uint8_t MINI_UNDERUSE_RUNS_BEFORE_FREE = 3;
 
 }  // namespace
 
+class FlashFallbackScope {
+ public:
+  explicit FlashFallbackScope(const SdCardFont& font) : font_(font) {}
+  ~FlashFallbackScope() { font_.applyPendingFlashFallbackIfNeeded(); }
+
+ private:
+  const SdCardFont& font_;
+};
+
+bool SdCardFont::glyphBitmapPayloadValid(const EpdGlyph& glyph, const bool is2Bit) {
+  if (glyph.dataLength == 0) return glyph.width == 0 || glyph.height == 0;
+  if (glyph.width == 0 || glyph.height == 0) return false;
+  const uint32_t pixels = static_cast<uint32_t>(glyph.width) * glyph.height;
+  const uint32_t minBytes = is2Bit ? (pixels * 2u + 7u) / 8u : (pixels + 7u) / 8u;
+  return glyph.dataLength >= minBytes;
+}
+
 // One concrete file cursor keeps every parser and hot-path read identical for
 // SD and the internal Flash cache. A failed Flash read switches the owning font
 // back to SD for this and all subsequent cursors.
@@ -96,7 +113,7 @@ class FontFile {
       LOG_ERR("SDCF", "Flash font cache read failed at %u; falling back to SD", static_cast<unsigned>(position_));
       flash_ = false;
       *useFlash_ = false;
-      if (owner_) owner_->onFlashCacheReadFallback();
+      if (owner_) owner_->noteFlashFallbackPending();
       if (!openSd() || !sd_.seekSet(position_)) return -1;
     }
     if (!openSd()) return -1;
@@ -210,6 +227,11 @@ SdCardFont::GlyphReadResult SdCardFont::readGlyphMetadata(FontFile& file, const 
   const uint32_t offset = style.glyphsFileOffset + glyphIndex * sizeof(EpdGlyph);
   const bool readOk = (!seekFirst || file.seekSet(offset)) && file.read(&glyph, sizeof(glyph)) == sizeof(glyph);
   if (!readOk) {
+    return GlyphReadResult::Failed;
+  }
+  if (!glyphBitmapPayloadValid(glyph, styles_[styleIdx].header.is2Bit != 0)) {
+    LOG_ERR("SDCF", "Glyph %u metadata payload size invalid (len=%u, %ux%u)", glyphIndex, glyph.dataLength, glyph.width,
+            glyph.height);
     return GlyphReadResult::Failed;
   }
 #if defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED)
@@ -429,6 +451,7 @@ void SdCardFont::applyKernLigaturePointers(PerStyle& s, EpdFontData& data) const
 }
 
 bool SdCardFont::loadStyleKernLigatureData(PerStyle& s) {
+  FlashFallbackScope flashFallback(*this);
   if (s.kernLigLoaded) return true;
   bool hasKern = s.header.kernLeftEntryCount > 0;
   bool hasLig = s.header.ligaturePairCount > 0;
@@ -1110,6 +1133,7 @@ int SdCardFont::prewarm(TextGetter getter, const void* ctx, uint32_t textCount, 
 
 int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint32_t cpCount, bool metadataOnly,
                              bool loadKernLig) {
+  FlashFallbackScope flashFallback(*this);
   auto& s = styles_[styleIdx];
   FontFile file(this, filePath_, &useFlash_, flashPayloadSize_);
 
@@ -1460,8 +1484,14 @@ void SdCardFont::clearPersistentCache() {
   }
 }
 
-void SdCardFont::onFlashCacheReadFallback() {
-  releaseResidentCaches();
+void SdCardFont::applyPendingFlashFallbackIfNeeded() const {
+  if (!flashFallbackPending_) return;
+  flashFallbackPending_ = false;
+  onFlashCacheReadFallback();
+}
+
+void SdCardFont::onFlashCacheReadFallback() const {
+  const_cast<SdCardFont*>(this)->releaseResidentCaches();
 #if defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED)
   glyphCache_.reset();
 #endif
@@ -1550,6 +1580,7 @@ uint16_t SdCardFont::getAdvance(uint32_t codepoint, uint8_t style) const {
 }
 
 uint16_t SdCardFont::getAdvanceOrLoad(uint32_t codepoint, uint8_t style) const {
+  FlashFallbackScope flashFallback(*this);
   uint8_t styleIdx = style & (MAX_STYLES - 1);
   if (!styles_[styleIdx].present) styleIdx = resolveStyle(styleIdx);
 
@@ -1800,6 +1831,7 @@ const EpdGlyph* SdCardFont::onGlyphMiss(void* ctx, uint32_t codepoint) {
   auto* oc = static_cast<OverflowContext*>(ctx);
   auto* self = oc->self;
   uint8_t styleIdx = oc->styleIdx;
+  FlashFallbackScope flashFallback(*self);
 
   if (!self->loaded_ || styleIdx >= MAX_STYLES || !self->styles_[styleIdx].present) return nullptr;
   const auto& s = self->styles_[styleIdx];

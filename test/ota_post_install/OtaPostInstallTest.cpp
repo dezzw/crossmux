@@ -1,67 +1,85 @@
 #include <HalOtaSlot.h>
 #include <gtest/gtest.h>
 
-#include "SdCardFontSystem.h"
+#include "OtaRunningImageConfirm.h"
+#include "OtaUpdateInstallPrep.h"
 
 namespace OtaPostInstallTestHost {
-void resetHalOtaSlotHost();
-void setInactiveSlotSize(size_t size);
-void setRunningPendingVerify();
-int confirmCallCount();
-std::vector<uint8_t>& inactiveSlotBytes();
 extern int releaseLoadedFontCalls;
-extern int ensureLoadedCalls;
-extern bool lastEnsureAllowFlash;
+extern int preloadCalls;
 }  // namespace OtaPostInstallTestHost
 
 namespace {
 class GfxRendererStub {};
 GfxRendererStub gRenderer;
+
+HalOtaSlot::RunningImageState gState = HalOtaSlot::RunningImageState::PendingVerify;
+int gConfirmCalls = 0;
+int gPreloadCalls = 0;
+int gReleaseCalls = 0;
+
+HalOtaSlot::RunningImageState testRunningState() { return gState; }
+
+bool testConfirm() {
+  ++gConfirmCalls;
+  gState = HalOtaSlot::RunningImageState::Confirmed;
+  return true;
+}
+
+void testPreload(GfxRenderer&) { ++gPreloadCalls; }
+
+void testRelease(GfxRenderer&) { ++gReleaseCalls; }
+
+void resetHooks() {
+  gState = HalOtaSlot::RunningImageState::PendingVerify;
+  gConfirmCalls = 0;
+  gPreloadCalls = 0;
+  gReleaseCalls = 0;
+}
 }  // namespace
 
-TEST(OtaPostInstall, ConfirmsPendingVerifyOnceForAnyHomeRoute) {
+TEST(OtaRunningImageConfirm, ConfirmsAndPreloadsOnceWhenPending) {
+  resetHooks();
+  OtaRunningImageConfirmDeps deps{};
+  deps.runningImageState = testRunningState;
+  deps.confirmRunningImage = testConfirm;
+  deps.preloadFontCacheIfNeeded = testPreload;
+
   using namespace OtaPostInstallTestHost;
-  resetHalOtaSlotHost();
-  setRunningPendingVerify();
+  preloadCalls = 0;
 
-  EXPECT_EQ(HalOtaSlot::runningImageState(), HalOtaSlot::RunningImageState::PendingVerify);
-  EXPECT_TRUE(HalOtaSlot::confirmRunningImage());
-  EXPECT_EQ(confirmCallCount(), 1);
-  EXPECT_EQ(HalOtaSlot::runningImageState(), HalOtaSlot::RunningImageState::Confirmed);
+  otaConfirmPendingRunningImageAtHome(reinterpret_cast<GfxRenderer&>(gRenderer), &deps);
+  EXPECT_EQ(gConfirmCalls, 1);
+  EXPECT_EQ(gPreloadCalls, 1);
+  EXPECT_EQ(preloadCalls, 0);
 
-  EXPECT_TRUE(HalOtaSlot::confirmRunningImage());
-  EXPECT_EQ(confirmCallCount(), 1);
+  otaConfirmPendingRunningImageAtHome(reinterpret_cast<GfxRenderer&>(gRenderer), &deps);
+  EXPECT_EQ(gConfirmCalls, 1);
+  EXPECT_EQ(gPreloadCalls, 1);
 }
 
-TEST(OtaPostInstall, NoPreloadScratchWhilePendingVerify) {
+TEST(OtaRunningImageConfirm, DefaultPreloadUsesProductionHookWhenNoDeps) {
   using namespace OtaPostInstallTestHost;
-  resetHalOtaSlotHost();
-  setInactiveSlotSize(128 * 1024);
-  setRunningPendingVerify();
+  resetHooks();
+  preloadCalls = 0;
+  OtaRunningImageConfirmDeps deps{};
+  deps.runningImageState = testRunningState;
+  deps.confirmRunningImage = testConfirm;
+  deps.preloadFontCacheIfNeeded = nullptr;
 
-  EXPECT_FALSE(HalOtaSlot::inactive().safeForScratchWrite());
-  EXPECT_TRUE(HalOtaSlot::confirmRunningImage());
-  EXPECT_TRUE(HalOtaSlot::inactive().safeForScratchWrite());
+  otaConfirmPendingRunningImageAtHome(reinterpret_cast<GfxRenderer&>(gRenderer), &deps);
+  EXPECT_EQ(preloadCalls, 1);
 }
 
-TEST(OtaPostInstall, UnloadsFontsBeforeInactiveSlotWrite) {
+TEST(OtaUpdateInstallPrep, ReleaseLoadedFontBeforeInactiveSlotWrite) {
   using namespace OtaPostInstallTestHost;
-  resetHalOtaSlotHost();
   releaseLoadedFontCalls = 0;
-  ensureLoadedCalls = 0;
-
-  sdFontSystem.releaseLoadedFont(reinterpret_cast<GfxRenderer&>(gRenderer));
+  otaReleaseFontsBeforeInactiveSlotWrite(reinterpret_cast<GfxRenderer&>(gRenderer), nullptr);
   EXPECT_EQ(releaseLoadedFontCalls, 1);
 
-  setInactiveSlotSize(64 * 1024);
-  inactiveSlotBytes().assign(64 * 1024, 0x5A);
-  const uint8_t otaChunk[4096] = {};
-  ASSERT_TRUE(HalOtaSlot::inactive().write(0, otaChunk, sizeof(otaChunk)));
-  uint8_t readBack[8] = {};
-  ASSERT_TRUE(HalOtaSlot::inactive().read(0, readBack, sizeof(readBack)));
-  EXPECT_EQ(readBack[0], otaChunk[0]);
-
-  sdFontSystem.ensureLoaded(reinterpret_cast<GfxRenderer&>(gRenderer), false);
-  EXPECT_EQ(ensureLoadedCalls, 1);
-  EXPECT_FALSE(lastEnsureAllowFlash);
+  gReleaseCalls = 0;
+  OtaUpdateInstallPrepDeps deps{};
+  deps.releaseLoadedFont = testRelease;
+  otaReleaseFontsBeforeInactiveSlotWrite(reinterpret_cast<GfxRenderer&>(gRenderer), &deps);
+  EXPECT_EQ(gReleaseCalls, 1);
 }

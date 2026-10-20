@@ -28,5 +28,7 @@ target_include_directories(SdCardFontPagedTest PRIVATE
   ${REPO_ROOT}/lib/Utf8
 )
 target_compile_definitions(SdCardFontPagedTest PRIVATE CONFIG_IDF_TARGET_ESP32C3=1 FREEINK_CAP_BLE_HID_HOST=1)
+target_compile_options(SdCardFontPagedTest PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+target_link_options(SdCardFontPagedTest PRIVATE -fsanitize=address)
 target_link_libraries(SdCardFontPagedTest PRIVATE crosspoint_test_common GTest::gtest_main)
 gtest_discover_tests(SdCardFontPagedTest TEST_PREFIX "paged.")

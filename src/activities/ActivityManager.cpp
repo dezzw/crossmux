@@ -5,7 +5,6 @@
 #include <FsHelpers.h>
 #include <HalDisplay.h>
 #include <HalGPIO.h>
-#include <HalOtaSlot.h>
 #include <HalPowerManager.h>
 #include <Memory.h>
 
@@ -13,6 +12,7 @@
 
 #include "CrossPointSettings.h"
 #include "OpdsServerStore.h"
+#include "OtaRunningImageConfirm.h"
 #include "apps/AppsMenuActivity.h"
 #ifdef ENABLE_CHINESE_VERSION
 #include "apps/weread/WeReadActivity.h"
@@ -428,14 +428,7 @@ void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::
 }
 
 void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
-  if (HalOtaSlot::runningImageState() == HalOtaSlot::RunningImageState::PendingVerify) {
-    if (HalOtaSlot::confirmRunningImage()) {
-      LOG_INF("OTA", "Running image confirmed after Home UI reached");
-      BootActivity::postOtaPreloadFontCacheIfNeeded(renderer);
-    } else {
-      LOG_ERR("OTA", "Running image confirmation failed on Home entry");
-    }
-  }
+  otaConfirmPendingRunningImageAtHome(renderer);
 
   if (!CrossPointSettings::requiresOnboarding(SETTINGS.onboardingVersion)) {
     UserGuide::installIfPending(static_cast<Language>(SETTINGS.language) == Language::ZH_CN);

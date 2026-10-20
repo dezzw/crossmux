@@ -21,13 +21,19 @@
 namespace SdCardFontCache {
 std::vector<uint8_t> flashBytes;
 bool failFlashRead = false;
+size_t flashReadOps = 0;
+size_t failFlashReadFromOp = 0;
 bool isValidFor(const char*, size_t* size) {
   if (flashBytes.empty()) return false;
   *size = flashBytes.size();
   return true;
 }
 bool readAt(size_t offset, void* out, size_t bytes, size_t) {
-  if (failFlashRead || offset > flashBytes.size() || bytes > flashBytes.size() - offset) return false;
+  ++flashReadOps;
+  if ((failFlashReadFromOp != 0 && flashReadOps >= failFlashReadFromOp) || failFlashRead ||
+      offset > flashBytes.size() || bytes > flashBytes.size() - offset) {
+    return false;
+  }
   std::memcpy(out, flashBytes.data() + offset, bytes);
   return true;
 }
@@ -82,6 +88,8 @@ class SdCardFontMemoryTest : public ::testing::Test {
     failArrayAt = 0;
     SdCardFontCache::flashBytes.clear();
     SdCardFontCache::failFlashRead = false;
+    SdCardFontCache::flashReadOps = 0;
+    SdCardFontCache::failFlashReadFromOp = 0;
     ESP = {};
     std::filesystem::remove(path);
   }
@@ -187,6 +195,21 @@ TEST_F(SdCardFontMemoryTest, ReleasingResidentCachesClearsPublishedLigaturePoint
   EXPECT_EQ(font.getAdvanceOrLoad('B', 0), 13);
 }
 
+TEST_F(SdCardFontMemoryTest, RejectsUndersizedGlyphMetadataPayload) {
+  EpdGlyph bad{};
+  bad.width = 10;
+  bad.height = 10;
+  bad.dataLength = 1;
+  EXPECT_FALSE(SdCardFont::glyphBitmapPayloadValid(bad, false));
+  EpdGlyph good{};
+  good.width = 8;
+  good.height = 8;
+  good.dataLength = 8;
+  EXPECT_TRUE(SdCardFont::glyphBitmapPayloadValid(good, false));
+  good.dataLength = 16;
+  EXPECT_TRUE(SdCardFont::glyphBitmapPayloadValid(good, true));
+}
+
 #if CONFIG_IDF_TARGET_ESP32C3 && FREEINK_CAP_BLE_HID_HOST
 namespace {
 std::vector<uint8_t> pagedFontBytes(uint32_t count = 4001, uint32_t first = 0x10000) {
@@ -279,6 +302,33 @@ TEST_F(SdCardFontMemoryTest, PagedIndexFallsBackFromFlashToSd) {
   EXPECT_EQ(font.findGlobalGlyphIndex(font.styles_[0], 0x10080), 64);
   EXPECT_FALSE(font.usingFlash());
 }
+
+#if CONFIG_IDF_TARGET_ESP32C3 && FREEINK_CAP_BLE_HID_HOST
+TEST_F(SdCardFontMemoryTest, DelayedFlashFallbackDuringPrewarmDoesNotUseFreedBuffers) {
+  SdCardFontCache::flashBytes = pagedFontBytes();
+  writeFontBytes(path, SdCardFontCache::flashBytes);
+  ASSERT_TRUE(font.load(path.c_str(), true));
+  const uint32_t codepoints[] = {0x10000, 0x10001, 0x10002, 0x10003};
+  SdCardFontCache::failFlashReadFromOp = 3;
+  (void)font.prewarmStyle(0, codepoints, std::size(codepoints), false, true);
+  EXPECT_FALSE(font.usingFlash());
+}
+
+TEST_F(SdCardFontMemoryTest, DelayedFlashFallbackDuringKernLoadDoesNotUseFreedBuffers) {
+  SdCardFontCache::flashBytes = pagedFontBytes();
+  writeFontBytes(path, SdCardFontCache::flashBytes);
+  ASSERT_TRUE(font.load(path.c_str(), true));
+  auto& style = font.styles_[0];
+  style.header.kernLeftEntryCount = 4;
+  style.header.kernRightEntryCount = 4;
+  style.kernLeftFileOffset = 512;
+  style.kernRightFileOffset = 512 + 4 * sizeof(EpdKernClassEntry);
+  style.kernLigLoaded = false;
+  SdCardFontCache::failFlashReadFromOp = 2;
+  EXPECT_TRUE(font.loadStyleKernLigatureData(style));
+  EXPECT_FALSE(font.usingFlash());
+}
+#endif
 
 TEST_F(SdCardFontMemoryTest, FlashFallbackClearsAdvanceAndOverflowCaches) {
   SdCardFontCache::flashBytes = pagedFontBytes();

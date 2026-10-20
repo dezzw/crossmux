@@ -96,8 +96,8 @@ class SdCardFont {
   // when font/size/family/glyph-table state changes.
   void clearPersistentCache();
 
-  // Flash cache reads failed (e.g. OTA overwrote the inactive slot); drop cached metrics.
-  void onFlashCacheReadFallback();
+  void noteFlashFallbackPending() const { flashFallbackPending_ = true; }
+  void applyPendingFlashFallbackIfNeeded() const;
 
   // Release rebuildable font data before heap-critical transitions while
   // keeping coverage metadata and the on-demand glyph path available.
@@ -336,6 +336,10 @@ class SdCardFont {
   Stats stats_;
   uint32_t contentHash_ = 0;
   bool loaded_ = false;
+  mutable bool flashFallbackPending_ = false;
+
+  static bool glyphBitmapPayloadValid(const EpdGlyph& glyph, bool is2Bit);
+  void onFlashCacheReadFallback() const;
 
   // Per-style helpers
   void freeStyleMiniData(PerStyle& s);
