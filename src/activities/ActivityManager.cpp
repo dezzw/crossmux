@@ -11,6 +11,9 @@
 #include <algorithm>
 
 #include "CrossPointSettings.h"
+#include "OtaHomeConfirm.h"
+#include "PostOtaFontPreload.h"
+#include <Logging.h>
 #include "OpdsServerStore.h"
 #include "apps/AppsMenuActivity.h"
 #ifdef ENABLE_CHINESE_VERSION
@@ -427,6 +430,16 @@ void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::
 }
 
 void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
+  const auto confirm = OtaHomeConfirm::confirmPendingIfNeeded();
+  if (confirm.attemptedConfirm) {
+    if (confirm.confirmSucceeded) {
+      LOG_INF("OTA", "Running image confirmed after Home UI reached");
+      PostOtaFontPreload::runIfNeeded(renderer);
+    } else {
+      LOG_ERR("OTA", "Running image confirmation failed on Home entry");
+    }
+  }
+
   if (!CrossPointSettings::requiresOnboarding(SETTINGS.onboardingVersion)) {
     UserGuide::installIfPending(static_cast<Language>(SETTINGS.language) == Language::ZH_CN);
   }

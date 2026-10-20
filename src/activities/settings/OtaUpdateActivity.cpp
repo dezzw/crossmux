@@ -13,6 +13,7 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "NetworkStartup.h"
+#include "OtaInstallFontGuard.h"
 #include "ReadingStatsStore.h"
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
@@ -490,6 +491,10 @@ void OtaUpdateActivity::runUpdateInstall() {
   LOG_INF("OTA", "TLS preflight (firmware): free=%u, maxAlloc=%u", static_cast<unsigned>(ESP.getFreeHeap()),
           static_cast<unsigned>(ESP.getMaxAllocHeap()));
 #endif
+  {
+    RenderLock lock(*this);
+    OtaInstallFontGuard::beforeInactiveSlotWrite(renderer);
+  }
   const auto res = updater.installUpdate(
       [](void* ctx) {
         // immediate=true notifies the render task directly. The default deferred path only
@@ -519,6 +524,7 @@ void OtaUpdateActivity::runUpdateInstall() {
 
   {
     RenderLock lock(*this);
+    OtaInstallFontGuard::reloadWithoutFlashCache(renderer);
     state = State::Finished;
   }
   requestUpdateAndWait();

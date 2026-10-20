@@ -280,6 +280,21 @@ TEST_F(SdCardFontMemoryTest, PagedIndexFallsBackFromFlashToSd) {
   EXPECT_FALSE(font.usingFlash());
 }
 
+TEST_F(SdCardFontMemoryTest, FlashFallbackClearsAdvanceAndOverflowCaches) {
+  SdCardFontCache::flashBytes = pagedFontBytes();
+  writeFontBytes(path, SdCardFontCache::flashBytes);
+  ASSERT_TRUE(font.load(path.c_str(), true));
+  ASSERT_TRUE(font.buildAdvanceTable("A", 1) >= 0);
+  EXPECT_TRUE(font.hasAdvanceTable());
+  font.overflowCount_ = 1;
+  font.overflow_[0].codepoint = 'Q';
+  SdCardFontCache::failFlashRead = true;
+  EXPECT_EQ(font.findGlobalGlyphIndex(font.styles_[0], 0x10080), 64);
+  EXPECT_FALSE(font.usingFlash());
+  EXPECT_FALSE(font.hasAdvanceTable());
+  EXPECT_EQ(font.overflowCount_, 0U);
+}
+
 TEST_F(SdCardFontMemoryTest, PagedIndexRejectsCorruptIntervalsAndReleasesFailedAllocations) {
   auto bytes = pagedFontBytes();
   bytes[64 + 8] = 7;  // first glyph offset must be zero

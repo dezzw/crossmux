@@ -132,6 +132,11 @@ class GfxRenderer {
   mutable int clipX1 = 0;
   mutable int clipY1 = 0;
 
+  mutable bool outsideRangeLoggedThisFrame_ = false;
+  mutable uint32_t outsideRangeSuppressedThisFrame_ = 0;
+  void resetOutsideRangeLogBudget() const;
+  void noteOutsideRangePixel(int x, int y, int phyX, int phyY) const;
+
   // Ordered UI fallbacks: optional SD face, then the built-in CJK subset.
   // Resolve the whole string through one face for consistent draw/measure metrics.
   std::map<int, std::array<int, 2>> fallbackFontMap_;

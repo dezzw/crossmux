@@ -96,6 +96,9 @@ class SdCardFont {
   // when font/size/family/glyph-table state changes.
   void clearPersistentCache();
 
+  // Flash cache reads failed (e.g. OTA overwrote the inactive slot); drop cached metrics.
+  void onFlashCacheReadFallback();
+
   // Release rebuildable font data before heap-critical transitions while
   // keeping coverage metadata and the on-demand glyph path available.
   void releaseResidentCaches();

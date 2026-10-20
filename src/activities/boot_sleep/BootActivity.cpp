@@ -8,6 +8,7 @@
 #include <SdCardFontCache.h>
 
 #include "CrossPointSettings.h"
+#include "PostOtaFontPreload.h"
 #include "SdCardFontSystem.h"
 #include "components/FontPreloadView.h"
 #include "components/UITheme.h"
@@ -40,6 +41,8 @@ void BootActivity::renderSplash() {
 void BootActivity::runPostOta() {
   requestUpdateAndWait();
   LOG_INF("OTA", "Post-OTA boot; image confirmation deferred until Home UI");
+
+  if (PostOtaFontPreload::deferUntilHomeConfirm()) return;
 
   if (!allowAutoPreload_ || SETTINGS.sdFontFlashPreload == 0 || SETTINGS.sdFontFamilyName[0] == '\0') return;
 
@@ -107,8 +110,9 @@ void BootActivity::runPostOta() {
           failure_.store(Failure::Verify);
           break;
         case SdCardFontCache::Result::NotSafe:
-          failure_.store(Failure::Confirm);
-          break;
+          LOG_DBG("SDFCACHE", "Post-OTA preload skipped (inactive OTA slot not safe for scratch)");
+          stage_.store(Stage::Confirming);
+          return;
         case SdCardFontCache::Result::Ok:
         case SdCardFontCache::Result::AlreadyCached:
           break;
