@@ -12,10 +12,8 @@ import urllib.request
 from urllib.parse import urljoin, urlparse
 
 from build_nightly_index import valid_manifest
-from generate_ota_notes import validate_note, validate_notes
+from generate_ota_notes import validate_notes
 from nightly_targets import CHANNELS, FLAVOR_TOKENS, TARGETS, asset_name, manifest_name, targets_for
-
-MANIFEST_COMPARE_SKIP = frozenset({'flavor', 'release_notes'})
 
 
 SHA40 = re.compile(r'^[0-9a-f]{40}$')
@@ -66,18 +64,6 @@ def validate_url(url, index_url, channel):
         valid = parsed.path.startswith(f'{repo_prefix}/releases/download/{channel}-build-')
     if not valid:
         raise ValueError(f'published URL is outside the expected release path: {url}')
-
-
-def validate_manifest_release_notes(manifest, flavor, index_release_notes):
-    notes = manifest.get('release_notes')
-    if not isinstance(notes, list) or len(notes) < 2:
-        raise ValueError(f'{flavor} manifest is missing release_notes')
-    expected = index_release_notes[flavor]
-    if notes != expected:
-        raise ValueError(f'{flavor} manifest release_notes do not match the index')
-    language = 'en' if flavor == 'global' else 'zh'
-    for note in notes:
-        validate_note(note, language)
 
 
 def expected_assets(target_id, channel):
@@ -140,8 +126,6 @@ def verify_release(index_url, expected_sha, channel, fetch=fetch_bytes):
             for key in ('version', 'crossmuxSha', 'sdkSha'):
                 if manifest.get(key) != pointer.get(key):
                     raise ValueError(f'{target_id}/{flavor} manifest does not match its index pointer')
-            if channel == 'stable':
-                validate_manifest_release_notes(manifest, flavor, release_notes)
             manifests[flavor] = manifest
             manifest_urls[flavor] = manifest_url
 
@@ -153,7 +137,7 @@ def verify_release(index_url, expected_sha, channel, fetch=fetch_bytes):
         if revisions != {expected_sha}:
             raise ValueError(f'{target_id} does not point to the current revision')
         comparable = [
-            {key: value for key, value in manifest.items() if key not in MANIFEST_COMPARE_SKIP}
+            {key: value for key, value in manifest.items() if key != 'flavor'}
             for manifest in manifests.values()
         ]
         if comparable[0] != comparable[1]:

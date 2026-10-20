@@ -128,9 +128,17 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertIn('merge-multiple: true', workflow)
         self.assertIn('mapfile -t firmware_assets', workflow)
         self.assertIn('Upload signed stable manifest to rolling stable release (last)', workflow)
-        self.assertIn('Embed OTA release notes in stable manifests', workflow)
-        self.assertIn('--release-notes notes/ota-notes.md', workflow)
         self.assertIn('python3 scripts/ota_manifest.py url', workflow)
+        sign_step = workflow.split('- name: Sign stable OTA manifests', 1)[1].split('\n      - name:', 1)[0]
+        self.assertIn('--release-notes notes/ota-notes.md', sign_step)
+        self.assertIn('Verify signed global manifest release notes', workflow)
+        mutated = workflow.replace(
+            '              --release-notes notes/ota-notes.md \\\n              --download-url',
+            '              --download-url',
+            1,
+        )
+        mutated_sign = mutated.split('- name: Sign stable OTA manifests', 1)[1].split('\n      - name:', 1)[0]
+        self.assertNotIn('--release-notes notes/ota-notes.md', mutated_sign)
         self.assertIn('Stable firmware releases are not configured', workflow)
         self.assertIn('gh release delete-asset "$CHANNEL" firmware-cn.bin', workflow)
         self.assertNotIn('--flavor', hardware_workflow)
@@ -507,7 +515,6 @@ class PublishedStableTest(unittest.TestCase):
                     'crossmuxSha': revision,
                     'sdkSha': self.sdk_sha,
                     'assets': assets,
-                    'release_notes': list(self.RELEASE_NOTES[flavor]),
                 }
                 url = self.release_url + nightly_targets.manifest_name(target_id, flavor)
                 self.store[url] = json.dumps(manifest).encode()

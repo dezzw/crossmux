@@ -135,18 +135,6 @@ jobs:
           python-version: '3.14'
       - name: Install signing dependencies
         run: pip install 'cryptography==44.0.2'
-      - name: Embed OTA release notes in stable manifests
-        if: needs.prepare.outputs.channel == 'stable'
-        run: |
-          set -euo pipefail
-          test -f notes/ota-notes.md
-          mapfile -t manifests < <(find artifacts -name '*-manifest.json')
-          for manifest in "${manifests[@]}"; do
-            python3 scripts/sign_ota_release.py \
-              --manifest "$manifest" \
-              --release-notes notes/ota-notes.md \
-              --embed-notes-only
-          done
       - name: Build global index
         env:
           CHANNEL: ${{ needs.prepare.outputs.channel }}
@@ -252,6 +240,17 @@ jobs:
               --download-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/$(basename "$firmware")" \
               --output "$signed"
             mv "$signed" "$manifest"
+          done
+      - name: Verify signed global manifest release notes
+        run: |
+          set -euo pipefail
+          test -f notes/ota-notes.md
+          mapfile -t manifests < <(find artifacts -name '*-global-manifest.json')
+          for manifest in "${manifests[@]}"; do
+            python3 scripts/sign_ota_release.py \
+              --verify-release-notes \
+              --manifest "$manifest" \
+              --release-notes notes/ota-notes.md
           done
       - name: Publish versioned stable release
         env:
