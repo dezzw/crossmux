@@ -13,7 +13,6 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "NetworkStartup.h"
-#include "OtaInstallFontGuard.h"
 #include "ReadingStatsStore.h"
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
@@ -493,7 +492,7 @@ void OtaUpdateActivity::runUpdateInstall() {
 #endif
   {
     RenderLock lock(*this);
-    OtaInstallFontGuard::beforeInactiveSlotWrite(renderer);
+    sdFontSystem.releaseLoadedFont(renderer);
   }
   const auto res = updater.installUpdate(
       [](void* ctx) {
@@ -524,7 +523,7 @@ void OtaUpdateActivity::runUpdateInstall() {
 
   {
     RenderLock lock(*this);
-    OtaInstallFontGuard::reloadWithoutFlashCache(renderer);
+    sdFontSystem.ensureLoaded(renderer, false);
     state = State::Finished;
   }
   requestUpdateAndWait();

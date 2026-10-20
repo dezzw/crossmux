@@ -8,7 +8,6 @@
 #include <SdCardFontCache.h>
 
 #include "CrossPointSettings.h"
-#include "PostOtaFontPreload.h"
 #include "SdCardFontSystem.h"
 #include "components/FontPreloadView.h"
 #include "components/UITheme.h"
@@ -42,7 +41,7 @@ void BootActivity::runPostOta() {
   requestUpdateAndWait();
   LOG_INF("OTA", "Post-OTA boot; image confirmation deferred until Home UI");
 
-  if (PostOtaFontPreload::deferUntilHomeConfirm()) return;
+  if (postOtaImagePendingHomeConfirm()) return;
 
   if (!allowAutoPreload_ || SETTINGS.sdFontFlashPreload == 0 || SETTINGS.sdFontFamilyName[0] == '\0') return;
 
@@ -182,4 +181,22 @@ void BootActivity::render(RenderLock&&) {
   }
 
   renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+}
+
+bool BootActivity::postOtaImagePendingHomeConfirm() {
+  return HalOtaSlot::runningImageState() == HalOtaSlot::RunningImageState::PendingVerify;
+}
+
+void BootActivity::postOtaPreloadFontCacheIfNeeded(GfxRenderer& renderer) {
+  if (SETTINGS.sdFontFlashPreload == 0 || SETTINGS.sdFontFamilyName[0] == '\0') return;
+
+  const auto* family = sdFontSystem.registry().findFamily(SETTINGS.sdFontFamilyName);
+  const auto* file = family ? family->findNearestSize(SETTINGS.fontPointSize) : nullptr;
+  if (!file || SdCardFontCache::isValidFor(file->path.c_str())) return;
+
+  sdFontSystem.releaseLoadedFont(renderer);
+  const auto result = SdCardFontCache::preload(file->path.c_str(), nullptr, nullptr);
+  sdFontSystem.ensureLoaded(renderer,
+                            result == SdCardFontCache::Result::Ok || result == SdCardFontCache::Result::AlreadyCached);
+  LOG_INF("SDFCACHE", "Post-OTA preload for %s: %s", file->path.c_str(), SdCardFontCache::resultName(result));
 }

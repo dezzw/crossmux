@@ -638,7 +638,9 @@ void GfxRenderer::drawPixel(const int x, const int y, const bool state) const {
 
   // Bounds checking against runtime panel dimensions
   if (phyX < 0 || phyX >= panelWidth || phyY < 0 || phyY >= panelHeight) {
-    noteOutsideRangePixel(x, y, phyX, phyY);
+    if (outsideRangeLog_.noteOutsideRange()) {
+      LOG_ERR("GFX", "!! Outside range (%d, %d) -> (%d, %d)", x, y, phyX, phyY);
+    }
     return;
   }
 
@@ -1767,22 +1769,8 @@ void GfxRenderer::fillPolygon(const int* xPoints, const int* yPoints, int numPoi
 // For performance measurement (using static to allow "const" methods)
 static unsigned long start_ms = 0;
 
-void GfxRenderer::resetOutsideRangeLogBudget() const {
-  outsideRangeLoggedThisFrame_ = false;
-  outsideRangeSuppressedThisFrame_ = 0;
-}
-
-void GfxRenderer::noteOutsideRangePixel(const int x, const int y, const int phyX, const int phyY) const {
-  if (!outsideRangeLoggedThisFrame_) {
-    LOG_ERR("GFX", "!! Outside range (%d, %d) -> (%d, %d)", x, y, phyX, phyY);
-    outsideRangeLoggedThisFrame_ = true;
-    return;
-  }
-  outsideRangeSuppressedThisFrame_++;
-}
-
 void GfxRenderer::clearScreen(const uint8_t color) const {
-  resetOutsideRangeLogBudget();
+  outsideRangeLog_.resetFrame();
   start_ms = millis();
   if (_stripActive) {
     // Clear only the active band's scratch, not the shared framebuffer.
@@ -1832,11 +1820,11 @@ void GfxRenderer::invertScreen() const {
 }
 
 void GfxRenderer::displayBuffer(HalDisplay::RefreshMode refreshMode, DisplayRefreshContext context) const {
-  if (outsideRangeSuppressedThisFrame_ > 0) {
+  if (outsideRangeLog_.suppressedThisFrame() > 0) {
     LOG_DBG("GFX", "Suppressed %u additional outside-range pixel logs this frame",
-            outsideRangeSuppressedThisFrame_);
+            outsideRangeLog_.suppressedThisFrame());
   }
-  resetOutsideRangeLogBudget();
+  outsideRangeLog_.resetFrame();
   auto elapsed = millis() - start_ms;
   LOG_DBG("GFX", "Time = %lu ms from clearScreen to displayBuffer", elapsed);
   HalDisplay::RefreshMode effectiveRefreshMode = refreshMode;

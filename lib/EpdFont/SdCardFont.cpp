@@ -74,7 +74,10 @@ constexpr uint8_t MINI_UNDERUSE_RUNS_BEFORE_FREE = 3;
 class FontFile {
  public:
   FontFile(SdCardFont* owner, const char* path, bool* useFlash, size_t flashPayloadSize)
-      : owner_(owner), path_(path), useFlash_(useFlash), flashPayloadSize_(flashPayloadSize),
+      : owner_(owner),
+        path_(path),
+        useFlash_(useFlash),
+        flashPayloadSize_(flashPayloadSize),
         flash_(useFlash && *useFlash) {}
 
   explicit operator bool() { return flash_ || openSd(); }

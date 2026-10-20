@@ -5,15 +5,13 @@
 #include <FsHelpers.h>
 #include <HalDisplay.h>
 #include <HalGPIO.h>
+#include <HalOtaSlot.h>
 #include <HalPowerManager.h>
 #include <Memory.h>
 
 #include <algorithm>
 
 #include "CrossPointSettings.h"
-#include "OtaHomeConfirm.h"
-#include "PostOtaFontPreload.h"
-#include <Logging.h>
 #include "OpdsServerStore.h"
 #include "apps/AppsMenuActivity.h"
 #ifdef ENABLE_CHINESE_VERSION
@@ -430,11 +428,10 @@ void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::
 }
 
 void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
-  const auto confirm = OtaHomeConfirm::confirmPendingIfNeeded();
-  if (confirm.attemptedConfirm) {
-    if (confirm.confirmSucceeded) {
+  if (HalOtaSlot::runningImageState() == HalOtaSlot::RunningImageState::PendingVerify) {
+    if (HalOtaSlot::confirmRunningImage()) {
       LOG_INF("OTA", "Running image confirmed after Home UI reached");
-      PostOtaFontPreload::runIfNeeded(renderer);
+      BootActivity::postOtaPreloadFontCacheIfNeeded(renderer);
     } else {
       LOG_ERR("OTA", "Running image confirmation failed on Home entry");
     }

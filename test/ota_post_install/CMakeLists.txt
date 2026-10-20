@@ -2,11 +2,8 @@ add_executable(ota_post_install_test
   OtaPostInstallTest.cpp
   HalOtaSlotHost.cpp
   stubs/SdCardFontSystemStub.cpp
-  ${REPO_ROOT}/src/OtaHomeConfirm.cpp
-  ${REPO_ROOT}/src/OtaInstallFontGuard.cpp
 )
 target_include_directories(ota_post_install_test PRIVATE
-  ${REPO_ROOT}/src
   ${REPO_ROOT}/test/ota_post_install/stubs
   ${REPO_ROOT}/lib
   ${REPO_ROOT}/lib/hal
