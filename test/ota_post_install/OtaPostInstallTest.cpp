@@ -4,9 +4,6 @@
 #include "OtaRunningImageConfirm.h"
 
 namespace {
-class GfxRendererStub {};
-GfxRendererStub gRenderer;
-
 HalOtaSlot::RunningImageState gState = HalOtaSlot::RunningImageState::PendingVerify;
 int gConfirmCalls = 0;
 
@@ -30,9 +27,9 @@ TEST(OtaRunningImageConfirm, ConfirmsOnceWhenPending) {
   deps.runningImageState = testRunningState;
   deps.confirmRunningImage = testConfirm;
 
-  otaConfirmPendingRunningImageAtHome(reinterpret_cast<GfxRenderer&>(gRenderer), &deps);
+  otaConfirmPendingRunningImage(&deps);
   EXPECT_EQ(gConfirmCalls, 1);
 
-  otaConfirmPendingRunningImageAtHome(reinterpret_cast<GfxRenderer&>(gRenderer), &deps);
+  otaConfirmPendingRunningImage(&deps);
   EXPECT_EQ(gConfirmCalls, 1);
 }

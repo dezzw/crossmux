@@ -64,7 +64,6 @@ class SdCardFontMemoryTest : public ::testing::Test {
           .string();
   void SetUp() override {
     ESP = {};
-    font.flashFallbackPending_ = false;
     font.loaded_ = true;
     std::strncpy(font.filePath_, path.c_str(), sizeof(font.filePath_) - 1);
     auto& style = font.styles_[0];
@@ -216,7 +215,6 @@ TEST_F(SdCardFontMemoryTest, RejectsUndersizedGlyphMetadataPayload) {
 }
 
 TEST_F(SdCardFontMemoryTest, ReadGlyphMetadataRejectsUndersizedPayloadOnDisk) {
-  font.flashFallbackPending_ = false;
   auto& style = font.styles_[0];
   style.glyphsFileOffset = 0;
   style.header.is2Bit = true;

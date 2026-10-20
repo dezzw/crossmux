@@ -398,6 +398,7 @@ void SdCardFont::freeAll() {
   styleCount_ = 0;
   contentHash_ = 0;
   loaded_ = false;
+  flashFallbackPending_ = false;
 #if defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED)
   glyphCache_.reset();
   glyphCacheBuffer_.reset();

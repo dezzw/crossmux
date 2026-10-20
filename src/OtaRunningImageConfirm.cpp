@@ -16,8 +16,7 @@ bool confirmRunning(const OtaRunningImageConfirmDeps* testDeps) {
 
 }  // namespace
 
-void otaConfirmPendingRunningImageAtHome(GfxRenderer& renderer, const OtaRunningImageConfirmDeps* testDeps) {
-  (void)renderer;
+void otaConfirmPendingRunningImage(const OtaRunningImageConfirmDeps* testDeps) {
   if (queryRunningState(testDeps) != HalOtaSlot::RunningImageState::PendingVerify) return;
 
   if (confirmRunning(testDeps)) {

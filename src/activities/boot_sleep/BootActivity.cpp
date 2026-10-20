@@ -42,7 +42,7 @@ void BootActivity::runPostOta() {
   requestUpdateAndWait();
   LOG_INF("OTA", "Post-OTA boot");
 
-  if (postOtaImagePendingHomeConfirm()) {
+  if (runningImagePendingVerify()) {
     LOG_INF("OTA", "Running image still pending verify; preload deferred until confirmed");
     return;
   }
@@ -192,6 +192,6 @@ void BootActivity::render(RenderLock&&) {
   renderer.displayBuffer(HalDisplay::FAST_REFRESH);
 }
 
-bool BootActivity::postOtaImagePendingHomeConfirm() {
+bool BootActivity::runningImagePendingVerify() {
   return HalOtaSlot::runningImageState() == HalOtaSlot::RunningImageState::PendingVerify;
 }

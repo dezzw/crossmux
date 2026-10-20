@@ -21,7 +21,7 @@ class BootActivity final : public Activity {
   void render(RenderLock&&) override;
   bool preventAutoSleep() override { return mode_ == Mode::PostOta; }
 
-  static bool postOtaImagePendingHomeConfirm();
+  static bool runningImagePendingVerify();
 
  private:
   enum class Stage : uint8_t {
