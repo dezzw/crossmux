@@ -87,3 +87,9 @@ Every target advances together only when both compatibility manifests are valid
 for the same revision, SDK SHA, version string, and asset list. Mismatches fail
 publication. See [`scripts/verify_nightly_release.py`](../../scripts/verify_nightly_release.py)
 and [`scripts/tests/test_nightly_release.py`](../../scripts/tests/test_nightly_release.py).
+
+The stable signing step writes English `release_notes` (from the tag’s OTA notes
+marker) into the signed rolling `global` manifest that devices fetch; CI verifies
+those notes before upload. Notes are validated with
+[`scripts/generate_ota_notes.py`](../../scripts/generate_ota_notes.py) and are
+not part of the ECDSA signing payload.

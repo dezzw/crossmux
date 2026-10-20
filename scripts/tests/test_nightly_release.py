@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import json
 import sys
@@ -6,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import yaml
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
@@ -17,6 +19,67 @@ import ota_manifest
 import package_nightly_target
 import sign_ota_release
 import verify_nightly_release
+
+NIGHTLY_WORKFLOW_PATH = ROOT / '.github/workflows/nightly.yml'
+STABLE_UPLOAD_STEP_NAME = 'Upload signed stable manifest to rolling stable release (last)'
+SOFT_FAIL_RUN_PATTERNS = ('|| true', '|| :', 'set +e')
+
+
+def load_nightly_workflow():
+    with NIGHTLY_WORKFLOW_PATH.open(encoding='utf-8') as stream:
+        return yaml.safe_load(stream)
+
+
+def step_run(step):
+    run = step.get('run', '')
+    return run if isinstance(run, str) else ''
+
+
+def publish_stable_release_job(workflow):
+    return workflow['jobs']['publish_stable_release']
+
+
+def assert_stable_release_notes_gate(workflow):
+    job = publish_stable_release_job(workflow)
+    steps = job['steps']
+    if job.get('continue-on-error'):
+        raise AssertionError('publish_stable_release must not use continue-on-error')
+
+    sign_steps = [
+        index
+        for index, step in enumerate(steps)
+        if step.get('name') == 'Sign stable OTA manifests (semver firmware URL)'
+        and 'sign_ota_release.py' in step_run(step)
+        and '--release-notes notes/ota-notes.md' in step_run(step)
+    ]
+    verify_steps = [index for index, step in enumerate(steps) if '--verify-release-notes' in step_run(step)]
+    upload_steps = [index for index, step in enumerate(steps) if step.get('name') == STABLE_UPLOAD_STEP_NAME]
+
+    if len(sign_steps) != 1:
+        raise AssertionError('expected one stable sign step with --release-notes notes/ota-notes.md')
+    if len(verify_steps) != 1:
+        raise AssertionError('expected one stable verify step with --verify-release-notes')
+    if len(upload_steps) != 1:
+        raise AssertionError('expected one stable rolling upload step')
+
+    sign_idx, verify_idx, upload_idx = sign_steps[0], verify_steps[0], upload_steps[0]
+    if not sign_idx < verify_idx < upload_idx:
+        raise AssertionError(
+            f'stable release notes gate order must be sign < verify < upload '
+            f'(got sign={sign_idx}, verify={verify_idx}, upload={upload_idx})'
+        )
+
+    for label, step in (
+        ('sign', steps[sign_idx]),
+        ('verify', steps[verify_idx]),
+        ('upload', steps[upload_idx]),
+    ):
+        if step.get('continue-on-error'):
+            raise AssertionError(f'{label} step must not use continue-on-error')
+        run = step_run(step)
+        for pattern in SOFT_FAIL_RUN_PATTERNS:
+            if pattern in run:
+                raise AssertionError(f'{label} step run must not contain {pattern!r}')
 
 
 class NightlyTargetTest(unittest.TestCase):
@@ -302,6 +365,48 @@ class NightlyTargetTest(unittest.TestCase):
                 'waveshare_epaper_397',
                 version,
             )
+
+
+class StableReleaseWorkflowGateTest(unittest.TestCase):
+    def test_publish_stable_release_notes_gate(self):
+        assert_stable_release_notes_gate(load_nightly_workflow())
+
+    def test_rejects_verify_after_upload(self):
+        workflow = copy.deepcopy(load_nightly_workflow())
+        steps = publish_stable_release_job(workflow)['steps']
+        verify = next(step for step in steps if '--verify-release-notes' in step_run(step))
+        steps.remove(verify)
+        steps.append(verify)
+        with self.assertRaises(AssertionError):
+            assert_stable_release_notes_gate(workflow)
+
+    def test_rejects_verify_run_or_true(self):
+        workflow = copy.deepcopy(load_nightly_workflow())
+        steps = publish_stable_release_job(workflow)['steps']
+        verify = next(step for step in steps if '--verify-release-notes' in step_run(step))
+        verify['run'] = step_run(verify) + '\n  true || true\n'
+        with self.assertRaises(AssertionError):
+            assert_stable_release_notes_gate(workflow)
+
+    def test_rejects_verify_continue_on_error(self):
+        workflow = copy.deepcopy(load_nightly_workflow())
+        steps = publish_stable_release_job(workflow)['steps']
+        verify = next(step for step in steps if '--verify-release-notes' in step_run(step))
+        verify['continue-on-error'] = True
+        with self.assertRaises(AssertionError):
+            assert_stable_release_notes_gate(workflow)
+
+    def test_rejects_missing_sign_release_notes_flag(self):
+        workflow = copy.deepcopy(load_nightly_workflow())
+        steps = publish_stable_release_job(workflow)['steps']
+        sign = next(
+            step
+            for step in steps
+            if step.get('name') == 'Sign stable OTA manifests (semver firmware URL)'
+        )
+        sign['run'] = step_run(sign).replace('--release-notes notes/ota-notes.md', '')
+        with self.assertRaises(AssertionError):
+            assert_stable_release_notes_gate(workflow)
 
 
 class StableIndexTest(unittest.TestCase):
