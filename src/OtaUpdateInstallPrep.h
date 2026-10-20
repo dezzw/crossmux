@@ -7,5 +7,4 @@ struct OtaUpdateInstallPrepDeps {
 };
 
 // Unload SD fonts before writing the inactive OTA slot (shared with flash font cache).
-void otaReleaseFontsBeforeInactiveSlotWrite(GfxRenderer& renderer,
-                                            const OtaUpdateInstallPrepDeps* testDeps = nullptr);
+void otaReleaseFontsBeforeInactiveSlotWrite(GfxRenderer& renderer, const OtaUpdateInstallPrepDeps* testDeps = nullptr);

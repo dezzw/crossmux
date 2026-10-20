@@ -341,6 +341,7 @@ TEST_F(SdCardFontMemoryTest, FlashFallbackClearsAdvanceAndOverflowCaches) {
   SdCardFontCache::failFlashRead = true;
   EXPECT_EQ(font.findGlobalGlyphIndex(font.styles_[0], 0x10080), 64);
   EXPECT_FALSE(font.usingFlash());
+  (void)font.getAdvanceOrLoad('A', 0);
   EXPECT_FALSE(font.hasAdvanceTable());
   EXPECT_EQ(font.overflowCount_, 0U);
 }

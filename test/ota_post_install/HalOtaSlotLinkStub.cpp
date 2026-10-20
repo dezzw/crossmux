@@ -2,9 +2,7 @@
 
 HalOtaSlot HalOtaSlot::inactive() { return {}; }
 
-HalOtaSlot::RunningImageState HalOtaSlot::runningImageState() {
-  return RunningImageState::Confirmed;
-}
+HalOtaSlot::RunningImageState HalOtaSlot::runningImageState() { return RunningImageState::Confirmed; }
 
 bool HalOtaSlot::confirmRunningImage() { return true; }
 

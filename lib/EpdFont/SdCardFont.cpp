@@ -78,7 +78,8 @@ class FlashFallbackScope {
 };
 
 bool SdCardFont::glyphBitmapPayloadValid(const EpdGlyph& glyph, const bool is2Bit) {
-  if (glyph.dataLength == 0) return glyph.width == 0 || glyph.height == 0;
+  if (glyph.dataLength == 0) return true;
+  if (glyph.width == 0 && glyph.height == 0) return true;
   if (glyph.width == 0 || glyph.height == 0) return false;
   const uint32_t pixels = static_cast<uint32_t>(glyph.width) * glyph.height;
   const uint32_t minBytes = is2Bit ? (pixels * 2u + 7u) / 8u : (pixels + 7u) / 8u;

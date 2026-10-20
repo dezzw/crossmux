@@ -11,5 +11,4 @@ struct OtaRunningImageConfirmDeps {
 };
 
 // Idempotent: confirms a pending-verify running image once UI/storage are ready.
-void otaConfirmPendingRunningImageAtHome(GfxRenderer& renderer,
-                                         const OtaRunningImageConfirmDeps* testDeps = nullptr);
+void otaConfirmPendingRunningImageAtHome(GfxRenderer& renderer, const OtaRunningImageConfirmDeps* testDeps = nullptr);
