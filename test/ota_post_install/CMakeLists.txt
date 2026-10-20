@@ -2,9 +2,6 @@ add_executable(ota_post_install_test
   OtaPostInstallTest.cpp
   HalOtaSlotLinkStub.cpp
   ${REPO_ROOT}/src/OtaRunningImageConfirm.cpp
-  ${REPO_ROOT}/src/OtaUpdateInstallPrep.cpp
-  stubs/BootActivityPostOtaPreloadStub.cpp
-  stubs/SdCardFontReleaseForOtaStub.cpp
 )
 target_include_directories(ota_post_install_test BEFORE PRIVATE
   ${REPO_ROOT}/test/ota_post_install/stubs

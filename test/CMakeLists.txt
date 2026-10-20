@@ -145,6 +145,8 @@ add_test(NAME MainTabEntryReleaseBarrier
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_main_tab_entry_release_barrier.py)
 add_test(NAME DownloadMemoryLifecycle
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_download_memory_lifecycle.py)
+add_test(NAME OtaPostInstallSourceGuards
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ota_post_install_sources.py)
 add_test(NAME InxStyleCompatibility
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/test/inx_navigation/test_inx_style_compat.py)
 add_test(NAME InxRecentThumbnails

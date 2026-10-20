@@ -40,9 +40,12 @@ void BootActivity::renderSplash() {
 
 void BootActivity::runPostOta() {
   requestUpdateAndWait();
-  LOG_INF("OTA", "Post-OTA boot; image confirmation deferred until Home UI");
+  LOG_INF("OTA", "Post-OTA boot");
 
-  if (postOtaImagePendingHomeConfirm()) return;
+  if (postOtaImagePendingHomeConfirm()) {
+    LOG_INF("OTA", "Running image still pending verify; preload deferred until confirmed");
+    return;
+  }
   if (!allowAutoPreload_) return;
 
   runPostOtaFontPreloadWithProgress();
@@ -84,6 +87,8 @@ void BootActivity::runPostOtaFontPreloadWithProgress() {
       },
       this);
 
+  // The callback only queues refreshes. Keep the verified 100% state visible
+  // until the panel has physically completed that frame before showing Ready.
   if (result == SdCardFontCache::Result::Ok) requestUpdateAndWait();
 
   const bool succeeded = result == SdCardFontCache::Result::Ok || result == SdCardFontCache::Result::AlreadyCached;

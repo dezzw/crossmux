@@ -68,15 +68,6 @@ constexpr uint8_t MINI_UNDERUSE_RUNS_BEFORE_FREE = 3;
 
 }  // namespace
 
-class FlashFallbackScope {
- public:
-  explicit FlashFallbackScope(const SdCardFont& font) : font_(font) {}
-  ~FlashFallbackScope() { font_.applyPendingFlashFallbackIfNeeded(); }
-
- private:
-  const SdCardFont& font_;
-};
-
 bool SdCardFont::glyphBitmapPayloadValid(const EpdGlyph& glyph, const bool is2Bit) {
   if (glyph.dataLength == 0) return true;
   if (glyph.width == 0 && glyph.height == 0) return true;
@@ -452,7 +443,6 @@ void SdCardFont::applyKernLigaturePointers(PerStyle& s, EpdFontData& data) const
 }
 
 bool SdCardFont::loadStyleKernLigatureData(PerStyle& s) {
-  FlashFallbackScope flashFallback(*this);
   if (s.kernLigLoaded) return true;
   bool hasKern = s.header.kernLeftEntryCount > 0;
   bool hasLig = s.header.ligaturePairCount > 0;
@@ -1067,6 +1057,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
 
 int SdCardFont::prewarm(TextGetter getter, const void* ctx, uint32_t textCount, uint8_t styleMask, bool metadataOnly,
                         bool loadKernLig) {
+  applyPendingFlashFallbackIfNeeded();
   if (!loaded_ || getter == nullptr) return -1;
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
@@ -1134,7 +1125,7 @@ int SdCardFont::prewarm(TextGetter getter, const void* ctx, uint32_t textCount, 
 
 int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint32_t cpCount, bool metadataOnly,
                              bool loadKernLig) {
-  FlashFallbackScope flashFallback(*this);
+  applyPendingFlashFallbackIfNeeded();
   auto& s = styles_[styleIdx];
   FontFile file(this, filePath_, &useFlash_, flashPayloadSize_);
 
@@ -1581,7 +1572,7 @@ uint16_t SdCardFont::getAdvance(uint32_t codepoint, uint8_t style) const {
 }
 
 uint16_t SdCardFont::getAdvanceOrLoad(uint32_t codepoint, uint8_t style) const {
-  FlashFallbackScope flashFallback(*this);
+  applyPendingFlashFallbackIfNeeded();
   uint8_t styleIdx = style & (MAX_STYLES - 1);
   if (!styles_[styleIdx].present) styleIdx = resolveStyle(styleIdx);
 
@@ -1711,6 +1702,7 @@ int SdCardFont::fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCoun
 template <typename Iter>
 int SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, bool includeHyphen, uint8_t styleMask,
                                        const char* extraText) {
+  applyPendingFlashFallbackIfNeeded();
   if (!loaded_) return -1;
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
@@ -1832,7 +1824,7 @@ const EpdGlyph* SdCardFont::onGlyphMiss(void* ctx, uint32_t codepoint) {
   auto* oc = static_cast<OverflowContext*>(ctx);
   auto* self = oc->self;
   uint8_t styleIdx = oc->styleIdx;
-  FlashFallbackScope flashFallback(*self);
+  self->applyPendingFlashFallbackIfNeeded();
 
   if (!self->loaded_ || styleIdx >= MAX_STYLES || !self->styles_[styleIdx].present) return nullptr;
   const auto& s = self->styles_[styleIdx];

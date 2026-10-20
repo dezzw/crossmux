@@ -556,7 +556,7 @@ void setup() {
 
   const bool fontsReady = setupDisplayAndFonts(resume != BootResume::Splash,
                                                snapshotTarget == SilentRebootTarget::ReaderPreloadChineseFont);
-  if (fontsReady) {
+  if (fontsReady && !recoveryFirmwareMode) {
     otaConfirmPendingRunningImageAtHome(renderer);
   }
   const bool postOtaBoot = otaPendingAtBoot && fontsReady && activityManager.goToPostOtaBoot(!recoveryFirmwareMode);

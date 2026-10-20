@@ -2,8 +2,6 @@
 
 #include <Logging.h>
 
-#include "BootActivityPostOtaPreload.h"
-
 namespace {
 
 HalOtaSlot::RunningImageState queryRunningState(const OtaRunningImageConfirmDeps* testDeps) {
@@ -16,23 +14,15 @@ bool confirmRunning(const OtaRunningImageConfirmDeps* testDeps) {
   return HalOtaSlot::confirmRunningImage();
 }
 
-void preloadAfterConfirm(GfxRenderer& renderer, const OtaRunningImageConfirmDeps* testDeps) {
-  if (testDeps && testDeps->preloadFontCacheIfNeeded) {
-    testDeps->preloadFontCacheIfNeeded(renderer);
-    return;
-  }
-  postOtaPreloadFontCacheIfNeeded(renderer);
-}
-
 }  // namespace
 
 void otaConfirmPendingRunningImageAtHome(GfxRenderer& renderer, const OtaRunningImageConfirmDeps* testDeps) {
+  (void)renderer;
   if (queryRunningState(testDeps) != HalOtaSlot::RunningImageState::PendingVerify) return;
 
   if (confirmRunning(testDeps)) {
-    LOG_INF("OTA", "Running image confirmed after Home UI reached");
-    preloadAfterConfirm(renderer, testDeps);
+    LOG_INF("OTA", "Running image confirmed");
   } else {
-    LOG_ERR("OTA", "Running image confirmation failed on Home entry");
+    LOG_ERR("OTA", "Running image confirmation failed");
   }
 }

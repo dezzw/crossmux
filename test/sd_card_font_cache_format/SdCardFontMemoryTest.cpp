@@ -206,8 +206,28 @@ TEST_F(SdCardFontMemoryTest, RejectsUndersizedGlyphMetadataPayload) {
   good.height = 8;
   good.dataLength = 8;
   EXPECT_TRUE(SdCardFont::glyphBitmapPayloadValid(good, false));
+  good.dataLength = 15;
+  EXPECT_FALSE(SdCardFont::glyphBitmapPayloadValid(good, true));
   good.dataLength = 16;
   EXPECT_TRUE(SdCardFont::glyphBitmapPayloadValid(good, true));
+}
+
+TEST_F(SdCardFontMemoryTest, ReadGlyphMetadataRejectsUndersizedPayloadOnDisk) {
+  auto& style = font.styles_[0];
+  style.glyphsFileOffset = 0;
+  EpdGlyph glyphs[2]{};
+  glyphs[0].advanceX = 9;
+  glyphs[0].width = 10;
+  glyphs[0].height = 10;
+  glyphs[0].dataLength = 1;
+  glyphs[1].advanceX = 13;
+  glyphs[1].dataLength = 16;
+  glyphs[1].dataOffset = 16;
+  std::ofstream out(path, std::ios::binary | std::ios::trunc);
+  out.write(reinterpret_cast<const char*>(glyphs), sizeof(glyphs));
+  const char bitmaps[32] = {};
+  out.write(bitmaps, sizeof(bitmaps));
+  EXPECT_EQ(font.getAdvanceOrLoad('A', 0), 0u);
 }
 
 #if CONFIG_IDF_TARGET_ESP32C3 && FREEINK_CAP_BLE_HID_HOST
@@ -243,6 +263,22 @@ void writeFontBytes(const std::string& path, const std::vector<uint8_t>& bytes) 
   file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
 }
 }  // namespace
+
+TEST_F(SdCardFontMemoryTest, OverflowGlyphSurvivesFlashFallbackDuringMiss) {
+  SdCardFontCache::flashBytes = pagedFontBytes();
+  writeFontBytes(path, SdCardFontCache::flashBytes);
+  ASSERT_TRUE(font.load(path.c_str(), true));
+  SdCardFontCache::flashReadOps = 0;
+  SdCardFontCache::failFlashReadFromOp = 2;
+  const EpdGlyph* glyph = SdCardFont::onGlyphMiss(&font.overflowCtx_[0], 0x10001);
+  ASSERT_NE(glyph, nullptr);
+  EXPECT_TRUE(font.isOverflowGlyph(glyph));
+  const uint8_t* bitmap = font.getOverflowBitmap(glyph);
+  if (glyph->dataLength > 0 && glyph->width > 0 && glyph->height > 0) {
+    ASSERT_NE(bitmap, nullptr);
+    (void)bitmap[0];
+  }
+}
 
 TEST_F(SdCardFontMemoryTest, PagedIndexMatchesFullLookupIncludingNonBmpAndPartialLastPage) {
   writeFontBytes(path, pagedFontBytes());
