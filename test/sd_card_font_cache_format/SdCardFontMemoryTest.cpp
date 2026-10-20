@@ -1,11 +1,13 @@
 #include <Arduino.h>
 #include <EpdFont.h>
 #include <EpdFontData.h>
+#include <HalStorage.h>
 #include <MissingGlyph.h>
 #include <SdCardFontCache.h>
 #include <gtest/gtest.h>
 #include <unistd.h>
 
+#include <array>
 #include <cstring>
 #include <deque>
 #include <filesystem>
@@ -62,6 +64,7 @@ class SdCardFontMemoryTest : public ::testing::Test {
           .string();
   void SetUp() override {
     ESP = {};
+    font.flashFallbackPending_ = false;
     font.loaded_ = true;
     std::strncpy(font.filePath_, path.c_str(), sizeof(font.filePath_) - 1);
     auto& style = font.styles_[0];
@@ -213,21 +216,37 @@ TEST_F(SdCardFontMemoryTest, RejectsUndersizedGlyphMetadataPayload) {
 }
 
 TEST_F(SdCardFontMemoryTest, ReadGlyphMetadataRejectsUndersizedPayloadOnDisk) {
+  font.flashFallbackPending_ = false;
   auto& style = font.styles_[0];
   style.glyphsFileOffset = 0;
+  style.header.is2Bit = true;
+  style.stubData.is2Bit = true;
+  constexpr uint16_t kAdvance = 42;
+  constexpr uint32_t kBitmapOffset = 2 * sizeof(EpdGlyph);
   EpdGlyph glyphs[2]{};
-  glyphs[0].advanceX = 9;
-  glyphs[0].width = 10;
-  glyphs[0].height = 10;
-  glyphs[0].dataLength = 1;
+  glyphs[0].width = 8;
+  glyphs[0].height = 8;
+  glyphs[0].advanceX = kAdvance;
+  glyphs[0].dataLength = 15;  // 2-bit 8x8 needs 16; without validation readGlyphMetadata returns kAdvance
+  glyphs[0].dataOffset = kBitmapOffset;
   glyphs[1].advanceX = 13;
   glyphs[1].dataLength = 16;
-  glyphs[1].dataOffset = 16;
+  glyphs[1].dataOffset = kBitmapOffset + 16;
   std::ofstream out(path, std::ios::binary | std::ios::trunc);
   out.write(reinterpret_cast<const char*>(glyphs), sizeof(glyphs));
-  const char bitmaps[32] = {};
-  out.write(bitmaps, sizeof(bitmaps));
+  std::array<uint8_t, 32> bitmaps{};
+  out.write(reinterpret_cast<const char*>(bitmaps.data()), bitmaps.size());
+  out.close();
+
+  HalFile verifyFile;
+  ASSERT_TRUE(Storage.openFileForRead("TEST", path, verifyFile));
+  EpdGlyph onDisk{};
+  ASSERT_EQ(verifyFile.read(&onDisk, sizeof(onDisk)), sizeof(onDisk));
+  EXPECT_EQ(onDisk.advanceX, kAdvance);
+  ASSERT_EQ(font.findGlobalGlyphIndex(style, 'A', nullptr), 0);
+
   EXPECT_EQ(font.getAdvanceOrLoad('A', 0), 0u);
+  EXPECT_EQ(SdCardFont::onGlyphMiss(&font.overflowCtx_[0], 'A'), nullptr);
 }
 
 #if CONFIG_IDF_TARGET_ESP32C3 && FREEINK_CAP_BLE_HID_HOST
