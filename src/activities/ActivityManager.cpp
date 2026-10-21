@@ -12,6 +12,7 @@
 
 #include "CrossPointSettings.h"
 #include "OpdsServerStore.h"
+#include "OtaRunningImageConfirm.h"
 #include "apps/AppsMenuActivity.h"
 #ifdef ENABLE_CHINESE_VERSION
 #include "apps/weread/WeReadActivity.h"
@@ -427,6 +428,8 @@ void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::
 }
 
 void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
+  otaConfirmPendingRunningImage();
+
   if (!CrossPointSettings::requiresOnboarding(SETTINGS.onboardingVersion)) {
     UserGuide::installIfPending(static_cast<Language>(SETTINGS.language) == Language::ZH_CN);
   }

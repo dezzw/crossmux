@@ -68,13 +68,26 @@ constexpr uint8_t MINI_UNDERUSE_RUNS_BEFORE_FREE = 3;
 
 }  // namespace
 
+bool SdCardFont::glyphBitmapPayloadValid(const EpdGlyph& glyph, const bool is2Bit) {
+  if (glyph.dataLength == 0) return true;
+  if (glyph.width == 0 && glyph.height == 0) return true;
+  if (glyph.width == 0 || glyph.height == 0) return false;
+  const uint32_t pixels = static_cast<uint32_t>(glyph.width) * glyph.height;
+  const uint32_t minBytes = is2Bit ? (pixels * 2u + 7u) / 8u : (pixels + 7u) / 8u;
+  return glyph.dataLength >= minBytes;
+}
+
 // One concrete file cursor keeps every parser and hot-path read identical for
 // SD and the internal Flash cache. A failed Flash read switches the owning font
 // back to SD for this and all subsequent cursors.
 class FontFile {
  public:
-  FontFile(const char* path, bool* useFlash, size_t flashPayloadSize)
-      : path_(path), useFlash_(useFlash), flashPayloadSize_(flashPayloadSize), flash_(useFlash && *useFlash) {}
+  FontFile(SdCardFont* owner, const char* path, bool* useFlash, size_t flashPayloadSize)
+      : owner_(owner),
+        path_(path),
+        useFlash_(useFlash),
+        flashPayloadSize_(flashPayloadSize),
+        flash_(useFlash && *useFlash) {}
 
   explicit operator bool() { return flash_ || openSd(); }
 
@@ -92,6 +105,7 @@ class FontFile {
       LOG_ERR("SDCF", "Flash font cache read failed at %u; falling back to SD", static_cast<unsigned>(position_));
       flash_ = false;
       *useFlash_ = false;
+      if (owner_) owner_->noteFlashFallbackPending();
       if (!openSd() || !sd_.seekSet(position_)) return -1;
     }
     if (!openSd()) return -1;
@@ -111,6 +125,7 @@ class FontFile {
     return Storage.openFileForRead("SDCF", path_, sd_);
   }
 
+  SdCardFont* owner_;
   const char* path_;
   bool* useFlash_;
   size_t flashPayloadSize_;
@@ -204,6 +219,11 @@ SdCardFont::GlyphReadResult SdCardFont::readGlyphMetadata(FontFile& file, const 
   const uint32_t offset = style.glyphsFileOffset + glyphIndex * sizeof(EpdGlyph);
   const bool readOk = (!seekFirst || file.seekSet(offset)) && file.read(&glyph, sizeof(glyph)) == sizeof(glyph);
   if (!readOk) {
+    return GlyphReadResult::Failed;
+  }
+  if (!glyphBitmapPayloadValid(glyph, styles_[styleIdx].header.is2Bit != 0)) {
+    LOG_ERR("SDCF", "Glyph %u metadata payload size invalid (len=%u, %ux%u)", glyphIndex, glyph.dataLength, glyph.width,
+            glyph.height);
     return GlyphReadResult::Failed;
   }
 #if defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED)
@@ -378,6 +398,7 @@ void SdCardFont::freeAll() {
   styleCount_ = 0;
   contentHash_ = 0;
   loaded_ = false;
+  flashFallbackPending_ = false;
 #if defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED)
   glyphCache_.reset();
   glyphCacheBuffer_.reset();
@@ -436,7 +457,7 @@ bool SdCardFont::loadStyleKernLigatureData(PerStyle& s) {
   const size_t ligBytes = s.header.ligaturePairCount * sizeof(EpdLigaturePair);
   if (!hasCacheHeadroom(leftBytes + rightBytes + ligBytes, std::max({leftBytes, rightBytes, ligBytes}))) return false;
 
-  FontFile file(filePath_, &useFlash_, flashPayloadSize_);
+  FontFile file(this, filePath_, &useFlash_, flashPayloadSize_);
   if (!file) {
     LOG_ERR("SDCF", "Failed to open .cpfont for kern/lig: %s", filePath_);
     return false;
@@ -614,7 +635,7 @@ bool SdCardFont::buildMiniKernMatrix(PerStyle& s, const uint32_t* codepoints, ui
   // Step 5: read the full matrix's rows for each used left class, keep only
   // columns for used right classes. One SD seek + one read per used left class;
   // a row is kernRightClassCount bytes (~200 for Literata).
-  FontFile file(filePath_, &useFlash_, flashPayloadSize_);
+  FontFile file(this, filePath_, &useFlash_, flashPayloadSize_);
   if (!file) {
     LOG_ERR("SDCF", "Failed to open .cpfont for mini kern: %s", filePath_);
     freeStyleMiniKern(s);
@@ -728,7 +749,7 @@ bool SdCardFont::load(const char* path, bool preferFlash, bool enablePsramGlyphC
 }
 
 bool SdCardFont::loadSelectedSource() {
-  FontFile file(filePath_, &useFlash_, flashPayloadSize_);
+  FontFile file(this, filePath_, &useFlash_, flashPayloadSize_);
   if (!file) {
     LOG_ERR("SDCF", "Failed to open .cpfont: %s", filePath_);
     return false;
@@ -1000,7 +1021,7 @@ int32_t SdCardFont::findGlobalGlyphIndex(const PerStyle& s, uint32_t codepoint, 
 #if CONFIG_IDF_TARGET_ESP32C3 && FREEINK_CAP_BLE_HID_HOST
   if (s.intervalPageStarts) {
     if (file) return findPagedGlyphIndex(s, codepoint, *file);
-    FontFile source(filePath_, &useFlash_, flashPayloadSize_);
+    FontFile source(const_cast<SdCardFont*>(this), filePath_, &useFlash_, flashPayloadSize_);
     return findPagedGlyphIndex(s, codepoint, source);
   }
 #else
@@ -1037,6 +1058,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
 
 int SdCardFont::prewarm(TextGetter getter, const void* ctx, uint32_t textCount, uint8_t styleMask, bool metadataOnly,
                         bool loadKernLig) {
+  applyPendingFlashFallbackIfNeeded();
   if (!loaded_ || getter == nullptr) return -1;
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
@@ -1104,8 +1126,9 @@ int SdCardFont::prewarm(TextGetter getter, const void* ctx, uint32_t textCount, 
 
 int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint32_t cpCount, bool metadataOnly,
                              bool loadKernLig) {
+  applyPendingFlashFallbackIfNeeded();
   auto& s = styles_[styleIdx];
-  FontFile file(filePath_, &useFlash_, flashPayloadSize_);
+  FontFile file(this, filePath_, &useFlash_, flashPayloadSize_);
 
   // Idle-prewarm hit: mini data persists across PrewarmScopes (resetStyleMiniData
   // keeps it), so when the previous scope -- typically the idle prewarm of this
@@ -1454,6 +1477,19 @@ void SdCardFont::clearPersistentCache() {
   }
 }
 
+void SdCardFont::applyPendingFlashFallbackIfNeeded() const {
+  if (!flashFallbackPending_) return;
+  flashFallbackPending_ = false;
+  onFlashCacheReadFallback();
+}
+
+void SdCardFont::onFlashCacheReadFallback() const {
+  const_cast<SdCardFont*>(this)->releaseResidentCaches();
+#if defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED)
+  glyphCache_.reset();
+#endif
+}
+
 bool SdCardFont::advanceTableLookup(uint8_t styleIdx, uint32_t codepoint, uint16_t* outAdvance) const {
   const AdvanceEntry* table = advanceTable_[styleIdx];
   const uint32_t size = advanceTableSize_[styleIdx];
@@ -1537,6 +1573,7 @@ uint16_t SdCardFont::getAdvance(uint32_t codepoint, uint8_t style) const {
 }
 
 uint16_t SdCardFont::getAdvanceOrLoad(uint32_t codepoint, uint8_t style) const {
+  applyPendingFlashFallbackIfNeeded();
   uint8_t styleIdx = style & (MAX_STYLES - 1);
   if (!styles_[styleIdx].present) styleIdx = resolveStyle(styleIdx);
 
@@ -1549,7 +1586,7 @@ uint16_t SdCardFont::getAdvanceOrLoad(uint32_t codepoint, uint8_t style) const {
   // probes (e.g. the Han-column reference ideograph) legitimately miss here.
   const auto& s = styles_[styleIdx];
   if (!s.present) return 0;
-  FontFile file(filePath_, &useFlash_, flashPayloadSize_);
+  FontFile file(const_cast<SdCardFont*>(this), filePath_, &useFlash_, flashPayloadSize_);
   const int32_t gIdx = findGlobalGlyphIndex(s, codepoint, &file);
   if (gIdx == GLYPH_INDEX_IO_ERROR) return 0;  // Retry on the next lookup; never cache an I/O failure.
   if (gIdx < 0) return missingGlyph::metrics(s.header.ascender, codepoint).advanceX;
@@ -1569,7 +1606,7 @@ int SdCardFont::fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCoun
   for (uint8_t si = 0; si < MAX_STYLES; si++) {
     if (!(styleMask & (1 << si)) || !styles_[si].present) continue;
     const auto& s = styles_[si];
-    FontFile file(filePath_, &useFlash_, flashPayloadSize_);
+    FontFile file(this, filePath_, &useFlash_, flashPayloadSize_);
 
     // Stop fetching once the cache is full — further inserts would be dropped
     // by the merge anyway. getAdvanceOrLoad resolves uncached entries on demand.
@@ -1666,6 +1703,7 @@ int SdCardFont::fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCoun
 template <typename Iter>
 int SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, bool includeHyphen, uint8_t styleMask,
                                        const char* extraText) {
+  applyPendingFlashFallbackIfNeeded();
   if (!loaded_) return -1;
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
@@ -1787,6 +1825,7 @@ const EpdGlyph* SdCardFont::onGlyphMiss(void* ctx, uint32_t codepoint) {
   auto* oc = static_cast<OverflowContext*>(ctx);
   auto* self = oc->self;
   uint8_t styleIdx = oc->styleIdx;
+  self->applyPendingFlashFallbackIfNeeded();
 
   if (!self->loaded_ || styleIdx >= MAX_STYLES || !self->styles_[styleIdx].present) return nullptr;
   const auto& s = self->styles_[styleIdx];
@@ -1799,7 +1838,7 @@ const EpdGlyph* SdCardFont::onGlyphMiss(void* ctx, uint32_t codepoint) {
     }
   }
 
-  FontFile file(self->filePath_, &self->useFlash_, self->flashPayloadSize_);
+  FontFile file(self, self->filePath_, &self->useFlash_, self->flashPayloadSize_);
   int32_t globalIdx = self->findGlobalGlyphIndex(s, codepoint, &file);
   if (globalIdx < 0) return nullptr;
 

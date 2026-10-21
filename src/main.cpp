@@ -28,6 +28,7 @@
 #include "KOReaderCredentialStore.h"
 #include "MappedInputManager.h"
 #include "OpdsServerStore.h"
+#include "OtaRunningImageConfirm.h"
 #include "ReadingStatsStore.h"
 #include "RecentBooksStore.h"
 #include "SdCardFontSystem.h"
@@ -555,6 +556,9 @@ void setup() {
 
   const bool fontsReady = setupDisplayAndFonts(resume != BootResume::Splash,
                                                snapshotTarget == SilentRebootTarget::ReaderPreloadChineseFont);
+  if (fontsReady && !recoveryFirmwareMode) {
+    otaConfirmPendingRunningImage();
+  }
   const bool postOtaBoot = otaPendingAtBoot && fontsReady && activityManager.goToPostOtaBoot(!recoveryFirmwareMode);
 
   if (!postOtaBoot) {

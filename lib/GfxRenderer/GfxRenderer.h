@@ -24,6 +24,7 @@ class SdCardFont;
 #include <vector>
 
 #include "Bitmap.h"
+#include "GfxOutsideRangeLogBudget.h"
 
 // Color representation: uint8_t mapped to 4x4 Bayer matrix dithering levels
 // 0 = transparent, 1-16 = gray levels (white to black)
@@ -131,6 +132,8 @@ class GfxRenderer {
   mutable int clipY0 = 0;
   mutable int clipX1 = 0;
   mutable int clipY1 = 0;
+
+  mutable GfxOutsideRangeLogBudget outsideRangeLog_;
 
   // Ordered UI fallbacks: optional SD face, then the built-in CJK subset.
   // Resolve the whole string through one face for consistent draw/measure metrics.

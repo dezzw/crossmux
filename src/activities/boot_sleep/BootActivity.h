@@ -21,6 +21,8 @@ class BootActivity final : public Activity {
   void render(RenderLock&&) override;
   bool preventAutoSleep() override { return mode_ == Mode::PostOta; }
 
+  static bool runningImagePendingVerify();
+
  private:
   enum class Stage : uint8_t {
     Confirming,
@@ -41,6 +43,7 @@ class BootActivity final : public Activity {
 
   void renderSplash();
   void runPostOta();
+  void runPostOtaFontPreloadWithProgress();
 
   Mode mode_;
   bool allowAutoPreload_;

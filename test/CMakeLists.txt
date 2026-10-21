@@ -65,6 +65,7 @@ add_subdirectory(firmware_board_tag)
 add_subdirectory(crossmux_endpoints)
 add_subdirectory(font_manifest_catalog)
 add_subdirectory(ota_manifest)
+add_subdirectory(ota_post_install)
 add_subdirectory(ota_signature)
 add_subdirectory(ota_signing_cross)
 add_subdirectory(differential_rounding)
@@ -96,6 +97,7 @@ add_subdirectory(theme_device_policy)
 add_subdirectory(keyboard_input_viewport)
 add_subdirectory(sound_feedback)
 add_subdirectory(gfx_two_bit_mapping)
+add_subdirectory(gfx_outside_range_log)
 add_subdirectory(dictionary_resource)
 add_subdirectory(reading_guide_line)
 add_subdirectory(png_conversion)
@@ -143,6 +145,8 @@ add_test(NAME MainTabEntryReleaseBarrier
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_main_tab_entry_release_barrier.py)
 add_test(NAME DownloadMemoryLifecycle
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_download_memory_lifecycle.py)
+add_test(NAME OtaPostInstallSourceGuards
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ota_post_install_sources.py)
 add_test(NAME InxStyleCompatibility
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/test/inx_navigation/test_inx_style_compat.py)
 add_test(NAME InxRecentThumbnails

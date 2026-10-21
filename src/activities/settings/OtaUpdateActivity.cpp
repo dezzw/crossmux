@@ -490,6 +490,10 @@ void OtaUpdateActivity::runUpdateInstall() {
   LOG_INF("OTA", "TLS preflight (firmware): free=%u, maxAlloc=%u", static_cast<unsigned>(ESP.getFreeHeap()),
           static_cast<unsigned>(ESP.getMaxAllocHeap()));
 #endif
+  {
+    RenderLock lock(*this);
+    sdFontSystem.releaseLoadedFont(renderer);
+  }
   const auto res = updater.installUpdate(
       [](void* ctx) {
         // immediate=true notifies the render task directly. The default deferred path only
@@ -519,6 +523,7 @@ void OtaUpdateActivity::runUpdateInstall() {
 
   {
     RenderLock lock(*this);
+    sdFontSystem.ensureLoaded(renderer, false);
     state = State::Finished;
   }
   requestUpdateAndWait();

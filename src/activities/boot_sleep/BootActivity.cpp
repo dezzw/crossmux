@@ -9,6 +9,7 @@
 
 #include "CrossPointSettings.h"
 #include "SdCardFontSystem.h"
+#include "activities/RenderLock.h"
 #include "components/FontPreloadView.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -39,9 +40,19 @@ void BootActivity::renderSplash() {
 
 void BootActivity::runPostOta() {
   requestUpdateAndWait();
-  LOG_INF("OTA", "Post-OTA boot; image confirmation deferred until Home UI");
+  LOG_INF("OTA", "Post-OTA boot");
 
-  if (!allowAutoPreload_ || SETTINGS.sdFontFlashPreload == 0 || SETTINGS.sdFontFamilyName[0] == '\0') return;
+  if (runningImagePendingVerify()) {
+    LOG_INF("OTA", "Running image still pending verify; preload deferred until confirmed");
+    return;
+  }
+  if (!allowAutoPreload_) return;
+
+  runPostOtaFontPreloadWithProgress();
+}
+
+void BootActivity::runPostOtaFontPreloadWithProgress() {
+  if (SETTINGS.sdFontFlashPreload == 0 || SETTINGS.sdFontFamilyName[0] == '\0') return;
 
   const auto* family = sdFontSystem.registry().findFamily(SETTINGS.sdFontFamilyName);
   const auto* file = family ? family->findNearestSize(SETTINGS.fontPointSize) : nullptr;
@@ -107,8 +118,9 @@ void BootActivity::runPostOta() {
           failure_.store(Failure::Verify);
           break;
         case SdCardFontCache::Result::NotSafe:
-          failure_.store(Failure::Confirm);
-          break;
+          LOG_DBG("SDFCACHE", "Post-OTA preload skipped (inactive OTA slot not safe for scratch)");
+          stage_.store(Stage::Confirming);
+          return;
         case SdCardFontCache::Result::Ok:
         case SdCardFontCache::Result::AlreadyCached:
           break;
@@ -178,4 +190,8 @@ void BootActivity::render(RenderLock&&) {
   }
 
   renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+}
+
+bool BootActivity::runningImagePendingVerify() {
+  return HalOtaSlot::runningImageState() == HalOtaSlot::RunningImageState::PendingVerify;
 }
