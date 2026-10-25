@@ -75,6 +75,17 @@ int main() {
   settings = CrossPointSettings{};
   settings.applyJsonFontFields(CrossPointSettings::LEGACY_OPENDYSLEXIC, "Inter");
   assert(std::strcmp(settings.sdFontFamilyName, "Inter") == 0);
+  assert(settings.fontFamily == CrossPointSettings::NOTOSERIF);
+  assert(settings.lastNeedsResave);
+
+  settings = CrossPointSettings{};
+  settings.applyJsonFontFields(3, "");
+  assert(settings.fontFamily == CrossPointSettings::NOTOSANS);
+  assert(settings.lastNeedsResave);
+
+  settings = CrossPointSettings{};
+  settings.applyJsonFontFields(255, "");
+  assert(settings.fontFamily == CrossPointSettings::NOTOSANS);
   assert(settings.lastNeedsResave);
 
   settings = CrossPointSettings{};
