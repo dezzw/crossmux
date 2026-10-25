@@ -108,7 +108,7 @@ TEST_F(SdCardFontMemoryTest, LowBudgetSkipsAllPrewarmAllocationsAndKeepsMetrics)
   EXPECT_EQ(font.getAdvanceOrLoad('A', 0), 9);
   EXPECT_EQ(font.getAdvanceOrLoad('B', 0), 13);
   ESP = {};
-  EXPECT_EQ(font.buildAdvanceTable("AB", 1), 0);
+  EXPECT_EQ(font.buildAdvanceTable("AB", 1), 1);
   EXPECT_EQ(font.getAdvance('A', 0), 9);
   EXPECT_EQ(font.getAdvance('B', 0), 13);
 }
@@ -160,10 +160,11 @@ TEST_F(SdCardFontMemoryTest, EveryReplacementAllocationFailureKeepsPublishedCach
 }
 
 TEST_F(SdCardFontMemoryTest, AdvanceGrowthFailurePreservesOldTable) {
-  ASSERT_EQ(font.buildAdvanceTable("A", 1), 0);
+  ASSERT_EQ(font.buildAdvanceTable("A", 1), 1);
   auto* table = font.advanceTable_[0];
   const SdCardFont::AdvanceEntry entry{'B', 13};
-  failArraySize = 2 * sizeof(SdCardFont::AdvanceEntry);
+  // Merged table holds A plus the injected CJK reference glyph before adding B.
+  failArraySize = 3 * sizeof(SdCardFont::AdvanceEntry);
   font.mergeIntoAdvanceTable(0, &entry, 1);
   EXPECT_EQ(font.advanceTable_[0], table);
   EXPECT_EQ(font.getAdvance('A', 0), 9);
@@ -428,7 +429,7 @@ TEST_F(SdCardFontMemoryTest, MissingAdvancesMatchWithAndWithoutPrewarm) {
   font.styles_[0].header.ascender = 24;
   EXPECT_EQ(font.getAdvanceOrLoad('Z', 0), 20 * 16);
   EXPECT_EQ(font.getAdvanceOrLoad(0x1F600, 0), 20 * 16);
-  EXPECT_EQ(font.buildAdvanceTable("AZ", 1), 1);
+  EXPECT_EQ(font.buildAdvanceTable("AZ", 1), 2);
   EXPECT_EQ(font.getAdvance('Z', 0), 20 * 16);
   EXPECT_EQ(font.getAdvanceOrLoad('Z', 0), 20 * 16);
   EXPECT_EQ(font.getAdvance('A', 0), 9);
@@ -443,7 +444,7 @@ TEST_F(SdCardFontMemoryTest, MissingAdvanceIgnoresFontReplacementGlyph) {
   style.fullIntervals = new EpdUnicodeInterval[2]{{'A', 'A', 0}, {0xFFFD, 0xFFFD, 1}};
   style.header.intervalCount = 2;
   style.header.ascender = 24;
-  EXPECT_EQ(font.buildAdvanceTable("AZ", 1), 1);
+  EXPECT_EQ(font.buildAdvanceTable("AZ", 1), 2);
   EXPECT_EQ(font.getAdvanceOrLoad('Z', 0), 20 * 16);
   EXPECT_EQ(font.getAdvanceOrLoad(0xFFFD, 0), 13);
 }
