@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "lib/Epub/Epub/hyphenation/Hyphenator.h"
 #include "lib/Epub/Epub/hyphenation/LanguageRegistry.h"
@@ -13,66 +15,103 @@ void setUncompiledPreferredLanguage() {
   ASSERT_EQ(getLanguageHyphenatorForPrimaryTag("de"), nullptr);
 }
 
-bool hasBreakAtOrAfter(const std::vector<Hyphenator::BreakInfo>& breaks, const size_t byteOffset) {
-  return std::any_of(breaks.begin(), breaks.end(),
-                     [byteOffset](const Hyphenator::BreakInfo& info) { return info.byteOffset >= byteOffset; });
+using BreakPair = std::pair<size_t, bool>;
+
+std::vector<BreakPair> asBreakPairs(const std::vector<Hyphenator::BreakInfo>& breaks) {
+  std::vector<BreakPair> pairs;
+  pairs.reserve(breaks.size());
+  for (const auto& info : breaks) {
+    pairs.emplace_back(info.byteOffset, info.requiresInsertedHyphen);
+  }
+  return pairs;
 }
 
-bool hasFallbackStyleBreak(const std::vector<Hyphenator::BreakInfo>& breaks) {
-  return std::any_of(breaks.begin(), breaks.end(),
-                     [](const Hyphenator::BreakInfo& info) { return !info.requiresInsertedHyphen; });
+void expectExactBreaks(const std::vector<Hyphenator::BreakInfo>& breaks, const std::vector<BreakPair>& expected) {
+  const auto actual = asBreakPairs(breaks);
+  ASSERT_EQ(actual.size(), expected.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    EXPECT_EQ(actual[i].first, expected[i].first) << " at index " << i;
+    EXPECT_EQ(actual[i].second, expected[i].second) << " at index " << i;
+  }
 }
 
 }  // namespace
 
 TEST(NullHyphenatorFallback, GenericFallbackWhenIncludeFallbackEnabled) {
   setUncompiledPreferredLanguage();
-  const std::string word = "Quadratkilometer";
-  const auto breaks = Hyphenator::breakOffsets(word, true);
+  const auto breaks = Hyphenator::breakOffsets("Quadratkilometer", true);
 
-  ASSERT_FALSE(breaks.empty());
-  EXPECT_TRUE(hasFallbackStyleBreak(breaks));
-  EXPECT_TRUE(std::none_of(breaks.begin(), breaks.end(),
-                           [](const Hyphenator::BreakInfo& info) { return info.requiresInsertedHyphen; }));
+  expectExactBreaks(breaks, {{2, false},
+                             {3, false},
+                             {4, false},
+                             {5, false},
+                             {6, false},
+                             {7, false},
+                             {8, false},
+                             {9, false},
+                             {10, false},
+                             {11, false},
+                             {12, false},
+                             {13, false},
+                             {14, false}});
 }
 
 TEST(NullHyphenatorFallback, ExplicitHyphenPathWithoutLanguageHyphenator) {
   setUncompiledPreferredLanguage();
-  const std::string word = "US-abcdefghijklmnop";
-  const auto legalBreaks = Hyphenator::breakOffsets(word, false);
+  const auto legalBreaks = Hyphenator::breakOffsets("US-abcdefghijklmnop", false);
 
-  ASSERT_FALSE(legalBreaks.empty());
-  EXPECT_TRUE(hasBreakAtOrAfter(legalBreaks, 3u));
-  EXPECT_TRUE(std::none_of(legalBreaks.begin(), legalBreaks.end(),
-                           [](const Hyphenator::BreakInfo& info) { return info.requiresInsertedHyphen; }));
+  expectExactBreaks(legalBreaks, {{3, false}});
 }
 
 TEST(NullHyphenatorFallback, ExplicitHyphenPathAddsGenericFallbackWhenRequested) {
   setUncompiledPreferredLanguage();
-  const std::string word = "US-abcdefghijklmnop";
-  const auto legalOnly = Hyphenator::breakOffsets(word, false);
-  const auto withFallback = Hyphenator::breakOffsets(word, true);
+  const auto withFallback = Hyphenator::breakOffsets("US-abcdefghijklmnop", true);
 
-  ASSERT_FALSE(withFallback.empty());
-  ASSERT_GE(withFallback.size(), legalOnly.size());
-  EXPECT_GT(withFallback.size(), legalOnly.size());
+  expectExactBreaks(withFallback, {{2, false},
+                                   {3, false},
+                                   {4, false},
+                                   {5, false},
+                                   {6, false},
+                                   {7, false},
+                                   {8, false},
+                                   {9, false},
+                                   {10, false},
+                                   {11, false},
+                                   {12, false},
+                                   {13, false},
+                                   {14, false},
+                                   {15, false},
+                                   {16, false},
+                                   {17, false}});
 }
 
 TEST(NullHyphenatorFallback, ApostrophePathWithoutLanguageHyphenator) {
   setUncompiledPreferredLanguage();
-  const std::string word = "quel'abcdefghijklmnop";
-  const auto legalBreaks = Hyphenator::breakOffsets(word, false);
+  const auto legalBreaks = Hyphenator::breakOffsets("quel'abcdefghijklmnop", false);
 
-  ASSERT_FALSE(legalBreaks.empty());
-  EXPECT_TRUE(hasBreakAtOrAfter(legalBreaks, 5u));
+  expectExactBreaks(legalBreaks, {{5, false}});
 }
 
 TEST(NullHyphenatorFallback, ApostrophePathAddsGenericFallbackWhenRequested) {
   setUncompiledPreferredLanguage();
-  const std::string word = "quel'abcdefghijklmnop";
-  const auto legalOnly = Hyphenator::breakOffsets(word, false);
-  const auto withFallback = Hyphenator::breakOffsets(word, true);
+  const auto withFallback = Hyphenator::breakOffsets("quel'abcdefghijklmnop", true);
 
-  ASSERT_FALSE(withFallback.empty());
-  EXPECT_GT(withFallback.size(), legalOnly.size());
+  expectExactBreaks(withFallback, {{2, false},
+                                   {3, false},
+                                   {4, false},
+                                   {5, false},
+                                   {6, false},
+                                   {7, false},
+                                   {8, false},
+                                   {9, false},
+                                   {10, false},
+                                   {11, false},
+                                   {12, false},
+                                   {13, false},
+                                   {14, false},
+                                   {15, false},
+                                   {16, false},
+                                   {17, false},
+                                   {18, false},
+                                   {19, false}});
 }

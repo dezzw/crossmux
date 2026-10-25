@@ -9,6 +9,7 @@ set(HYPHENATION_EVAL_LIB_SOURCES
 set(HYPHENATION_EVAL_SOURCES
   HyphenationEvaluationTest.cpp
   NullHyphenatorFallbackTest.cpp
+  HyphenatorSegmentPatternTest.cpp
   ${HYPHENATION_EVAL_LIB_SOURCES}
 )
 
@@ -70,4 +71,7 @@ target_link_libraries(HyphenationEvaluationAllLangsTest PRIVATE
   GTest::gtest_main
 )
 
-gtest_discover_tests(HyphenationEvaluationAllLangsTest PROPERTIES LABELS hyphenation_all_langs)
+gtest_discover_tests(HyphenationEvaluationAllLangsTest
+  PROPERTIES LABELS hyphenation_all_langs
+  TEST_PREFIX "AllLangs."
+)
