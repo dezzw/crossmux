@@ -12,6 +12,7 @@
 #include "lib/Epub/Epub/hyphenation/Hyphenator.h"
 #include "lib/Epub/Epub/hyphenation/LanguageHyphenator.h"
 #include "lib/Epub/Epub/hyphenation/LanguageRegistry.h"
+#include "lib/Epub/Epub/hyphenation/generated/LanguageRegistryConfig.generated.h"
 
 #ifndef HYPHENATION_RESOURCES_DIR
 #error "HYPHENATION_RESOURCES_DIR must be defined by the build system"
@@ -204,7 +205,7 @@ void runLanguageEval(const char* langName, const char* primaryTag, const char* r
   ::testing::Test::RecordProperty("avg_f1_percent", std::to_string(averageF1Percent));
   ::testing::Test::RecordProperty("test_cases", std::to_string(testCases.size()));
 
-  std::cout << langName << ": F1=" << averageF1Percent << "% (threshold " << minF1Percent << "%, " << testCases.size()
+  std::cout << langName << ": F1=" << averageF1Percent << " (threshold " << minF1Percent << "%, " << testCases.size()
             << " cases)\n";
 
   if (averageF1Percent < minF1Percent) {
@@ -223,16 +224,39 @@ void runLanguageEval(const char* langName, const char* primaryTag, const char* r
   EXPECT_GE(averageF1Percent, minF1Percent) << "Hyphenation quality regressed for " << langName;
 }
 
+#define HYPHENATION_EVAL_TEST(LangName, primaryTag, resourceFile, minF1) \
+  TEST(HyphenationEval, LangName) { \
+    if (!getLanguageHyphenatorForPrimaryTag(primaryTag)) { \
+      GTEST_SKIP() << "Hyphenation patterns for '" primaryTag "' are not compiled into this build"; \
+    } \
+    runLanguageEval(#LangName, primaryTag, resourceFile, minF1); \
+  }
+
 }  // namespace
 
-TEST(HyphenationEval, English) { runLanguageEval("english", "en", "english_hyphenation_tests.txt", 98.10); }
-TEST(HyphenationEval, French) { runLanguageEval("french", "fr", "french_hyphenation_tests.txt", 99.00); }
-TEST(HyphenationEval, German) { runLanguageEval("german", "de", "german_hyphenation_tests.txt", 96.73); }
-TEST(HyphenationEval, Russian) { runLanguageEval("russian", "ru", "russian_hyphenation_tests.txt", 96.22); }
-TEST(HyphenationEval, Spanish) { runLanguageEval("spanish", "es", "spanish_hyphenation_tests.txt", 98.02); }
-TEST(HyphenationEval, Italian) { runLanguageEval("italian", "it", "italian_hyphenation_tests.txt", 98.99); }
-TEST(HyphenationEval, Polish) { runLanguageEval("polish", "pl", "polish_hyphenation_tests.txt", 98.92); }
-TEST(HyphenationEval, Swedish) { runLanguageEval("swedish", "sv", "swedish_hyphenation_tests.txt", 94.01); }
+HYPHENATION_EVAL_TEST(English, "en", "english_hyphenation_tests.txt", 98.10)
+HYPHENATION_EVAL_TEST(French, "fr", "french_hyphenation_tests.txt", 99.00)
+HYPHENATION_EVAL_TEST(German, "de", "german_hyphenation_tests.txt", 96.73)
+HYPHENATION_EVAL_TEST(Russian, "ru", "russian_hyphenation_tests.txt", 96.22)
+HYPHENATION_EVAL_TEST(Spanish, "es", "spanish_hyphenation_tests.txt", 98.02)
+HYPHENATION_EVAL_TEST(Italian, "it", "italian_hyphenation_tests.txt", 98.99)
+HYPHENATION_EVAL_TEST(Polish, "pl", "polish_hyphenation_tests.txt", 98.92)
+HYPHENATION_EVAL_TEST(Swedish, "sv", "swedish_hyphenation_tests.txt", 94.01)
+
+TEST(LanguageRegistry, UncompiledLanguageTagsResolveToNoHyphenator) {
+#if !defined(CROSSMUX_HYPHENATION_LANG_DE)
+  EXPECT_EQ(getLanguageHyphenatorForPrimaryTag("de"), nullptr);
+#endif
+#if !defined(CROSSMUX_HYPHENATION_LANG_FR)
+  EXPECT_EQ(getLanguageHyphenatorForPrimaryTag("fr"), nullptr);
+#endif
+#if !defined(CROSSMUX_HYPHENATION_LANG_ES)
+  EXPECT_EQ(getLanguageHyphenatorForPrimaryTag("es"), nullptr);
+#endif
+#if !defined(CROSSMUX_HYPHENATION_LANG_RU)
+  EXPECT_EQ(getLanguageHyphenatorForPrimaryTag("ru"), nullptr);
+#endif
+}
 
 TEST(HyphenationFallback, OversizedUrlWrapsWithoutChangingText) {
   Hyphenator::setPreferredLanguage("en");
@@ -261,6 +285,7 @@ TEST(HyphenationFallback, OversizedUrlWrapsWithoutChangingText) {
   EXPECT_NE(static_cast<unsigned char>(url[fallback->byteOffset]) & 0xC0, 0x80);
 }
 
+#if defined(CROSSMUX_HYPHENATION_LANG_DE)
 TEST(HyphenationFallback, LinguisticBreaksRemainAvailableBeforeEmergencyFallback) {
   Hyphenator::setPreferredLanguage("de");
   const auto legalBreaks = Hyphenator::breakOffsets("Quadratkilometer", false);
@@ -269,3 +294,12 @@ TEST(HyphenationFallback, LinguisticBreaksRemainAvailableBeforeEmergencyFallback
   EXPECT_TRUE(std::any_of(legalBreaks.begin(), legalBreaks.end(),
                           [](const auto& info) { return info.requiresInsertedHyphen; }));
 }
+#else
+TEST(HyphenationFallback, NoEnglishFallbackForUncompiledLanguageMetadata) {
+  Hyphenator::setPreferredLanguage("de");
+  const auto legalBreaks = Hyphenator::breakOffsets("Quadratkilometer", false);
+
+  EXPECT_TRUE(std::none_of(legalBreaks.begin(), legalBreaks.end(),
+                           [](const auto& info) { return info.requiresInsertedHyphen; }));
+}
+#endif

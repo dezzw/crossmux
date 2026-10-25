@@ -51,3 +51,11 @@ To use it, run:
 ```sh
 ./scripts/update_hyphenation.sh
 ```
+
+## Selecting languages for a firmware build
+
+All generated trie headers remain in the tree, but only the tags listed in
+`platformio.ini` under `[crosspoint] hyphenation_langs` are linked into
+`LanguageRegistry` (via `scripts/generate_language_registry.py`). The default
+firmware build embeds English (`en`) only; add comma-separated tags such as
+`en,de,fr` to restore additional languages without reviving deleted sources.
