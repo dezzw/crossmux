@@ -110,6 +110,7 @@ add_subdirectory(token_boundary)
 add_subdirectory(button_navigation)
 add_subdirectory(bitmap_memory_source)
 add_subdirectory(i18n_build_languages)
+add_subdirectory(crosspoint_settings_language_json)
 add_subdirectory(keyboard_layout_set)
 add_subdirectory(system_settings_reset)
 add_subdirectory(user_guide)
@@ -158,6 +159,8 @@ add_test(NAME UiFontFallback
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ui_font_fallback.py)
 add_test(NAME I18nBuildLanguages
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_i18n_build_languages.py)
+add_test(NAME CrossPointSettingsLanguageResave
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_crosspoint_settings_language_resave.py)
 add_test(NAME WifiListNavRebuild
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wifi_list_nav_rebuild.py)
 add_test(NAME OtaSigningKnownAnswerPython

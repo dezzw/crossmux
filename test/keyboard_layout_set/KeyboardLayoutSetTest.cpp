@@ -110,7 +110,16 @@ TEST_F(KeyboardLayoutSetTest, NextCyclesAllNineWhenAllEnabled) {
   }
 }
 
-TEST_F(KeyboardLayoutSetTest, NextFromUnknownLayoutIdStartsFromFirstEnabled) {
+TEST_F(KeyboardLayoutSetTest, NextFromUnknownLayoutIdStartsFromTableIndexZero) {
+  // Matches main: indexOf(unknown) == COUNT, so the scan starts at 0 — not at the
+  // unknown id — and walks forward for the first enabled layout.
   SETTINGS.keyboardLayouts = keyboard_layouts::bitAt(1);
+  EXPECT_EQ(keyboard_layouts::next(freeink::ui::KeyboardLayoutId::ArabicAr), freeink::ui::KeyboardLayoutId::AzertyFr);
+
+  SETTINGS.keyboardLayouts = keyboard_layouts::bitAt(0);
+  EXPECT_EQ(keyboard_layouts::next(freeink::ui::KeyboardLayoutId::ArabicAr), freeink::ui::KeyboardLayoutId::QwertyEn);
+
+  // With EN+FR enabled, scan order from table index 0 visits FR (index 1) before EN (index 0).
+  SETTINGS.keyboardLayouts = static_cast<uint16_t>(keyboard_layouts::bitAt(0) | keyboard_layouts::bitAt(1));
   EXPECT_EQ(keyboard_layouts::next(freeink::ui::KeyboardLayoutId::ArabicAr), freeink::ui::KeyboardLayoutId::AzertyFr);
 }
