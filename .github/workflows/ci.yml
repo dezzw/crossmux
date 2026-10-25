@@ -200,7 +200,7 @@ jobs:
         run: cmake --build build/test
 
       - name: Run tests
-        run: ctest --test-dir build/test --output-on-failure -j -LE network
+        run: ctest --test-dir build/test --output-on-failure -j -LE "network;hyphenation_all_langs"
 
       - name: Verify TLS bundle against OTA/font hosts (wolfSSL)
         run: |
@@ -269,7 +269,7 @@ jobs:
 
       - name: Run all-languages hyphenation tests
         run: |
-          ctest --test-dir build/test --output-on-failure -R 'HyphenationEvaluationAllLangsTest|LanguageRegistryAllLangsTest'
+          ctest --test-dir build/test --output-on-failure -L hyphenation_all_langs
 
   core-font-build:
     name: Verify core SD font build

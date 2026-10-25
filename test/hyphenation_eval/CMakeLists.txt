@@ -30,7 +30,7 @@ target_link_libraries(HyphenationEvaluationTest PRIVATE
   GTest::gtest_main
 )
 
-gtest_discover_tests(HyphenationEvaluationTest)
+gtest_discover_tests(HyphenationEvaluationTest PROPERTIES LABELS hyphenation_default)
 
 # Compile LanguageRegistry with all language tries linked (guarded #ifdef path).
 add_executable(LanguageRegistryAllLangsTest
@@ -51,7 +51,7 @@ target_link_libraries(LanguageRegistryAllLangsTest PRIVATE
   GTest::gtest_main
 )
 
-gtest_discover_tests(LanguageRegistryAllLangsTest)
+gtest_discover_tests(LanguageRegistryAllLangsTest PROPERTIES LABELS hyphenation_all_langs)
 
 add_executable(HyphenationEvaluationAllLangsTest
   HyphenationEvaluationTest.cpp
@@ -70,4 +70,4 @@ target_link_libraries(HyphenationEvaluationAllLangsTest PRIVATE
   GTest::gtest_main
 )
 
-gtest_discover_tests(HyphenationEvaluationAllLangsTest)
+gtest_discover_tests(HyphenationEvaluationAllLangsTest PROPERTIES LABELS hyphenation_all_langs)
