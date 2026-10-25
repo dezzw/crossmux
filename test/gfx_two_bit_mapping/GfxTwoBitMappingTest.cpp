@@ -16,15 +16,15 @@ constexpr bool kExpectedLsbBit[] = {false, true, false, false};
 
 TEST(GfxTwoBitMapping, WaveshareGrayscaleFramebufferBitsMatchExpectedTable) {
   for (uint8_t value = 0; value < 4; ++value) {
-    const bool msbBitmap = framebufferBitSet(GfxRenderer::GRAYSCALE_MSB,
-                                             GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, value));
+    const bool msbBitmap =
+        framebufferBitSet(GfxRenderer::GRAYSCALE_MSB, GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, value));
     const bool msbGlyph = framebufferBitSet(GfxRenderer::GRAYSCALE_MSB,
                                             GfxRenderer::mapTwoBitGlyphCoverage(GfxRenderer::GRAYSCALE_MSB, 3 - value));
     EXPECT_EQ(msbBitmap, kExpectedMsbBit[value]) << "MSB value=" << static_cast<int>(value);
     EXPECT_EQ(msbGlyph, kExpectedMsbBit[value]) << "MSB glyph value=" << static_cast<int>(value);
 
-    const bool lsbBitmap = framebufferBitSet(GfxRenderer::GRAYSCALE_LSB,
-                                             GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_LSB, value));
+    const bool lsbBitmap =
+        framebufferBitSet(GfxRenderer::GRAYSCALE_LSB, GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_LSB, value));
     const bool lsbGlyph = framebufferBitSet(GfxRenderer::GRAYSCALE_LSB,
                                             GfxRenderer::mapTwoBitGlyphCoverage(GfxRenderer::GRAYSCALE_LSB, 3 - value));
     EXPECT_EQ(lsbBitmap, kExpectedLsbBit[value]) << "LSB value=" << static_cast<int>(value);
