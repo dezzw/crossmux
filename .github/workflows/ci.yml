@@ -200,7 +200,7 @@ jobs:
         run: cmake --build build/test
 
       - name: Run tests
-        run: ctest --test-dir build/test --output-on-failure -j -LE "network;hyphenation_all_langs"
+        run: ctest --test-dir build/test --output-on-failure -j -LE 'network|hyphenation_all_langs'
 
       - name: Verify TLS bundle against OTA/font hosts (wolfSSL)
         run: |
