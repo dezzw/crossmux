@@ -1,6 +1,5 @@
 #include <I18n.h>
 #include <I18nKeys.h>
-
 #include <gtest/gtest.h>
 
 TEST(I18nBuildLanguages, ShipsEnglishAndChineseOnly) {
