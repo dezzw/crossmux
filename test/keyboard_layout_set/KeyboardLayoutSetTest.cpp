@@ -1,6 +1,7 @@
 #include <KeyboardLayoutSet.h>
-
 #include <gtest/gtest.h>
+
+#include "CrossPointSettings.h"
 
 namespace {
 
@@ -29,8 +30,7 @@ TEST(KeyboardLayoutSetTest, SavedAllNineMaskRoundTripsThroughEnabled) {
 
 TEST(KeyboardLayoutSetTest, HebrewOnlyMaskForcesLatinFallback) {
   SETTINGS.keyboardLayouts = keyboard_layouts::bitAt(8);
-  const uint16_t expected =
-      static_cast<uint16_t>(keyboard_layouts::bitAt(8) | keyboard_layouts::bitAt(0));
+  const uint16_t expected = static_cast<uint16_t>(keyboard_layouts::bitAt(8) | keyboard_layouts::bitAt(0));
   EXPECT_EQ(keyboard_layouts::enabled(), expected);
 }
 
@@ -44,8 +44,7 @@ TEST(KeyboardLayoutSetTest, EachLayoutBitIsIndividuallyEnableable) {
   for (uint8_t i = 0; i < keyboard_layouts::COUNT; ++i) {
     SETTINGS.keyboardLayouts = keyboard_layouts::bitAt(i);
     const uint16_t bit = keyboard_layouts::bitAt(i);
-    const uint16_t expected =
-        (i == 8) ? static_cast<uint16_t>(bit | keyboard_layouts::bitAt(0)) : bit;
+    const uint16_t expected = (i <= 3) ? bit : static_cast<uint16_t>(bit | keyboard_layouts::bitAt(0));
     EXPECT_EQ(keyboard_layouts::enabled(), expected) << "layout index " << static_cast<int>(i);
   }
 }

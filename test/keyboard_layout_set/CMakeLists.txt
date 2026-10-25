@@ -4,9 +4,9 @@ add_executable(KeyboardLayoutSetTest
 )
 
 target_include_directories(KeyboardLayoutSetTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/stubs
   ${REPO_ROOT}/src/activities/util
   ${REPO_ROOT}/lib/I18n
-  ${CMAKE_CURRENT_SOURCE_DIR}/stubs
   ${REPO_ROOT}/src
   ${REPO_ROOT}/freeink-sdk/libs/ui/FreeInkUI/include
 )
