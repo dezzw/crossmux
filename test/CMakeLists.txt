@@ -33,6 +33,7 @@ set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest crosspoint_simulator)
 
 set(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
+set(OTA_TEST_FIXTURE_DIR "${CMAKE_BINARY_DIR}/ota-fixtures")
 
 execute_process(
   COMMAND python3 ${REPO_ROOT}/scripts/gen_i18n.py
@@ -41,6 +42,15 @@ execute_process(
 )
 if(NOT GEN_I18N_RESULT EQUAL 0)
   message(FATAL_ERROR "gen_i18n.py failed (exit ${GEN_I18N_RESULT})")
+endif()
+
+execute_process(
+  COMMAND python3 ${REPO_ROOT}/scripts/generate_ota_signing_fixture.py --output-dir ${OTA_TEST_FIXTURE_DIR}
+  WORKING_DIRECTORY ${REPO_ROOT}
+  RESULT_VARIABLE GEN_OTA_FIXTURE_RESULT
+)
+if(NOT GEN_OTA_FIXTURE_RESULT EQUAL 0)
+  message(FATAL_ERROR "generate_ota_signing_fixture.py failed (exit ${GEN_OTA_FIXTURE_RESULT})")
 endif()
 
 add_library(crosspoint_test_common INTERFACE)
@@ -110,7 +120,6 @@ add_subdirectory(token_boundary)
 add_subdirectory(button_navigation)
 add_subdirectory(bitmap_memory_source)
 add_subdirectory(i18n_build_languages)
-add_subdirectory(crosspoint_settings_language_json)
 add_subdirectory(keyboard_layout_set)
 add_subdirectory(system_settings_reset)
 add_subdirectory(user_guide)
@@ -165,6 +174,13 @@ add_test(NAME WifiListNavRebuild
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_wifi_list_nav_rebuild.py)
 add_test(NAME OtaSigningKnownAnswerPython
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ota_signing_cross.py)
+add_test(NAME NoTrackedOtaPrivateKeys
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/check_no_tracked_private_keys.py)
+add_test(NAME OtaTestFixturesEphemeral
+  COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ota_test_fixtures_ephemeral.py)
+set(_ota_fixture_ctest_env "CROSSPOINT_OTA_TEST_FIXTURE_DIR=${OTA_TEST_FIXTURE_DIR}")
+set_tests_properties(OtaSigningKnownAnswerPython NoTrackedOtaPrivateKeys OtaTestFixturesEphemeral
+  PROPERTIES ENVIRONMENT "${_ota_fixture_ctest_env}")
 add_test(NAME TlsWolfSslLegacyBuildOffline
   WORKING_DIRECTORY ${REPO_ROOT}/scripts/tests
   COMMAND ${Python3_EXECUTABLE} -m unittest test_tls_wolfssl_legacy_build.TlsWolfSslOfflineTests -v)
