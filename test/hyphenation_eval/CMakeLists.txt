@@ -1,15 +1,4 @@
-set(CROSSMUX_HYPHENATION_LANGS "en" CACHE STRING "Comma-separated hyphenation language tags embedded in LanguageRegistry")
-
-execute_process(
-  COMMAND python3 ${REPO_ROOT}/scripts/generate_language_registry.py --langs ${CROSSMUX_HYPHENATION_LANGS}
-  WORKING_DIRECTORY ${REPO_ROOT}
-  RESULT_VARIABLE GEN_LANG_REGISTRY_RESULT
-)
-if(NOT GEN_LANG_REGISTRY_RESULT EQUAL 0)
-  message(FATAL_ERROR "generate_language_registry.py failed (exit ${GEN_LANG_REGISTRY_RESULT})")
-endif()
-
-add_executable(HyphenationEvaluationTest
+set(HYPHENATION_EVAL_SOURCES
   HyphenationEvaluationTest.cpp
   ${REPO_ROOT}/lib/Epub/Epub/hyphenation/Hyphenator.cpp
   ${REPO_ROOT}/lib/Epub/Epub/hyphenation/LanguageRegistry.cpp
@@ -18,11 +7,14 @@ add_executable(HyphenationEvaluationTest
   ${REPO_ROOT}/lib/Utf8/Utf8.cpp
 )
 
-target_include_directories(HyphenationEvaluationTest PRIVATE
+set(HYPHENATION_EVAL_INCLUDES
   ${REPO_ROOT}/lib/Epub
-  ${REPO_ROOT}/lib/Epub/Epub/hyphenation
   ${REPO_ROOT}/lib/Utf8
 )
+
+add_executable(HyphenationEvaluationTest ${HYPHENATION_EVAL_SOURCES})
+
+target_include_directories(HyphenationEvaluationTest PRIVATE ${HYPHENATION_EVAL_INCLUDES})
 
 target_compile_definitions(HyphenationEvaluationTest PRIVATE
   HYPHENATION_RESOURCES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources"
@@ -34,3 +26,24 @@ target_link_libraries(HyphenationEvaluationTest PRIVATE
 )
 
 gtest_discover_tests(HyphenationEvaluationTest)
+
+# Compile LanguageRegistry with all language tries linked (guarded #ifdef path).
+add_executable(LanguageRegistryAllLangsTest
+  LanguageRegistryAllLangsTest.cpp
+  ${REPO_ROOT}/lib/Epub/Epub/hyphenation/LanguageRegistry.cpp
+  ${REPO_ROOT}/lib/Epub/Epub/hyphenation/HyphenationCommon.cpp
+  ${REPO_ROOT}/lib/Utf8/Utf8.cpp
+)
+
+target_include_directories(LanguageRegistryAllLangsTest PRIVATE ${HYPHENATION_EVAL_INCLUDES})
+
+target_compile_definitions(LanguageRegistryAllLangsTest PRIVATE
+  CROSSPOINT_HYPHENATION_ALL_LANGUAGES
+)
+
+target_link_libraries(LanguageRegistryAllLangsTest PRIVATE
+  crosspoint_test_common
+  GTest::gtest_main
+)
+
+gtest_discover_tests(LanguageRegistryAllLangsTest)

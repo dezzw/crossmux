@@ -12,7 +12,6 @@
 #include "lib/Epub/Epub/hyphenation/Hyphenator.h"
 #include "lib/Epub/Epub/hyphenation/LanguageHyphenator.h"
 #include "lib/Epub/Epub/hyphenation/LanguageRegistry.h"
-#include "lib/Epub/Epub/hyphenation/generated/LanguageRegistryConfig.generated.h"
 
 #ifndef HYPHENATION_RESOURCES_DIR
 #error "HYPHENATION_RESOURCES_DIR must be defined by the build system"
@@ -243,20 +242,14 @@ HYPHENATION_EVAL_TEST(Italian, "it", "italian_hyphenation_tests.txt", 98.99)
 HYPHENATION_EVAL_TEST(Polish, "pl", "polish_hyphenation_tests.txt", 98.92)
 HYPHENATION_EVAL_TEST(Swedish, "sv", "swedish_hyphenation_tests.txt", 94.01)
 
+#ifndef CROSSPOINT_HYPHENATION_ALL_LANGUAGES
 TEST(LanguageRegistry, UncompiledLanguageTagsResolveToNoHyphenator) {
-#if !defined(CROSSMUX_HYPHENATION_LANG_DE)
   EXPECT_EQ(getLanguageHyphenatorForPrimaryTag("de"), nullptr);
-#endif
-#if !defined(CROSSMUX_HYPHENATION_LANG_FR)
   EXPECT_EQ(getLanguageHyphenatorForPrimaryTag("fr"), nullptr);
-#endif
-#if !defined(CROSSMUX_HYPHENATION_LANG_ES)
   EXPECT_EQ(getLanguageHyphenatorForPrimaryTag("es"), nullptr);
-#endif
-#if !defined(CROSSMUX_HYPHENATION_LANG_RU)
   EXPECT_EQ(getLanguageHyphenatorForPrimaryTag("ru"), nullptr);
-#endif
 }
+#endif
 
 TEST(HyphenationFallback, OversizedUrlWrapsWithoutChangingText) {
   Hyphenator::setPreferredLanguage("en");
@@ -285,7 +278,7 @@ TEST(HyphenationFallback, OversizedUrlWrapsWithoutChangingText) {
   EXPECT_NE(static_cast<unsigned char>(url[fallback->byteOffset]) & 0xC0, 0x80);
 }
 
-#if defined(CROSSMUX_HYPHENATION_LANG_DE)
+#ifdef CROSSPOINT_HYPHENATION_ALL_LANGUAGES
 TEST(HyphenationFallback, LinguisticBreaksRemainAvailableBeforeEmergencyFallback) {
   Hyphenator::setPreferredLanguage("de");
   const auto legalBreaks = Hyphenator::breakOffsets("Quadratkilometer", false);
