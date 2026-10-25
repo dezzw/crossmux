@@ -14,7 +14,6 @@ target_include_directories(txt_chapter_index_test BEFORE PRIVATE
 target_compile_definitions(txt_chapter_index_test PRIVATE
   CROSSPOINT_EMULATED=1
   DESTRUCTOR_CLOSES_FILE=1
-  ENABLE_CHINESE_VERSION
 )
 target_link_libraries(txt_chapter_index_test PRIVATE crosspoint_test_common GTest::gtest_main)
 gtest_discover_tests(txt_chapter_index_test PROPERTIES RUN_SERIAL TRUE)

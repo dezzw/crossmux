@@ -429,9 +429,7 @@ TEST(InxNavigation, KeepsAppIconAssetsValidAndDistinct) {
   EXPECT_EQ(InxAppIcons::get(UIIcon::Transfer), InxAppIcons::Transfer.data());
   EXPECT_EQ(InxAppIcons::get(UIIcon::Opds), InxAppIcons::Opds.data());
   EXPECT_EQ(InxAppIcons::get(UIIcon::ReadingStats), InxAppIcons::ReadingStats.data());
-#ifdef ENABLE_CHINESE_VERSION
   EXPECT_EQ(InxAppIcons::get(UIIcon::WeRead), InxAppIcons::WeRead.data());
-#endif
   EXPECT_EQ(InxAppIcons::get(UIIcon::Standby), InxAppIcons::Standby.data());
   EXPECT_EQ(InxAppIcons::get(UIIcon::ReadingHeatmap), InxAppIcons::ReadingHeatmap.data());
   EXPECT_EQ(InxAppIcons::get(UIIcon::ReadingProfile), InxAppIcons::ReadingProfile.data());

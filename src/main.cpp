@@ -34,11 +34,9 @@
 #include "SdCardFontSystem.h"
 #include "activities/Activity.h"
 #include "activities/ActivityManager.h"
-#ifdef ENABLE_CHINESE_VERSION
 #include "activities/settings/FontDownloadActivity.h"
 #include "activities/settings/TextSettingsActivity.h"
 #include "activities/util/ConfirmationActivity.h"
-#endif
 #include "activities/settings/LanguageSelectActivity.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
 #include "components/UITheme.h"
@@ -353,7 +351,6 @@ bool setupDisplayAndFonts(bool seamless = false, bool logSdFontLoadHeap = false)
   return fontDecompressorReady;
 }
 
-#ifdef ENABLE_CHINESE_VERSION
 void continueChineseFontInstall(const uint8_t expectedPointSize) {
   if (APP_STATE.openEpubPath.empty() || !Storage.exists(APP_STATE.openEpubPath.c_str())) {
     LOG_ERR("FONT", "Cannot resume automatic font install: original EPUB is unavailable");
@@ -416,7 +413,6 @@ void continueChineseFontInstall(const uint8_t expectedPointSize) {
   activityManager.pushActivity(std::move(notice));
   activityManager.loop();
 }
-#endif
 
 void setup() {
   BoardConfig::holdPowerRails();
@@ -454,12 +450,10 @@ void setup() {
   silentRebootMagic = 0;
   silentRebootTarget = 0;
   silentRebootFontPointSize = 0;
-#ifdef ENABLE_CHINESE_VERSION
   if (snapshotTarget == SilentRebootTarget::ReaderSuppressFontPrompt ||
       snapshotTarget == SilentRebootTarget::ReaderPreloadChineseFont) {
     FontDownloadActivity::suppressChineseFontPromptThisBoot();
   }
-#endif
 
   gpio.begin();
   powerManager.begin();
@@ -610,11 +604,7 @@ void setup() {
   } else if (requiresOnboarding) {
     activityManager.replaceActivityWith<LanguageSelectActivity>(onboardingMode);
   } else if (resume == BootResume::Silent && snapshotTarget == SilentRebootTarget::ReaderPreloadChineseFont) {
-#ifdef ENABLE_CHINESE_VERSION
     continueChineseFontInstall(snapshotFontPointSize);
-#else
-    activityManager.goHome();
-#endif
   } else if (resume == BootResume::Silent &&
              (snapshotTarget == SilentRebootTarget::Reader ||
               snapshotTarget == SilentRebootTarget::ReaderSuppressFontPrompt) &&

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# Generates the per-size CJK font headers used by the ENABLE_CHINESE_VERSION
-# build. Coverage tiers per point size:
+# Generates the per-size CJK font headers for the firmware build.
+# Coverage tiers per point size:
 #
 #   8/10/12pt (COMMON, UI + reader SMALL) : 3500 常用字 ∪ i18n
 #                                            (cn_common_chars.txt)

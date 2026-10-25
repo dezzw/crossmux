@@ -30,7 +30,7 @@ bool directBit(const GfxRenderer::RenderMode mode, const uint8_t value) {
 
 }  // namespace
 
-TEST(GfxTwoBitMapping, A4DirectGlyphAndBitmapProduceTheSameFramebufferBit) {
+TEST(GfxTwoBitMapping, WaveshareDirectGlyphAndBitmapProduceTheSameFramebufferBit) {
   for (const auto mode : {GfxRenderer::GRAYSCALE_MSB, GfxRenderer::GRAYSCALE_LSB}) {
     for (uint8_t value = 0; value < 4; ++value) {
       const bool direct = directBit(mode, value);
@@ -40,6 +40,17 @@ TEST(GfxTwoBitMapping, A4DirectGlyphAndBitmapProduceTheSameFramebufferBit) {
       EXPECT_EQ(direct, bitmap) << "mode=" << mode << " value=" << static_cast<int>(value);
     }
   }
+}
+
+TEST(GfxTwoBitMapping, WaveshareGrayscaleMappingMatchesPanelExpectations) {
+  const auto msb1 = GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, 1);
+  EXPECT_TRUE(msb1.draw);
+  EXPECT_FALSE(msb1.state);
+  const auto lsb1 = GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_LSB, 1);
+  EXPECT_TRUE(lsb1.draw);
+  EXPECT_FALSE(lsb1.state);
+  EXPECT_FALSE(GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, 0).draw);
+  EXPECT_FALSE(GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_LSB, 0).draw);
 }
 
 TEST(GfxTwoBitMapping, BwKeepsLogicalPixelState) {

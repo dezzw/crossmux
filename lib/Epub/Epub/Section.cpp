@@ -47,11 +47,7 @@ namespace {
 //             reserved to stay clear of the concurrent 66/67 layout change
 //   70 / 71 - paragraph spacing stores levels 0..5 as a byte, not a boolean
 //   72 / 73 - missing glyphs reserve space for a visible outline placeholder
-#ifdef ENABLE_CHINESE_VERSION
 constexpr uint8_t SECTION_FILE_VERSION = 73;
-#else
-constexpr uint8_t SECTION_FILE_VERSION = 72;
-#endif
 // Written into the version field while a build is in progress; patched to
 // SECTION_FILE_VERSION only when the build is finalized. An abandoned /
 // crash-interrupted .bin therefore carries version 0, which loadSectionFile rejects

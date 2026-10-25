@@ -17,9 +17,7 @@
 #include "components/icons/book.h"
 #include "components/icons/book24.h"
 #include "components/icons/bookmark.h"
-#ifdef ENABLE_CHINESE_VERSION
 #include "components/icons/weread.h"
-#endif
 #include "components/icons/cover.h"
 #include "components/icons/file24.h"
 #include "components/icons/folder.h"
@@ -92,10 +90,8 @@ const uint8_t* LyraTheme::iconForName(UIIcon icon, int size) {
         return BookmarkIcon;
       case UIIcon::Apps:
         return AppsIcon;
-#ifdef ENABLE_CHINESE_VERSION
       case UIIcon::WeRead:
         return WeReadIcon;
-#endif
       case UIIcon::Standby:
         return StandbyIcon;
       default:

@@ -1,6 +1,5 @@
 #include "WeReadClient.h"
 
-#ifdef ENABLE_CHINESE_VERSION
 
 #include <Arduino.h>
 #include <Epub.h>
@@ -4201,4 +4200,3 @@ Operation::Event Operation::step(const WeReadStore::WorkCallback callback, void*
 
 }  // namespace WeReadClient
 
-#endif

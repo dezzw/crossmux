@@ -29,7 +29,6 @@ char* appendUtf8Codepoint(char* output, const uint32_t codepoint) {
   return output;
 }
 
-#ifdef ENABLE_CHINESE_VERSION
 constexpr bool isDownloadableChineseCodepoint(const uint32_t cp) {
   return (cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0xF900 && cp <= 0xFAFF);
 }
@@ -38,7 +37,6 @@ static_assert(isDownloadableChineseCodepoint(0x4E00));
 static_assert(isDownloadableChineseCodepoint(0xFAFF));
 static_assert(!isDownloadableChineseCodepoint(0x4DFF));
 static_assert(!isDownloadableChineseCodepoint(0xFB00));
-#endif
 
 }  // namespace
 
@@ -181,7 +179,6 @@ void FontCacheManager::recordText(const char* text, int fontId, EpdFontFamily::S
   }
 }
 
-#ifdef ENABLE_CHINESE_VERSION
 void FontCacheManager::reportMissingChineseCodepoint(const int fontId, const uint32_t codepoint) {
   if (missingChineseCodepoint_ != 0 || sdCardFonts_.count(fontId) != 0 || !isDownloadableChineseCodepoint(codepoint)) {
     return;
@@ -194,7 +191,6 @@ uint32_t FontCacheManager::consumeMissingChineseCodepoint() {
   missingChineseCodepoint_ = 0;
   return codepoint;
 }
-#endif
 
 // --- PrewarmScope implementation ---
 
@@ -206,9 +202,7 @@ FontCacheManager::PrewarmScope::PrewarmScope(FontCacheManager& manager) : manage
   manager_->scanFontCount_ = 0;
   manager_->scanOverflowWarned_ = false;
   memset(manager_->scanGroupCounts_, 0, sizeof(manager_->scanGroupCounts_));
-#ifdef ENABLE_CHINESE_VERSION
   manager_->missingChineseCodepoint_ = 0;
-#endif
 }
 
 void FontCacheManager::PrewarmScope::endScanAndPrewarm() {

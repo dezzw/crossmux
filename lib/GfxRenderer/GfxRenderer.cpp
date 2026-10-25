@@ -767,20 +767,14 @@ void GfxRenderer::drawText(const int fontId, const int x, const int y, const cha
       continue;
     }
 
-#ifdef ENABLE_CHINESE_VERSION
     const uint32_t sourceCp = cp;
-#endif
     cp = font.applyLigatures(cp, textCursor, renderStyle);
 
-#ifdef ENABLE_CHINESE_VERSION
     bool usedReplacement = false;
     const EpdGlyph* glyph = font.getGlyph(cp, renderStyle, &usedReplacement);
     if (usedReplacement && fontCacheManager_) {
       fontCacheManager_->reportMissingChineseCodepoint(resolvedFontId, sourceCp);
     }
-#else
-    const EpdGlyph* glyph = font.getGlyph(cp, renderStyle);
-#endif
 
     const bool missing = glyph == nullptr;
     if (prevCp != 0) {
@@ -2366,20 +2360,14 @@ void GfxRenderer::drawTextRotated90CW(const int fontId, const int x, const int y
       continue;
     }
 
-#ifdef ENABLE_CHINESE_VERSION
     const uint32_t sourceCp = cp;
-#endif
     cp = font.applyLigatures(cp, text, style);
 
-#ifdef ENABLE_CHINESE_VERSION
     bool usedReplacement = false;
     const EpdGlyph* glyph = font.getGlyph(cp, style, &usedReplacement);
     if (usedReplacement && fontCacheManager_) {
       fontCacheManager_->reportMissingChineseCodepoint(resolvedFontId, sourceCp);
     }
-#else
-    const EpdGlyph* glyph = font.getGlyph(cp, style);
-#endif
 
     const bool missing = glyph == nullptr;
     if (prevCp != 0) {

@@ -53,9 +53,7 @@ static_assert(!shouldRefreshDownloadProgress(0, 9));
 static_assert(shouldRefreshDownloadProgress(0, 10));
 static_assert(!shouldRefreshDownloadProgress(90, 100));  // The verified final frame is drawn synchronously.
 
-#ifdef ENABLE_CHINESE_VERSION
 std::atomic<bool> chineseFontPromptShownThisBoot{false};
-#endif
 
 }  // namespace
 
@@ -66,7 +64,6 @@ FontDownloadActivity::FontDownloadActivity(GfxRenderer& renderer, MappedInputMan
       startMode_(startMode),
       fontInstaller_(sdFontSystem.registry()) {}
 
-#ifdef ENABLE_CHINESE_VERSION
 bool FontDownloadActivity::wasChineseFontPromptShownThisBoot() {
   return chineseFontPromptShownThisBoot.load(std::memory_order_relaxed);
 }
@@ -74,7 +71,6 @@ bool FontDownloadActivity::wasChineseFontPromptShownThisBoot() {
 void FontDownloadActivity::suppressChineseFontPromptThisBoot() {
   chineseFontPromptShownThisBoot.store(true, std::memory_order_relaxed);
 }
-#endif
 
 void FontDownloadActivity::activateIndex(const int index) {
   switch (state_) {
@@ -125,9 +121,7 @@ void FontDownloadActivity::onEnter() {
   app.on(ACTION_RETRY_DOWNLOAD, &FontDownloadActivity::onRetryDownload, this);
   if (purpose_ == Purpose::ReaderAutoInstall) targetPointSize_ = SETTINGS.fontPointSize;
   if (startMode_ == StartMode::ResumeFontLoadError) {
-#ifdef ENABLE_CHINESE_VERSION
     suppressChineseFontPromptThisBoot();
-#endif
     state_ = ERROR;
     operation_ = DownloadOperation::None;
     automaticError_ = AutomaticError::FontLoad;
@@ -140,9 +134,7 @@ void FontDownloadActivity::onEnter() {
                                                                 ConfirmationActivity::BodyPlacement::PopupTitle);
     if (!confirmation) {
       LOG_ERR("FONT", "OOM allocating ConfirmationActivity (%zu bytes)", sizeof(ConfirmationActivity));
-#ifdef ENABLE_CHINESE_VERSION
       chineseFontPromptShownThisBoot.store(true, std::memory_order_relaxed);
-#endif
       if (purpose_ == Purpose::ReaderAutoInstall) {
         finishAutomaticFlow(ExitRoute::ReaderSuppressPrompt);
       } else {
@@ -150,9 +142,7 @@ void FontDownloadActivity::onEnter() {
       }
       return;
     }
-#ifdef ENABLE_CHINESE_VERSION
     chineseFontPromptShownThisBoot.store(true, std::memory_order_relaxed);
-#endif
     startActivityForResult(std::move(confirmation), [this](const ActivityResult& result) {
       if (result.isCancelled) {
         if (purpose_ == Purpose::ReaderAutoInstall) {

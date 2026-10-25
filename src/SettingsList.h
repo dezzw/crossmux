@@ -22,13 +22,9 @@
 // built-in rows are visible in this firmware.
 inline SettingInfo buildFontFamilySetting(const SdCardFontRegistry* registry) {
   std::vector<StrId> enumValues;
-#ifdef ENABLE_CHINESE_VERSION
   if (!registry || !registry->findFamily(SdCardFontSystem::COMPLETE_CHINESE_NOTO_SANS_FAMILY)) {
     enumValues.push_back(StrId::STR_NOTO_SANS);
   }
-#else
-  enumValues = {StrId::STR_NOTO_SERIF, StrId::STR_NOTO_SANS};
-#endif
   const int builtinOptionCount = static_cast<int>(enumValues.size());
 
   SettingInfo s;
@@ -61,20 +57,12 @@ inline SettingInfo buildFontFamilySetting(const SdCardFontRegistry* registry) {
       }
       // SD font name not found in registry — fall through to built-in
     }
-#ifdef ENABLE_CHINESE_VERSION
     return 0;
-#else
-    return SETTINGS.fontFamily < CrossPointSettings::BUILTIN_FONT_COUNT ? SETTINGS.fontFamily : 0;
-#endif
   };
 
   s.valueSetter = [registry, builtinOptionCount](uint8_t v) {
     if (v < builtinOptionCount) {
-#ifdef ENABLE_CHINESE_VERSION
       SETTINGS.fontFamily = CrossPointSettings::NOTOSANS;
-#else
-      SETTINGS.fontFamily = v;
-#endif
       SETTINGS.sdFontFamilyName[0] = '\0';
       SETTINGS.sdFontFlashPreload = 0;
     } else if (registry) {

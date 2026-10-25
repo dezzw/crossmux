@@ -48,12 +48,10 @@
 #include "util/BookmarkFile.h"
 #include "util/ReadingBackground.h"
 #include "util/ReadingGuideLine.h"
-#ifdef ENABLE_CHINESE_VERSION
 #include <WeReadStore.h>
 
 #include "activities/apps/weread/WeReadProgressSyncActivity.h"
 #include "activities/settings/FontDownloadActivity.h"
-#endif
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/AchievementPopupUtils.h"
@@ -305,7 +303,6 @@ bool EpubReaderActivity::loadBook() {
 
   epub->setupCacheDir();
 
-#ifdef ENABLE_CHINESE_VERSION
   wereadBookId_[0] = '\0';
   if (WeReadStore::findBookIdForPath(epub->getPath(), wereadBookId_, sizeof(wereadBookId_)) &&
       strncmp(wereadBookId_, "MP_WXS_", 7) == 0) {
@@ -327,16 +324,13 @@ bool EpubReaderActivity::loadBook() {
     }
   }
   bool hasSavedProgress = false;
-#endif
 
   HalFile f;
   if (Storage.openFileForRead("ERS", epub->getCachePath() + "/progress.bin", f)) {
     uint8_t data[10];
     int dataSize = f.read(data, sizeof(data));
     if (dataSize == 4 || dataSize == 6 || dataSize == 10) {
-#ifdef ENABLE_CHINESE_VERSION
       hasSavedProgress = true;
-#endif
       currentSpineIndex = data[0] + (data[1] << 8);
       nextPageNumber = data[2] + (data[3] << 8);
       if (nextPageNumber == UINT16_MAX) {
@@ -364,7 +358,6 @@ bool EpubReaderActivity::loadBook() {
     }
   }
 
-#ifdef ENABLE_CHINESE_VERSION
   if (wereadBookId_[0]) {
     float initialProgress = 0.0f;
     const bool loaded = WeReadStore::loadInitialProgress(wereadBookId_, initialProgress);
@@ -376,7 +369,6 @@ bool EpubReaderActivity::loadBook() {
       WeReadStore::clearInitialProgress(wereadBookId_);
     }
   }
-#endif
 
   READING_STATS.beginSession(
       epub->getPath(), epub->getTitle(), epub->getAuthor(), epub->getCoverBmpPath(),
@@ -508,7 +500,6 @@ void EpubReaderActivity::openDictionaryWordSelect() {
       std::move(page), orientedMarginLeft, orientedMarginTop);
 }
 
-#ifdef ENABLE_CHINESE_VERSION
 bool EpubReaderActivity::maybeOfferCompleteChineseFont() {
   if (SETTINGS.sdFontFamilyName[0] != '\0') {
     pendingMissingChineseCodepoint_.store(0, std::memory_order_relaxed);
@@ -532,7 +523,6 @@ bool EpubReaderActivity::maybeOfferCompleteChineseFont() {
   });
   return true;
 }
-#endif
 
 void EpubReaderActivity::loop() {
   if (!epub) {
@@ -553,9 +543,7 @@ void EpubReaderActivity::loop() {
     return;
   }
 
-#ifdef ENABLE_CHINESE_VERSION
   if (maybeOfferCompleteChineseFont()) return;
-#endif
 
   READING_STATS.tickActiveSession();
   // Someone else turned the screen while this reader was stacked (the control
@@ -672,9 +660,7 @@ void EpubReaderActivity::loop() {
         requestUpdate();
         break;
       case CrossPointSettings::LP_MENU_KOSYNC:
-#ifdef ENABLE_CHINESE_VERSION
         if (wereadBookId_[0] && mappedInput.getHeldTime() >= ReaderUtils::GO_HOME_MS && launchWeReadSync()) return;
-#endif
         if (mappedInput.getHeldTime() >= ReaderUtils::GO_HOME_MS && launchKOReaderSync()) return;
         break;
       case CrossPointSettings::LP_MENU_DICTIONARY:
@@ -704,12 +690,10 @@ void EpubReaderActivity::loop() {
         }
         return;
       case CrossPointSettings::LP_MENU_KOSYNC:
-#ifdef ENABLE_CHINESE_VERSION
         if (wereadBookId_[0]) {
           launchWeReadSync();
           return;
         }
-#endif
         launchKOReaderSync();
         return;
       case CrossPointSettings::LP_MENU_DICTIONARY:
@@ -1081,12 +1065,10 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       break;
     }
     case EpubReaderMenuActivity::MenuAction::SYNC: {
-#ifdef ENABLE_CHINESE_VERSION
       if (wereadBookId_[0]) {
         launchWeReadSync();
         break;
       }
-#endif
       launchKOReaderSync();
       break;
     }
@@ -1109,9 +1091,7 @@ unsigned long EpubReaderActivity::confirmLongPressThreshold() const {
     case CrossPointSettings::LP_MENU_DICTIONARY:
       return ReaderUtils::BOOKMARK_HOLD_MS;
     case CrossPointSettings::LP_MENU_KOSYNC:
-#ifdef ENABLE_CHINESE_VERSION
       if (wereadBookId_[0]) return ReaderUtils::GO_HOME_MS;
-#endif
       return KOREADER_STORE.hasCredentials() ? ReaderUtils::GO_HOME_MS : 0;
     case CrossPointSettings::LP_MENU_READER_MENU:
     case CrossPointSettings::LP_MENU_DISABLED:
@@ -1164,7 +1144,6 @@ bool EpubReaderActivity::launchKOReaderSync() {
                                                                    std::move(localChapterName), paragraphIndex);
 }
 
-#ifdef ENABLE_CHINESE_VERSION
 bool EpubReaderActivity::launchWeReadSync() {
   if (!wereadBookId_[0]) return false;
 
@@ -1204,7 +1183,6 @@ bool EpubReaderActivity::launchWeReadSync() {
   activityManager.replaceActivity(std::move(sync));
   return true;
 }
-#endif
 
 void EpubReaderActivity::applyInitialOrientation() {
   ReaderActivity::applyInitialOrientation();
@@ -1749,11 +1727,9 @@ bool EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
                  : section->getVisibleTextOffsetForPage(static_cast<uint16_t>(currentPage));
   }
   const bool saved = EpubReaderUtils::saveProgress(*epub, spineIndex, currentPage, pageCount, offset);
-#ifdef ENABLE_CHINESE_VERSION
   if (saved && clearInitialProgressAfterSave_ && WeReadStore::clearInitialProgress(wereadBookId_)) {
     clearInitialProgressAfterSave_ = false;
   }
-#endif
   return saved;
 }
 
@@ -1798,9 +1774,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     LOG_DBG("ERS", "Image predecode=%lums cold=%u", millis() - t0, static_cast<unsigned>(pageHasImagesNeedingDecode));
   }
 
-#ifdef ENABLE_CHINESE_VERSION
   fcm->consumeMissingChineseCodepoint();
-#endif
   struct RawFontCacheGuard {
     FontCacheManager* manager = nullptr;
     ~RawFontCacheGuard() {
@@ -1868,13 +1842,11 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
 
   if (SETTINGS.readingBackgroundEnabled && !readingBackground::load(renderer)) renderer.clearScreen();
   renderPageWithGuideLines();
-#ifdef ENABLE_CHINESE_VERSION
   const uint32_t missingCodepoint = fcm->consumeMissingChineseCodepoint();
   if (missingCodepoint != 0 && !FontDownloadActivity::wasChineseFontPromptShownThisBoot()) {
     uint32_t expected = 0;
     pendingMissingChineseCodepoint_.compare_exchange_strong(expected, missingCodepoint, std::memory_order_relaxed);
   }
-#endif
   renderStatusBar();
   const auto tBwRender = millis();
 
