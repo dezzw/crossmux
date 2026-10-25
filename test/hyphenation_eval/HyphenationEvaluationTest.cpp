@@ -224,12 +224,12 @@ void runLanguageEval(const char* langName, const char* primaryTag, const char* r
   EXPECT_GE(averageF1Percent, minF1Percent) << "Hyphenation quality regressed for " << langName;
 }
 
-#define HYPHENATION_EVAL_TEST(LangName, primaryTag, resourceFile, minF1) \
-  TEST(HyphenationEval, LangName) { \
-    if (!getLanguageHyphenatorForPrimaryTag(primaryTag)) { \
+#define HYPHENATION_EVAL_TEST(LangName, primaryTag, resourceFile, minF1)                            \
+  TEST(HyphenationEval, LangName) {                                                                 \
+    if (!getLanguageHyphenatorForPrimaryTag(primaryTag)) {                                          \
       GTEST_SKIP() << "Hyphenation patterns for '" primaryTag "' are not compiled into this build"; \
-    } \
-    runLanguageEval(#LangName, primaryTag, resourceFile, minF1); \
+    }                                                                                               \
+    runLanguageEval(#LangName, primaryTag, resourceFile, minF1);                                    \
   }
 
 }  // namespace

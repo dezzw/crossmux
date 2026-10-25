@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Capture simulator BMPs for hyphenation PR visual evidence."""
+"""Capture simulator PNGs for hyphenation PR visual evidence."""
 
 from __future__ import annotations
 
 import argparse
 import html
+import json
 import os
 import shutil
 import subprocess
@@ -14,6 +15,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SIM = ROOT / ".pio/build/simulator/program"
+
+BOOKS = (
+    ("en", "/english-longwords.epub", "English Long Words", "en", [
+        "Extraordinary internationalization demonstrates hyphenation at narrow margins. "
+        "Antidisestablishmentarianism and incomprehensibilities should break cleanly without "
+        "distorting surrounding punctuation or spacing on the page.",
+    ]),
+    ("zh", "/chinese-sample.epub", "中文示例", "zh-CN", [
+        "电子书阅读器应在中文段落中正常换行，不受西文连字符规则影响。"
+        "这是一段用于视觉回归测试的简短正文。",
+    ]),
+    ("de", "/german-compound.epub", "Deutsch Verbindungen", "de", [
+        "Quadratkilometer und Donaudampfschifffahrtsgesellschaftskapitän sind typische "
+        "Komposita. Der Text soll sauber umbrechen, auch wenn keine Silbentrennung mehr "
+        "eingefügt wird.",
+    ]),
+)
 
 
 def _write_minimal_epub(path: Path, *, title: str, language: str, paragraphs: list[str]) -> None:
@@ -47,7 +65,7 @@ def _write_minimal_epub(path: Path, *, title: str, language: str, paragraphs: li
         zf.writestr("OEBPS/chapter.xhtml", xhtml)
 
 
-def prepare_sd(root: Path, *, ui_language: str) -> None:
+def prepare_sd(root: Path, *, ui_language: str, recent_only: str | None = None) -> None:
     cp = root / ".crosspoint"
     cp.mkdir(parents=True, exist_ok=True)
     (cp / "user-guide.checked").write_text("1\n")
@@ -58,99 +76,33 @@ def prepare_sd(root: Path, *, ui_language: str) -> None:
     )
     (cp / "settings.json").write_text(settings)
 
-    en_path = "/english-longwords.epub"
-    de_path = "/german-compound.epub"
-    zh_path = "/chinese-sample.epub"
+    recent_books = []
+    for key, sd_path, title, lang, paragraphs in BOOKS:
+        _write_minimal_epub(root / sd_path.lstrip("/"), title=title, language=lang, paragraphs=paragraphs)
+        if recent_only is None or recent_only == key:
+            recent_books.append(
+                {"path": sd_path, "title": title, "author": "CrossMux QA", "coverBmpPath": ""}
+            )
 
-    _write_minimal_epub(
-        root / en_path.lstrip("/"),
-        title="English Long Words",
-        language="en",
-        paragraphs=[
-            "Extraordinary internationalization demonstrates hyphenation at narrow margins. "
-            "Antidisestablishmentarianism and incomprehensibilities should break cleanly without "
-            "distorting surrounding punctuation or spacing on the page.",
-        ],
-    )
-    _write_minimal_epub(
-        root / de_path.lstrip("/"),
-        title="Deutsch Verbindungen",
-        language="de",
-        paragraphs=[
-            "Quadratkilometer und Donaudampfschifffahrtsgesellschaftskapitän sind typische "
-            "Komposita. Der Text soll sauber umbrechen, auch wenn keine Silbentrennung mehr "
-            "eingefügt wird.",
-        ],
-    )
-    _write_minimal_epub(
-        root / zh_path.lstrip("/"),
-        title="中文示例",
-        language="zh-CN",
-        paragraphs=[
-            "电子书阅读器应在中文段落中正常换行，不受西文连字符规则影响。"
-            "这是一段用于视觉回归测试的简短正文。",
-        ],
-    )
-
-    recent = {
-        "books": [
-            {
-                "path": en_path,
-                "title": "English Long Words",
-                "author": "CrossMux QA",
-                "coverBmpPath": "",
-            },
-            {
-                "path": de_path,
-                "title": "Deutsch Verbindungen",
-                "author": "CrossMux QA",
-                "coverBmpPath": "",
-            },
-            {
-                "path": zh_path,
-                "title": "中文示例",
-                "author": "CrossMux QA",
-                "coverBmpPath": "",
-            },
-        ]
-    }
-    import json
-
-    (cp / "recent.json").write_text(json.dumps(recent))
+    (cp / "recent.json").write_text(json.dumps({"books": recent_books}))
 
 
-def run_capture(out_dir: Path, *, ui_language: str, label: str) -> None:
+def chrome_script() -> str:
+    return "2200:RIGHT;2500:RIGHT;2800:RIGHT;5200:LEFT;5500:LEFT;5800:LEFT;6500:QUIT"
+
+
+def reader_script() -> str:
+    return "5000:FUNCTION;6000:FUNCTION;12000:QUIT"
+
+
+def reader_shot_ms() -> int:
+    return 9000
+
+
+def run_sim(sd: Path, *, script: str, shots: list[tuple[int, Path]]) -> None:
     if not SIM.is_file():
         raise SystemExit(f"Simulator binary missing: {SIM} (run pio run -e simulator first)")
-
-    sd = out_dir / f"sd-{label}"
-    if sd.exists():
-        shutil.rmtree(sd)
-    prepare_sd(sd, ui_language=ui_language)
-    bmp_dir = out_dir / label
-    bmp_dir.mkdir(parents=True, exist_ok=True)
-
-    # Times are ms from simulator start. Waveshare profile: RIGHT/LEFT tabs, ENTER confirms.
-    shots = [
-        (4500, bmp_dir / f"{label}-home.bmp"),
-        (7000, bmp_dir / f"{label}-settings.bmp"),
-        (12000, bmp_dir / f"{label}-reader-en.bmp"),
-        (17000, bmp_dir / f"{label}-reader-zh.bmp"),
-        (22000, bmp_dir / f"{label}-reader-de.bmp"),
-    ]
     shot_spec = ";".join(f"{ms}:{path}" for ms, path in shots)
-    script = (
-        "2000:RIGHT;2300:RIGHT;2600:RIGHT;"  # Recent -> Settings tab
-        "3200:DOWN;3600:ENTER;"  # open settings list
-        "8500:BACK;8800:BACK;"  # back to Recent tab
-        "9500:ENTER;"  # open first recent (English)
-        "10000:DOWN;10500:DOWN;"  # page turns
-        "14000:BACK;"
-        "14500:DOWN;15000:ENTER;"  # second recent (Chinese)
-        "19000:BACK;"
-        "19500:DOWN;20000:DOWN;20500:ENTER;"  # third recent (German)
-        "21500:DOWN;23000:QUIT"
-    )
     env = {
         **os.environ,
         "CROSSPOINT_SIM_SD": str(sd),
@@ -160,24 +112,50 @@ def run_capture(out_dir: Path, *, ui_language: str, label: str) -> None:
     subprocess.run([str(SIM)], env=env, cwd=ROOT, check=True, timeout=120)
 
 
-def bmp_to_png(bmp: Path) -> Path:
+def bmp_to_png(bmp: Path) -> None:
     from PIL import Image
 
     png = bmp.with_suffix(".png")
     Image.open(bmp).save(png)
-    return png
+    bmp.unlink()
+
+
+def capture_label(out_dir: Path, *, ui_language: str, label: str) -> None:
+    sd = out_dir / f"sd-{label}"
+    if sd.exists():
+        shutil.rmtree(sd)
+    prepare_sd(sd, ui_language=ui_language)
+    bmp_dir = out_dir / label
+    bmp_dir.mkdir(parents=True, exist_ok=True)
+
+    run_sim(
+        sd,
+        script=chrome_script(),
+        shots=[
+            (1200, bmp_dir / f"{label}-home.bmp"),
+            (3600, bmp_dir / f"{label}-settings.bmp"),
+        ],
+    )
+
+    for key, *_rest in BOOKS:
+        reader_bmp = bmp_dir / f"{label}-reader-{key}.bmp"
+        reader_sd = out_dir / f"sd-{label}-reader-{key}"
+        if reader_sd.exists():
+            shutil.rmtree(reader_sd)
+        prepare_sd(reader_sd, ui_language=ui_language, recent_only=key)
+        run_sim(reader_sd, script=reader_script(), shots=[(reader_shot_ms(), reader_bmp)])
+
+    for bmp in bmp_dir.glob("*.bmp"):
+        bmp_to_png(bmp)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, default=ROOT / "docs/screenshots/pr-hyphenation-en")
-    parser.add_argument("--label", required=True, help="Subfolder label, e.g. after-main or after-en-only")
-    parser.add_argument("--ui-language", default="EN", help="Settings language code (EN or ZH_CN)")
+    parser.add_argument("--label", required=True)
+    parser.add_argument("--ui-language", default="EN")
     args = parser.parse_args()
-
-    run_capture(args.out, ui_language=args.ui_language, label=args.label)
-    for bmp in sorted((args.out / args.label).glob("*.bmp")):
-        bmp_to_png(bmp)
+    capture_label(args.out, ui_language=args.ui_language, label=args.label)
     return 0
 
 
