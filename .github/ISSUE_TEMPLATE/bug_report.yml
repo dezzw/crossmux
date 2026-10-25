@@ -12,7 +12,7 @@ body:
     id: device
     attributes:
       label: Device
-      description: Which device does this happen on? Pick "Other" for boards CrossPoint does not release firmware for — those are maintained in their own port repositories.
+      description: Which device does this happen on? CrossMux releases firmware for the Waveshare ESP32-S3 ePaper 3.97 only. Use "Other / not listed" if you are on different hardware.
       options:
         - Waveshare ESP32-S3 ePaper 3.97
         - Other / not listed
