@@ -7,6 +7,4 @@ TEST(I18nLanguage, UnknownLanguageCodeFallsBackToEnglish) {
   EXPECT_EQ(I18n::languageFromCode("orangutan"), Language::EN);
 }
 
-TEST(I18nLanguage, EnglishCodeResolves) {
-  EXPECT_EQ(I18n::languageFromCode("EN"), Language::EN);
-}
+TEST(I18nLanguage, EnglishCodeResolves) { EXPECT_EQ(I18n::languageFromCode("EN"), Language::EN); }

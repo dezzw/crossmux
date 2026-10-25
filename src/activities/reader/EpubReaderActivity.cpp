@@ -11,6 +11,7 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <SdCardFontCache.h>
+#include <WeReadStore.h>
 #include <esp_system.h>
 
 #include <algorithm>
@@ -43,20 +44,18 @@
 #include "ReadingStatsStore.h"
 #include "RecentBooksStore.h"
 #include "SdCardFontSystem.h"
-#include "activities/settings/TextSettingsActivity.h"
-#include "util/BookCacheUtils.h"
-#include "util/BookmarkFile.h"
-#include "util/ReadingBackground.h"
-#include "util/ReadingGuideLine.h"
-#include <WeReadStore.h>
-
 #include "activities/apps/weread/WeReadProgressSyncActivity.h"
 #include "activities/settings/FontDownloadActivity.h"
+#include "activities/settings/TextSettingsActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/AchievementPopupUtils.h"
+#include "util/BookCacheUtils.h"
+#include "util/BookmarkFile.h"
 #include "util/BookmarkUtil.h"
 #include "util/ButtonNavigator.h"
+#include "util/ReadingBackground.h"
+#include "util/ReadingGuideLine.h"
 #include "util/ScreenshotUtil.h"
 #include "util/TimeUtils.h"
 

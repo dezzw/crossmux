@@ -1,6 +1,5 @@
 #include "WeReadClient.h"
 
-
 #include <Arduino.h>
 #include <Epub.h>
 #include <HalClock.h>
@@ -4199,4 +4198,3 @@ Operation::Event Operation::step(const WeReadStore::WorkCallback callback, void*
 }
 
 }  // namespace WeReadClient
-

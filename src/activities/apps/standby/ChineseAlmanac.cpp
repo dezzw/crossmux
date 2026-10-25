@@ -1,6 +1,5 @@
 #include "ChineseAlmanac.h"
 
-
 #include <cstring>
 
 namespace chinese_almanac {
@@ -677,4 +676,3 @@ bool computeAlmanac(const struct tm& t, AlmanacDay& out) {
   out.clashBranchIdx = static_cast<uint8_t>((out.dayBranchIdx + 6u) % 12u);
   return true;
 }
-

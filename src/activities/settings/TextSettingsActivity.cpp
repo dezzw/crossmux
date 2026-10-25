@@ -4,8 +4,8 @@
 #include <HalDisplay.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <SdCardFontCache.h>
 #include <Memory.h>
+#include <SdCardFontCache.h>
 
 #include <algorithm>
 #include <cstdio>

@@ -1,6 +1,5 @@
 #include "WeReadXhtmlCodec.h"
 
-
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -678,4 +677,3 @@ bool nativeToVisibleOffset(const std::string& path, const uint32_t nativeOffset,
 }
 
 }  // namespace WeReadXhtmlCodec
-

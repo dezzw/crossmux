@@ -18,19 +18,19 @@
 #include <algorithm>
 #include <string>
 
+#include "ChineseCalendarFace.h"
 #include "CrossPointSettings.h"
 #include "NetworkStartup.h"
-#include "activities/ActivityResult.h"
-#include "activities/network/WifiSelectionActivity.h"
-#include "network/HttpTransportFailure.h"
-#include "util/PaginationDots.h"
-#include "util/TimeUtils.h"
-#include "ChineseCalendarFace.h"
 #include "SloppyClockFace.h"
 #include "StandbyTime.h"
 #include "WifiCredentialStore.h"
+#include "activities/ActivityResult.h"
+#include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
+#include "util/PaginationDots.h"
+#include "util/TimeUtils.h"
 
 namespace {
 
