@@ -35,3 +35,13 @@ TEST(HyphenatorSegmentPattern, EnglishHyphenatorRunsOnApostropheSegments) {
   EXPECT_TRUE(containsBreak(breaks, 5u, false));
   EXPECT_TRUE(containsBreak(breaks, 10u, true));
 }
+
+TEST(HyphenatorSegmentPattern, EnglishLiangPatternsOnPlainWord) {
+  Hyphenator::setPreferredLanguage("en");
+  ASSERT_NE(getLanguageHyphenatorForPrimaryTag("en"), nullptr);
+
+  const auto breaks = Hyphenator::breakOffsets("hyphenation", false);
+  ASSERT_EQ(breaks.size(), 1u);
+  EXPECT_EQ(breaks[0].byteOffset, 6u);
+  EXPECT_TRUE(breaks[0].requiresInsertedHyphen);
+}
