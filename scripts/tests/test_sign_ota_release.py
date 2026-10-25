@@ -14,6 +14,7 @@ ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 
 import generate_ota_notes
+import ota_test_fixtures
 import sign_ota_release
 
 
@@ -34,7 +35,7 @@ class SignOtaReleaseNotesTest(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.notes_path = self.root / 'ota-notes.md'
         self.notes_path.write_text(notes_marker(), encoding='utf-8')
-        self.private_pem = (ROOT / 'test/fixtures/ota_test_private.pem').read_text()
+        self.private_pem = ota_test_fixtures.read_test_private_pem()
 
     def write_manifest(self, flavor: str = 'global') -> Path:
         path = self.root / f'{flavor}-manifest.json'

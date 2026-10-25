@@ -4,17 +4,20 @@
 
 #include <array>
 #include <cstdio>
-#include <filesystem>
 #include <vector>
 
+#include "OtaSigningTestPublicKey.h"
 #include "lib/JsonParser/OtaSignatureVerify.h"
 #include "lib/JsonParser/OtaSigningPayload.h"
-#include "src/network/OtaSigningTestPublicKey.h"
 
 namespace {
 
 std::string testPrivateKeyPath() {
-  return (std::filesystem::path(__FILE__).parent_path().parent_path() / "fixtures" / "ota_test_private.pem").string();
+#ifdef CROSSPOINT_OTA_TEST_PRIVATE_KEY_PATH
+  return CROSSPOINT_OTA_TEST_PRIVATE_KEY_PATH;
+#else
+#error "CROSSPOINT_OTA_TEST_PRIVATE_KEY_PATH must be set for OTA host tests"
+#endif
 }
 
 EVP_PKEY* testPrivateKey() {

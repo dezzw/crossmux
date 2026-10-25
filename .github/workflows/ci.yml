@@ -185,10 +185,8 @@ jobs:
           path: build/test/_deps/googletest-src
           key: ${{ runner.os }}-googletest-${{ hashFiles('test/CMakeLists.txt') }}
 
-      - name: Generate OTA signing known-answer fixture header
-        run: |
-          pip install 'cryptography==44.0.2'
-          python3 scripts/generate_ota_signing_fixture.py
+      - name: Install OTA test fixture dependencies
+        run: pip install 'cryptography==44.0.2'
 
       - name: Generate host wolfSSL user settings
         run: |

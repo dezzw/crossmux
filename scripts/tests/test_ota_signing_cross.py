@@ -4,11 +4,14 @@
 import base64
 import hashlib
 import json
+import sys
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-FIXTURE = ROOT / 'test/fixtures/ota_signing_known_answer.json'
+sys.path.insert(0, str(ROOT / 'scripts'))
+
+import ota_test_fixtures  # noqa: E402
 
 
 class OtaSigningCrossTest(unittest.TestCase):
@@ -18,7 +21,8 @@ class OtaSigningCrossTest(unittest.TestCase):
         from cryptography.hazmat.primitives.asymmetric import ec
         from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
 
-        fixture = json.loads(FIXTURE.read_text())
+        fixture_path = ota_test_fixtures.known_answer_json(ota_test_fixtures.ensure_generated())
+        fixture = json.loads(fixture_path.read_text())
         canonical = (
             f"{fixture['version']}|{fixture['boardTag']}|{fixture['firmwareSize']}|"
             f"{fixture['sha256Hex'].lower()}"

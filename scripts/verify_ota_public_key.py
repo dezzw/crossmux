@@ -10,7 +10,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 HEADER = ROOT / 'src/network/OtaSigningPublicKey.h'
-TEST_PRIVATE = ROOT / 'test/fixtures/ota_test_private.pem'
+
+from generate_ota_signing_fixture import VOID_OTA_TEST_KEY_SPKI_SHA256  # noqa: E402
 
 
 def spki_fingerprint_pem(pem: str) -> str:
@@ -69,12 +70,9 @@ def read_embedded_public_pem() -> str:
     return decode_c_string_escapes(''.join(lines))
 
 
-def test_fixture_fingerprint() -> str:
-    public_pem = subprocess.check_output(
-        ['openssl', 'ec', '-in', str(TEST_PRIVATE), '-pubout'],
-        text=True,
-    )
-    return spki_fingerprint_pem(public_pem)
+def void_test_key_fingerprint() -> str:
+    """SPKI SHA-256 of the former committed test public key (public and void)."""
+    return VOID_OTA_TEST_KEY_SPKI_SHA256
 
 
 def main():
@@ -94,9 +92,8 @@ def main():
         return 1
 
     embedded_fp = spki_fingerprint_pem(embedded)
-    test_fp = test_fixture_fingerprint()
-    if embedded_fp == test_fp:
-        print('::error::Production OTA public key must not be the test fixture key', file=sys.stderr)
+    if embedded_fp == void_test_key_fingerprint():
+        print('::error::Production OTA public key must not be the void test fixture key', file=sys.stderr)
         return 1
 
     print(f'OTA signing public key fingerprint ok ({embedded_fp[:16]}…)')
