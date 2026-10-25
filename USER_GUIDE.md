@@ -249,7 +249,7 @@ The Settings screen allows you to configure the device's behavior. There are a f
 
 - **Embedded Style**: Whether to use the EPUB file's embedded HTML and CSS stylisation and formatting; options are "ON" or "OFF".
 
-- **Hyphenation**: Whether to hyphenate text in Reading Mode; options are "ON" or "OFF".
+- **Hyphenation**: Whether to hyphenate text in Reading Mode; options are "ON" or "OFF". The default firmware build hyphenates English text only.
 
 - **Reading Orientation**: Set the screen orientation for reading EPUB files:
   

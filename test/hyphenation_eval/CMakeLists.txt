@@ -1,10 +1,15 @@
-set(HYPHENATION_EVAL_SOURCES
-  HyphenationEvaluationTest.cpp
+set(HYPHENATION_EVAL_LIB_SOURCES
   ${REPO_ROOT}/lib/Epub/Epub/hyphenation/Hyphenator.cpp
   ${REPO_ROOT}/lib/Epub/Epub/hyphenation/LanguageRegistry.cpp
   ${REPO_ROOT}/lib/Epub/Epub/hyphenation/LiangHyphenation.cpp
   ${REPO_ROOT}/lib/Epub/Epub/hyphenation/HyphenationCommon.cpp
   ${REPO_ROOT}/lib/Utf8/Utf8.cpp
+)
+
+set(HYPHENATION_EVAL_SOURCES
+  HyphenationEvaluationTest.cpp
+  NullHyphenatorFallbackTest.cpp
+  ${HYPHENATION_EVAL_LIB_SOURCES}
 )
 
 set(HYPHENATION_EVAL_INCLUDES
@@ -47,3 +52,22 @@ target_link_libraries(LanguageRegistryAllLangsTest PRIVATE
 )
 
 gtest_discover_tests(LanguageRegistryAllLangsTest)
+
+add_executable(HyphenationEvaluationAllLangsTest
+  HyphenationEvaluationTest.cpp
+  ${HYPHENATION_EVAL_LIB_SOURCES}
+)
+
+target_include_directories(HyphenationEvaluationAllLangsTest PRIVATE ${HYPHENATION_EVAL_INCLUDES})
+
+target_compile_definitions(HyphenationEvaluationAllLangsTest PRIVATE
+  CROSSPOINT_HYPHENATION_ALL_LANGUAGES
+  HYPHENATION_RESOURCES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources"
+)
+
+target_link_libraries(HyphenationEvaluationAllLangsTest PRIVATE
+  crosspoint_test_common
+  GTest::gtest_main
+)
+
+gtest_discover_tests(HyphenationEvaluationAllLangsTest)
