@@ -20,7 +20,7 @@ OPENSSL_REQUIRED_MSG = 'openssl is required for private-key scanner tests'
 # DER heuristics target OpenSSL 3 P-256 / RSA-2048 shapes. Not covered today:
 # P-384 SEC1/PKCS#8, Ed25519, encrypted PKCS#8 (documented gap; do not commit samples).
 
-DER_SCAN_MAX = scanner.DER_SCAN_MAX_BYTES
+DER_SCAN_SIZE_LITERAL = 16384
 
 
 def _require_openssl() -> None:
@@ -107,16 +107,17 @@ def _fixture_tls_cert_der() -> bytes:
     )
 
 
-def _generate_csr_der() -> bytes:
+def _generate_rsa_csr_der() -> bytes:
     _require_openssl()
     with tempfile.TemporaryDirectory() as tmp:
-        ec_pem = Path(tmp) / 'ec.pem'
-        subprocess.check_call(
-            ['openssl', 'ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', str(ec_pem)]
+        rsa_pem = Path(tmp) / 'rsa.pem'
+        subprocess.check_call(['openssl', 'genrsa', '-out', str(rsa_pem), '2048'])
+        csr_der = subprocess.check_output(
+            ['openssl', 'req', '-new', '-key', str(rsa_pem), '-outform', 'DER', '-subj', '/CN=scanner-test']
         )
-        return subprocess.check_output(
-            ['openssl', 'req', '-new', '-key', str(ec_pem), '-outform', 'DER', '-subj', '/CN=scanner-test']
-        )
+    if not csr_der.startswith(b'\x30\x82'):
+        raise AssertionError('expected RSA CSR DER to start with 3082')
+    return csr_der
 
 
 def _init_temp_repo(base: Path) -> Path:
@@ -279,8 +280,9 @@ class PrivateKeyScannerTest(unittest.TestCase):
             subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
             self.assertEqual(scanner.scan_tracked_files(repo), [])
 
-    def test_scan_does_not_flag_csr_der(self):
-        csr_der = _generate_csr_der()
+    def test_scan_does_not_flag_rsa_csr_der(self):
+        csr_der = _generate_rsa_csr_der()
+        self.assertTrue(csr_der.startswith(b'\x30\x82'))
         self.assertFalse(scanner.file_has_der_private_magic(csr_der))
         with tempfile.TemporaryDirectory() as tmp:
             repo = _init_temp_repo(Path(tmp))
@@ -288,18 +290,21 @@ class PrivateKeyScannerTest(unittest.TestCase):
             subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
             self.assertEqual(scanner.scan_tracked_files(repo), [])
 
+    def test_der_scan_max_bytes_constant(self):
+        self.assertEqual(scanner.DER_SCAN_MAX_BYTES, 16 * 1024)
+
     def test_der_scan_includes_file_at_exactly_16k(self):
         sec1, _, _ = _generate_ec_der_samples()
-        payload = _pad_to_size(sec1, DER_SCAN_MAX)
-        self.assertEqual(len(payload), DER_SCAN_MAX)
+        payload = _pad_to_size(sec1, DER_SCAN_SIZE_LITERAL)
+        self.assertEqual(len(payload), 16384)
         with tempfile.TemporaryDirectory() as tmp:
             repo = _init_temp_repo(Path(tmp))
             _assert_scan_flags_single_bin(repo, 'exactly-16k.bin', payload)
 
     def test_der_scan_skips_file_at_16k_plus_one(self):
         sec1, _, _ = _generate_ec_der_samples()
-        payload = _pad_to_size(sec1, DER_SCAN_MAX + 1)
-        self.assertEqual(len(payload), DER_SCAN_MAX + 1)
+        payload = _pad_to_size(sec1, 16385)
+        self.assertEqual(len(payload), 16385)
         with tempfile.TemporaryDirectory() as tmp:
             repo = _init_temp_repo(Path(tmp))
             (repo / 'over-16k.bin').write_bytes(payload)
