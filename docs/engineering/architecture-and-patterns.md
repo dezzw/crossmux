@@ -140,16 +140,29 @@ The main loop updates mapped input once per frame before
 
 **Source**: [src/main.cpp:40-115](../../src/main.cpp)
 
-**Built-in fonts are global static objects** at firmware startup:
-- International UI fonts: 8, 10, 12pt
-- Simplified-Chinese UI fallbacks: 8, 10, 12pt
-- Offline reader fallback: 12pt; other sizes and styles use SD `.cpfont`
+**Built-in fonts are global static objects** at firmware startup. Flash embeds only
+the families listed in [`lib/EpdFont/builtinFonts/all.h`](../../lib/EpdFont/builtinFonts/all.h):
+international UI (`notosans_8_regular`, Ubuntu 10/12), plus CJK UI fallbacks
+(`notosans_cjk_8/10/12`). There are no separate Noto Serif or Noto Sans reader
+`.h` masters at 12/14/16/18 pt in the image.
 
-Optional SD reader families (Literata, Inter, and NotoSansSC) are published via
-`lib/EpdFont/scripts/sd-fonts.yaml`; built-in Noto Serif/Sans cover the default
-reader sizes in flash. Legacy OpenDyslexic font-family IDs migrate to the
-default built-in Noto Sans reader font on load when no SD family is selected;
-other legacy IDs resolve to the 12pt fallback.
+**Reader font IDs vs what actually draws:** [`setupDisplayAndFonts()`](../../src/main.cpp)
+registers every `NOTOSERIF_*` and `NOTOSANS_*` reader ID (12/14/16/18) onto one
+shared [`offlineReaderFontFamily`](../../src/main.cpp) backed by the embedded
+`notosans_cjk_12` subset. [`getReaderFontId()`](../../src/CrossPointSettings.cpp)
+picks among those IDs from `fontFamily` (Noto Serif vs Noto Sans only changes
+[`getReaderLineCompression()`](../../src/CrossPointSettings.cpp), not the glyph
+source) and `fontPointSize`, but with no SD family selected the only built-in
+point size is **12** ([`BUILTIN_READER_POINT_SIZES`](../../src/ReaderFontSizes.h)).
+14/16/18 pt reading requires an installed SD `.cpfont` family:
+[`sdFontFamilyName`](../../src/CrossPointSettings.h) plus
+[`SdCardFontSystem`](../../src/SdCardFontSystem.cpp) resolve the live font id.
+
+Optional reader families (Literata, Inter, NotoSansSC) are published via
+[`lib/EpdFont/scripts/sd-fonts.yaml`](../../lib/EpdFont/scripts/sd-fonts.yaml).
+Legacy OpenDyslexic `fontFamily` IDs migrate to `NOTOSANS` with an empty SD name,
+which selects that shared 12pt offline fallback until the user installs and picks
+an SD catalog family.
 
 **Compilation Flag**:
 ```cpp
