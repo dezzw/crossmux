@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -25,7 +26,20 @@ DER_SCAN_SIZE_LITERAL = 16384
 
 def _require_openssl() -> None:
     if shutil.which('openssl') is None:
+        if os.environ.get('CI', '').lower() == 'true':
+            raise AssertionError(OPENSSL_REQUIRED_MSG)
         raise unittest.SkipTest(OPENSSL_REQUIRED_MSG)
+
+
+def _generate_ec_private_pem_text() -> str:
+    """Ephemeral P-256 private key PEM (runtime only; never committed)."""
+    _require_openssl()
+    with tempfile.TemporaryDirectory() as tmp:
+        pem_path = Path(tmp) / 'generated.pem'
+        subprocess.check_call(
+            ['openssl', 'ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', str(pem_path)]
+        )
+        return pem_path.read_text()
 
 
 def _pem_header(*words: str) -> str:
@@ -201,6 +215,18 @@ class PrivateKeyScannerTest(unittest.TestCase):
             subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
             offenders = scanner.scan_tracked_files(repo)
             self.assertEqual(offenders, ['leak.key'])
+
+    def test_scan_tracked_pem_and_embedded_py_private_blocks(self):
+        """Full scan must catch PEM-in-text paths, not only blocked extensions."""
+        private_pem = _generate_ec_private_pem_text()
+        embedded_py = 'CONFIG = """\n' + private_pem + '"""\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = _init_temp_repo(Path(tmp))
+            (repo / 'leak.pem').write_text(private_pem)
+            (repo / 'embedded.py').write_text(embedded_py)
+            subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+            offenders = scanner.scan_tracked_files(repo)
+            self.assertEqual(sorted(offenders), sorted(['embedded.py', 'leak.pem']))
 
     def _assert_blocked_extension(self, filename: str) -> None:
         with tempfile.TemporaryDirectory() as tmp:
