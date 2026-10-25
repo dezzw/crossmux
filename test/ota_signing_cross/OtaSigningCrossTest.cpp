@@ -6,9 +6,9 @@
 #include <cstdio>
 #include <vector>
 
+#include "OtaSigningTestPublicKey.h"
 #include "lib/JsonParser/OtaSignatureVerify.h"
 #include "lib/JsonParser/OtaSigningPayload.h"
-#include "OtaSigningTestPublicKey.h"
 
 namespace {
 
