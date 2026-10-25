@@ -7,12 +7,15 @@ import argparse
 import base64
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_DIR = ROOT / 'build' / 'test' / 'ota-fixtures'
+
+OPENSSL_REQUIRED_MSG = 'openssl is required to generate OTA test fixtures'
 
 PRIVATE_NAME = 'ota_test_private.pem'
 TEST_PUBLIC_HEADER_NAME = 'OtaSigningTestPublicKey.h'
@@ -25,15 +28,39 @@ VOID_OTA_TEST_KEY_SPKI_SHA256 = (
 )
 
 
+def require_openssl() -> None:
+    if shutil.which('openssl') is None:
+        print(f'::error::{OPENSSL_REQUIRED_MSG}', file=sys.stderr)
+        raise SystemExit(1)
+    try:
+        subprocess.run(['openssl', 'version'], capture_output=True, check=True)
+    except (OSError, subprocess.CalledProcessError):
+        print(f'::error::{OPENSSL_REQUIRED_MSG}', file=sys.stderr)
+        raise SystemExit(1)
+
+
+def _run_openssl(args: list[str], **kwargs) -> subprocess.CompletedProcess:
+    require_openssl()
+    try:
+        return subprocess.run(['openssl', *args], check=True, **kwargs)
+    except FileNotFoundError:
+        print(f'::error::{OPENSSL_REQUIRED_MSG}', file=sys.stderr)
+        raise SystemExit(1) from None
+    except subprocess.CalledProcessError as exc:
+        print(f'::error::{OPENSSL_REQUIRED_MSG}', file=sys.stderr)
+        raise SystemExit(exc.returncode) from exc
+
+
 def generate_ec_private_key_pem(private_path: Path) -> None:
     private_path.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.check_call(
-        ['openssl', 'ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', str(private_path)]
+    _run_openssl(
+        ['ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', str(private_path)],
     )
 
 
 def public_pem_from_private_path(private_path: Path) -> str:
-    return subprocess.check_output(['openssl', 'ec', '-in', str(private_path), '-pubout'], text=True).strip()
+    proc = _run_openssl(['ec', '-in', str(private_path), '-pubout'], capture_output=True, text=True)
+    return proc.stdout.strip()
 
 
 def format_test_public_key_header(public_pem: str) -> str:
@@ -95,6 +122,7 @@ def write_known_answer_fixtures(private_path: Path, output_dir: Path) -> None:
 
 def generate_all(output_dir: Path) -> Path:
     """Create a fresh test keypair and known-answer fixtures under output_dir."""
+    require_openssl()
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     private_path = output_dir / PRIVATE_NAME

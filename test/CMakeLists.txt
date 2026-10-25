@@ -172,6 +172,9 @@ add_test(NAME NoTrackedOtaPrivateKeys
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/check_no_tracked_private_keys.py)
 add_test(NAME OtaTestFixturesEphemeral
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/scripts/tests/test_ota_test_fixtures_ephemeral.py)
+set(_ota_fixture_ctest_env "CROSSPOINT_OTA_TEST_FIXTURE_DIR=${OTA_TEST_FIXTURE_DIR}")
+set_tests_properties(OtaSigningKnownAnswerPython NoTrackedOtaPrivateKeys OtaTestFixturesEphemeral
+  PROPERTIES ENVIRONMENT "${_ota_fixture_ctest_env}")
 add_test(NAME TlsWolfSslLegacyBuildOffline
   WORKING_DIRECTORY ${REPO_ROOT}/scripts/tests
   COMMAND ${Python3_EXECUTABLE} -m unittest test_tls_wolfssl_legacy_build.TlsWolfSslOfflineTests -v)

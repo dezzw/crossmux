@@ -2,11 +2,13 @@
 """OTA test fixtures must work with any freshly generated key (not the old committed key)."""
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -58,6 +60,11 @@ class OtaTestFixturesEphemeralTest(unittest.TestCase):
             pem = ota_test_fixtures.ensure_generated(out)
             self.assertEqual(pem, out.resolve())
             self._verify_known_answer(out)
+
+    def test_generator_reports_missing_openssl(self):
+        with mock.patch.object(generate_ota_signing_fixture.shutil, 'which', return_value=None):
+            with self.assertRaises(SystemExit):
+                generate_ota_signing_fixture.require_openssl()
 
 
 if __name__ == '__main__':

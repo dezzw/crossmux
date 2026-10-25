@@ -15,6 +15,8 @@ DEFAULT_OUTPUT_DIR = ROOT / 'build' / 'test' / 'ota-fixtures'
 PRIVATE_NAME = 'ota_test_private.pem'
 JSON_NAME = 'ota_signing_known_answer.json'
 
+OPENSSL_REQUIRED_MSG = 'openssl is required to generate OTA test fixtures'
+
 
 def fixture_dir() -> Path:
     raw = os.environ.get(ENV_FIXTURE_DIR, '').strip()
@@ -33,9 +35,12 @@ def ensure_generated(output_dir: Path | None = None) -> Path:
     """Generate fixtures if the private key is missing; return the fixture directory."""
     out = (output_dir or fixture_dir()).resolve()
     if not private_key_path(out).is_file():
-        subprocess.check_call(
-            [sys.executable, str(ROOT / 'scripts' / 'generate_ota_signing_fixture.py'), '--output-dir', str(out)]
+        proc = subprocess.run(
+            [sys.executable, str(ROOT / 'scripts' / 'generate_ota_signing_fixture.py'), '--output-dir', str(out)],
+            capture_output=False,
         )
+        if proc.returncode != 0:
+            raise SystemExit(proc.returncode)
     return out
 
 
