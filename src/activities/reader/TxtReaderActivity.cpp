@@ -285,13 +285,11 @@ void TxtReaderActivity::initializeReader() {
 }
 
 void TxtReaderActivity::probeTextEncoding() {
-#ifdef ENABLE_CHINESE_VERSION
   if (!pageBuffer || txt->getFileSize() == 0) return;
   const size_t sampleLength = std::min(CHUNK_SIZE, txt->getFileSize());
   if (!txt->readContent(pageBuffer.get(), 0, sampleLength)) return;
   textEncoding = txt_encoding::detect(pageBuffer.get(), sampleLength, sampleLength == txt->getFileSize());
   LOG_DBG("TRS", "TXT encoding probe: %u", static_cast<unsigned>(textEncoding));
-#endif
 }
 
 bool TxtReaderActivity::loadPageAtOffset(size_t offset, std::vector<TxtLine>& outLines, size_t& nextOffset) {
@@ -310,7 +308,6 @@ bool TxtReaderActivity::loadPageAtOffset(size_t offset, std::vector<TxtLine>& ou
     return false;
   }
 
-#ifdef ENABLE_CHINESE_VERSION
   if (textEncoding == txt_encoding::Encoding::Unknown) {
     const auto detected = txt_encoding::detect(buffer, rawChunkSize, offset + rawChunkSize == fileSize);
     if (detected != txt_encoding::Encoding::Unknown) {
@@ -318,7 +315,6 @@ bool TxtReaderActivity::loadPageAtOffset(size_t offset, std::vector<TxtLine>& ou
       indexCacheDirty = true;
     }
   }
-#endif
 
   size_t chunkSize = rawChunkSize;
   if (textEncoding == txt_encoding::Encoding::Gbk) {

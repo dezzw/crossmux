@@ -119,9 +119,7 @@ class ActivityManager {
   void goToCrashReport();
   void goToApps();
   void goToStandby();
-#ifdef ENABLE_CHINESE_VERSION
   void goToWeRead();
-#endif
   void goHome(HomeMenuItem initialMenuItem = HomeMenuItem::NONE);
   MainTabFocus getMainTabFocus() const { return mainTabFocus; }
 

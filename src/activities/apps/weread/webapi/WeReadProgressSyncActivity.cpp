@@ -1,7 +1,5 @@
 #include "WeReadProgressSyncActivity.h"
 
-#ifdef ENABLE_CHINESE_VERSION
-
 #include <Epub.h>
 #include <FontCacheManager.h>
 #include <GfxRenderer.h>
@@ -508,5 +506,3 @@ void WeReadProgressSyncActivity::render(RenderLock&&) {
   // Consume this here so a Wi-Fi child cannot use up the sync page's clean refresh.
   renderer.displayBuffer(fullRefreshPending_.exchange(false) ? HalDisplay::FULL_REFRESH : HalDisplay::FAST_REFRESH);
 }
-
-#endif

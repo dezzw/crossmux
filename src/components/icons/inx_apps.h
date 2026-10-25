@@ -172,10 +172,8 @@ constexpr const uint8_t* get(const UIIcon icon) {
       return ReadingProfile.data();
     case UIIcon::Achievements:
       return Achievements.data();
-#ifdef ENABLE_CHINESE_VERSION
     case UIIcon::WeRead:
       return WeRead.data();
-#endif
     case UIIcon::Standby:
       return Standby.data();
     default:

@@ -14,12 +14,10 @@
 #include "OpdsServerStore.h"
 #include "OtaRunningImageConfirm.h"
 #include "apps/AppsMenuActivity.h"
-#ifdef ENABLE_CHINESE_VERSION
-#include "apps/weread/WeReadActivity.h"
-#endif
 #include "apps/reading-stats/ReadingStatsActivity.h"
 #include "apps/reading-stats/ReadingStatsMenuActivity.h"
 #include "apps/standby/StandbyActivity.h"
+#include "apps/weread/WeReadActivity.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
@@ -465,9 +463,7 @@ void ActivityManager::goToReadingStats() { replaceActivityWith<ReadingStatsActiv
 
 void ActivityManager::goToStandby() { replaceActivityWith<StandbyActivity>(); }
 
-#ifdef ENABLE_CHINESE_VERSION
 void ActivityManager::goToWeRead() { replaceActivityWith<WeReadActivity>(); }
-#endif
 
 void ActivityManager::pushActivity(std::unique_ptr<Activity>&& activity) {
   if (pendingActivity) {

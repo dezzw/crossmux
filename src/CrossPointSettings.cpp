@@ -415,9 +415,7 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   sdFontFlashPreload =
       clamp(static_cast<uint8_t>(doc["sdFontFlashPreload"] | 0), static_cast<uint8_t>(2), static_cast<uint8_t>(0));
   if (storedFontFamily == LEGACY_OPENDYSLEXIC && sdFontFamilyName[0] == '\0') {
-    fontFamily = NOTOSERIF;
-    strncpy(sdFontFamilyName, "OpenDyslexic", sizeof(sdFontFamilyName) - 1);
-    sdFontFamilyName[sizeof(sdFontFamilyName) - 1] = '\0';
+    fontFamily = NOTOSANS;
     needsResave = true;
   } else if (storedFontFamily >= BUILTIN_FONT_COUNT) {
     needsResave = true;
@@ -566,8 +564,9 @@ bool CrossPointSettings::loadFromBinaryFile() {
     if (legacyFontFamily < BUILTIN_FONT_COUNT) {
       fontFamily = legacyFontFamily;
     } else if (legacyFontFamily == LEGACY_OPENDYSLEXIC) {
-      fontFamily = NOTOSERIF;
-      copyToField(sdFontFamilyName, "OpenDyslexic", sizeof(sdFontFamilyName));
+      fontFamily = NOTOSANS;
+      sdFontFamilyName[0] = '\0';
+      sdFontFlashPreload = 0;
     }
   }
   if (fileSettingsCount > 8) {

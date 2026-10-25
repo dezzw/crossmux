@@ -58,7 +58,7 @@ int main() {
         header = (ROOT / 'lib/GfxRenderer/GfxRenderer.h').read_text()
         system = (ROOT / 'src/SdCardFontSystem.cpp').read_text()
         manager = (ROOT / 'lib/EpdFont/SdCardFontManager.cpp').read_text()
-        table = system[system.index('#if !defined(ENABLE_CHINESE_VERSION)'):system.index('}  // namespace')]
+        table = system[system.index('#if CONFIG_IDF_TARGET_ESP32S3'):system.index('}  // namespace')]
         program = r'''
 #include <algorithm>
 #include <array>
@@ -303,7 +303,7 @@ int main() {
             for name, defines, enabled in configurations:
                 with self.subTest(target=name):
                     subprocess.run(['c++', '-std=c++20', '-Wall', '-Wextra', '-Werror',
-                                    '-DENABLE_CHINESE_VERSION=1', f'-DEXPECT_ENABLED={int(enabled)}',
+                                    f'-DEXPECT_ENABLED={int(enabled)}',
                                     *[f'-D{value}' for value in defines],
                                     '-I', str(ROOT / 'lib/Utf8'), '-I', str(ROOT / 'lib/EpdFont'),
                                     '-I', str(ROOT / 'lib/MiniBidi'), str(cpp),

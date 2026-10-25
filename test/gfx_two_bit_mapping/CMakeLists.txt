@@ -9,6 +9,5 @@ target_include_directories(GfxTwoBitMappingTest PRIVATE
   ${REPO_ROOT}/lib/EpdFont
   ${REPO_ROOT}/lib/GfxRenderer
 )
-target_compile_definitions(GfxTwoBitMappingTest PRIVATE FREEINK_DEVICE_EEGO_A4=1)
 target_link_libraries(GfxTwoBitMappingTest PRIVATE crosspoint_test_common GTest::gtest_main)
 gtest_discover_tests(GfxTwoBitMappingTest)

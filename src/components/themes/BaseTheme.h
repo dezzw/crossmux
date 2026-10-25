@@ -155,9 +155,7 @@ enum UIIcon {
   Hotspot,
   Bookmark,
   Apps,
-#ifdef ENABLE_CHINESE_VERSION
   WeRead,
-#endif
   Opds,
   ReadingStats,
   Standby,
@@ -256,11 +254,7 @@ constexpr ThemeMetrics values = {.batteryWidth = 15,
 
 class BaseTheme {
  public:
-#ifdef ENABLE_CHINESE_VERSION
   static constexpr int STATUS_NUMERIC_FONT_ID = -858375107;
-#else
-  static constexpr int STATUS_NUMERIC_FONT_ID = SMALL_FONT_ID;
-#endif
 
   virtual ~BaseTheme() = default;
 

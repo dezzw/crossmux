@@ -24,8 +24,7 @@ void snapFontPointSizeTo(const uint8_t availablePointSize) {
   SETTINGS.saveToFile();
 }
 
-#if !defined(ENABLE_CHINESE_VERSION) || \
-    (CONFIG_IDF_TARGET_ESP32S3 && defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED))
+#if CONFIG_IDF_TARGET_ESP32S3 && defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED)
 // Physical point sizes at 150 DPI, matching the SD-font converter.
 struct UiFontSize {
   int fontId;
@@ -145,7 +144,6 @@ void SdCardFontSystem::ensureLoaded(GfxRenderer& renderer, bool allowFlashCache)
 void SdCardFontSystem::releaseLoadedFont(GfxRenderer& renderer) { manager_.unloadAll(renderer); }
 
 bool SdCardFontSystem::adoptCompleteChineseNotoSans() {
-#ifdef ENABLE_CHINESE_VERSION
   if (static_cast<Language>(SETTINGS.language) != Language::ZH_CN || SETTINGS.sdFontFamilyName[0] != '\0' ||
       !registry_.findFamily(COMPLETE_CHINESE_NOTO_SANS_FAMILY))
     return false;
@@ -159,14 +157,10 @@ bool SdCardFontSystem::adoptCompleteChineseNotoSans() {
   }
   LOG_INF("SDFS", "Using installed NotoSansSC in place of the Chinese built-in font");
   return true;
-#else
-  return false;
-#endif
 }
 
 void SdCardFontSystem::setupUiFallbacks(GfxRenderer& renderer) {
-#if defined(ENABLE_CHINESE_VERSION) && \
-    !(CONFIG_IDF_TARGET_ESP32S3 && defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED))
+#if !(CONFIG_IDF_TARGET_ESP32S3 && defined(BOARD_HAS_PSRAM) && !defined(SIMULATOR) && !defined(CROSSPOINT_EMULATED))
   // No-PSRAM firmware keeps only the reader size resident.
   (void)renderer;
   return;

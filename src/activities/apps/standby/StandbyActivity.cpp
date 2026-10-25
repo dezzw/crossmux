@@ -18,21 +18,19 @@
 #include <algorithm>
 #include <string>
 
+#include "ChineseCalendarFace.h"
 #include "CrossPointSettings.h"
 #include "NetworkStartup.h"
-#include "activities/ActivityResult.h"
-#include "activities/network/WifiSelectionActivity.h"
-#include "network/HttpTransportFailure.h"
-#include "util/PaginationDots.h"
-#include "util/TimeUtils.h"
-#ifdef ENABLE_CHINESE_VERSION
-#include "ChineseCalendarFace.h"
-#endif
 #include "SloppyClockFace.h"
 #include "StandbyTime.h"
 #include "WifiCredentialStore.h"
+#include "activities/ActivityResult.h"
+#include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpTransportFailure.h"
+#include "util/PaginationDots.h"
+#include "util/TimeUtils.h"
 
 namespace {
 
@@ -55,10 +53,8 @@ struct FaceEntry {
 constexpr FaceEntry kFaces[] = {
     {[]() -> std::unique_ptr<StandbyFace> { return makeUniqueNoThrow<SloppyClockFace>(); },
      [](int, int) { return true; }},
-#ifdef ENABLE_CHINESE_VERSION
     {[]() -> std::unique_ptr<StandbyFace> { return makeUniqueNoThrow<ChineseCalendarFace>(); },
      [](int sw, int sh) { return sh > sw; }},  // portrait only
-#endif
 };
 constexpr uint8_t kFaceCount = static_cast<uint8_t>(sizeof(kFaces) / sizeof(kFaces[0]));
 

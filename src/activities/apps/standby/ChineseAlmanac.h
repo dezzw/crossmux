@@ -13,9 +13,6 @@
 //
 // Range: 1900-01-01 .. 2100-12-31 (Gregorian). `computeAlmanac` returns false
 // outside this window.
-//
-// Body is gated by `ENABLE_CHINESE_VERSION`; non-CN builds compile this TU
-// into an empty object.
 
 struct AlmanacDay {
   uint16_t gregYear;       // 1900..2100
