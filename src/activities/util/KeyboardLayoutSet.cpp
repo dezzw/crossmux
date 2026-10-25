@@ -1,6 +1,7 @@
 #include "KeyboardLayoutSet.h"
 
 #include "CrossPointSettings.h"
+#include "I18nKeys.h"
 
 namespace keyboard_layouts {
 
@@ -14,10 +15,13 @@ uint8_t indexOf(const freeink::ui::KeyboardLayoutId id) {
 }
 
 freeink::ui::KeyboardLayoutId forLanguage(const Language language) {
-  for (uint8_t i = 0; i < COUNT; ++i) {
-    if (ALL[i].language == language) return ALL[i].id;
+  switch (language) {
+    case Language::EN:
+    case Language::ZH_CN:
+      return freeink::ui::KeyboardLayoutId::QwertyEn;
+    default:
+      return freeink::ui::KeyboardLayoutId::QwertyEn;
   }
-  return freeink::ui::KeyboardLayoutId::QwertyEn;
 }
 
 constexpr uint16_t ALL_BITS = static_cast<uint16_t>((uint32_t{1} << COUNT) - 1);
@@ -28,6 +32,30 @@ uint16_t layoutBit(const freeink::ui::KeyboardLayoutId id) {
 }
 
 }  // namespace
+
+const char* layoutLabel(const LayoutLabel label) {
+  switch (label) {
+    case LayoutLabel::EN:
+      return tr(STR_KEYBOARD_LAYOUT_EN);
+    case LayoutLabel::FR:
+      return tr(STR_KEYBOARD_LAYOUT_FR);
+    case LayoutLabel::DE:
+      return tr(STR_KEYBOARD_LAYOUT_DE);
+    case LayoutLabel::ES:
+      return tr(STR_KEYBOARD_LAYOUT_ES);
+    case LayoutLabel::RU:
+      return tr(STR_KEYBOARD_LAYOUT_RU);
+    case LayoutLabel::UK:
+      return tr(STR_KEYBOARD_LAYOUT_UK);
+    case LayoutLabel::BE:
+      return tr(STR_KEYBOARD_LAYOUT_BE);
+    case LayoutLabel::KK:
+      return tr(STR_KEYBOARD_LAYOUT_KK);
+    case LayoutLabel::HE:
+      return tr(STR_KEYBOARD_LAYOUT_HE);
+  }
+  return tr(STR_KEYBOARD_LAYOUT_EN);
+}
 
 uint16_t enabled() {
   // Drop bits naming no layout: the mask comes from a hand-editable file and

@@ -7,17 +7,25 @@
 
 namespace keyboard_layouts {
 
+enum class LayoutLabel : uint8_t { EN, FR, DE, ES, RU, UK, BE, KK, HE };
+
 struct LayoutInfo {
   freeink::ui::KeyboardLayoutId id;
-  Language language;
+  LayoutLabel label;
 };
 
 // Table position is the persisted bit assignment. Keep existing rows in place
 // and append new layouts so SDK enum changes cannot reinterpret saved masks.
-// Matches [crosspoint] i18n_languages in platformio.ini (English + listed codes).
-// Re-add rows when shipping matching UI languages again.
 inline constexpr LayoutInfo ALL[] = {
-    {freeink::ui::KeyboardLayoutId::QwertyEn, Language::EN},
+    {freeink::ui::KeyboardLayoutId::QwertyEn, LayoutLabel::EN},
+    {freeink::ui::KeyboardLayoutId::AzertyFr, LayoutLabel::FR},
+    {freeink::ui::KeyboardLayoutId::QwertzDe, LayoutLabel::DE},
+    {freeink::ui::KeyboardLayoutId::SpanishEs, LayoutLabel::ES},
+    {freeink::ui::KeyboardLayoutId::CyrillicRu, LayoutLabel::RU},
+    {freeink::ui::KeyboardLayoutId::CyrillicUk, LayoutLabel::UK},
+    {freeink::ui::KeyboardLayoutId::CyrillicBe, LayoutLabel::BE},
+    {freeink::ui::KeyboardLayoutId::CyrillicKk, LayoutLabel::KK},
+    {freeink::ui::KeyboardLayoutId::HebrewIl, LayoutLabel::HE},
 };
 inline constexpr uint8_t COUNT = sizeof(ALL) / sizeof(ALL[0]);
 static_assert(COUNT <= 16, "keyboard layout mask is uint16_t");
@@ -25,7 +33,9 @@ static_assert(COUNT <= 16, "keyboard layout mask is uint16_t");
 inline constexpr uint16_t bitAt(const uint8_t i) { return static_cast<uint16_t>(1u << i); }
 // Symbol layers have no Latin letters, so credentials and URLs require at
 // least one of these layouts to remain enabled.
-inline constexpr uint16_t LATIN_BITS = bitAt(0);
+inline constexpr uint16_t LATIN_BITS = bitAt(0) | bitAt(1) | bitAt(2) | bitAt(3);
+
+const char* layoutLabel(LayoutLabel label);
 
 uint16_t enabled();
 freeink::ui::KeyboardLayoutId startingLayout();
