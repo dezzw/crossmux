@@ -40,7 +40,8 @@ struct CrossPointSettings {
   uint8_t fontFamily = NOTOSANS;
   uint8_t fontPointSize = 12;
   uint8_t sdFontFlashPreload = 0;
-  char sdFontFamilyName[64] = {};
+  char sdFontFamilyName[32] = {};
+  bool lastNeedsResave = false;
 
   static uint8_t clamp(uint8_t val, uint8_t maxVal, uint8_t def) {
     return val < maxVal ? val : def;
@@ -52,7 +53,7 @@ struct CrossPointSettings {
     strncpy(sdFontFamilyName, sdName, sizeof(sdFontFamilyName) - 1);
     sdFontFamilyName[sizeof(sdFontFamilyName) - 1] = '\0';
 JSON_MIGRATION
-    (void)needsResave;
+    lastNeedsResave = needsResave;
   }
 
   void applyBinaryLegacyFontFamily(uint8_t legacyFontFamily) {
@@ -69,13 +70,28 @@ int main() {
   settings.applyJsonFontFields(CrossPointSettings::LEGACY_OPENDYSLEXIC, "");
   assert(settings.fontFamily == CrossPointSettings::NOTOSANS);
   assert(settings.sdFontFamilyName[0] == '\0');
+  assert(settings.lastNeedsResave);
+
+  settings = CrossPointSettings{};
+  settings.applyJsonFontFields(CrossPointSettings::LEGACY_OPENDYSLEXIC, "Inter");
+  assert(std::strcmp(settings.sdFontFamilyName, "Inter") == 0);
+  assert(settings.lastNeedsResave);
 
   settings = CrossPointSettings{};
   settings.applyJsonFontFields(CrossPointSettings::NOTOSERIF, "NotoSerif");
   assert(settings.fontFamily == CrossPointSettings::NOTOSERIF);
   assert(std::strcmp(settings.sdFontFamilyName, "NotoSerif") == 0);
+  assert(!settings.lastNeedsResave);
 
   settings = CrossPointSettings{};
+  settings.applyBinaryLegacyFontFamily(CrossPointSettings::LEGACY_OPENDYSLEXIC);
+  assert(settings.fontFamily == CrossPointSettings::NOTOSANS);
+  assert(settings.sdFontFamilyName[0] == '\0');
+  assert(settings.sdFontFlashPreload == 0);
+
+  settings = CrossPointSettings{};
+  strncpy(settings.sdFontFamilyName, "Inter", sizeof(settings.sdFontFamilyName) - 1);
+  settings.sdFontFlashPreload = 1;
   settings.applyBinaryLegacyFontFamily(CrossPointSettings::LEGACY_OPENDYSLEXIC);
   assert(settings.fontFamily == CrossPointSettings::NOTOSANS);
   assert(settings.sdFontFamilyName[0] == '\0');

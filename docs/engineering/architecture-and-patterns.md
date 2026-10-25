@@ -145,10 +145,11 @@ The main loop updates mapped input once per frame before
 - Simplified-Chinese UI fallbacks: 8, 10, 12pt
 - Offline reader fallback: 12pt; other sizes and styles use SD `.cpfont`
 
-The broad Noto reader families live in the SD font catalog
-(`lib/EpdFont/scripts/sd-fonts.yaml`). Legacy OpenDyslexic font-family IDs migrate
-to the default built-in Noto Sans reader font on load; other legacy IDs resolve
-to the 12pt fallback.
+Optional SD reader families (Literata, Inter, and NotoSansSC) are published via
+`lib/EpdFont/scripts/sd-fonts.yaml`; built-in Noto Serif/Sans cover the default
+reader sizes in flash. Legacy OpenDyslexic font-family IDs migrate to the
+default built-in Noto Sans reader font on load when no SD family is selected;
+other legacy IDs resolve to the 12pt fallback.
 
 **Compilation Flag**:
 ```cpp
