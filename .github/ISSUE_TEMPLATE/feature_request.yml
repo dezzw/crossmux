@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to propose a change to CrossMux!
 
-        See [SCOPE.md](../../SCOPE.md) for what belongs in this project. Proposals outside scope may be closed without implementation.
+        See [SCOPE.md](https://github.com/dezzw/crossmux/blob/main/SCOPE.md) for what belongs in this project. Proposals outside scope may be closed without implementation.
 
   - type: textarea
     id: problem
