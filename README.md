@@ -90,7 +90,7 @@ Use [Testing and Debugging](./docs/contributing/testing-debugging.md) for focuse
 ## Documentation and contributing
 
 - [User guide](./USER_GUIDE.md) · [Web transfer](./docs/webserver.md) · [Web API](./docs/webserver-endpoints.md)
-- [Project scope](./SCOPE.md) · [Governance](./GOVERNANCE.md) · [Contributor guide](./docs/contributing/README.md)
+- [Project scope](./SCOPE.md) · [Contributor guide](./docs/contributing/README.md)
 - [Agent instructions](./AGENTS.md) · [Engineering reference](./docs/engineering/index.md) · [Buttons and UI](./docs/contributing/touch-and-ui.md)
 - [Cache management](./docs/engineering/cache-management.md) · [File formats](./docs/file-formats.md)
 

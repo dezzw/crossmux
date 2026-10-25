@@ -90,7 +90,7 @@ pio device monitor  # 已连接设备的串口日志
 ## 文档与贡献
 
 - [用户指南](./USER_GUIDE.md) · [Web 传书](./docs/webserver.md) · [Web API](./docs/webserver-endpoints.md)
-- [项目范围](./SCOPE.md) · [社区治理](./GOVERNANCE.md) · [贡献指南](./docs/contributing/README.md)
+- [项目范围](./SCOPE.md) · [贡献指南](./docs/contributing/README.md)
 - [Agent 指南](./AGENTS.md) · [工程文档](./docs/engineering/index.md) · [按键与 UI](./docs/contributing/touch-and-ui.md)
 - [缓存管理](./docs/engineering/cache-management.md) · [文件格式](./docs/file-formats.md)
 
