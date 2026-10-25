@@ -15,6 +15,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 import build_nightly_index
 import nightly_targets
+import ota_test_fixtures
 import ota_manifest
 import package_nightly_target
 import sign_ota_release
@@ -229,7 +230,7 @@ class NightlyTargetTest(unittest.TestCase):
         self.assertEqual(verify.count('python3 scripts/verify_nightly_release.py'), 1)
 
     def test_signed_manifest_firmware_url_matches_sign_script(self):
-        private_pem = (ROOT / 'test/fixtures/ota_test_private.pem').read_text()
+        private_pem = ota_test_fixtures.read_test_private_pem()
         with tempfile.TemporaryDirectory() as temp:
             tmp = Path(temp)
             firmware = tmp / 'waveshare-epaper-397-firmware.bin'

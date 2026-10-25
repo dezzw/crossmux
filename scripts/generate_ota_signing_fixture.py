@@ -1,19 +1,54 @@
 #!/usr/bin/env python3
-"""Generate test/fixtures OTA signing known-answer fixture (test key only)."""
+"""Generate ephemeral OTA test signing fixtures (private key stays out of git)."""
 
+from __future__ import annotations
+
+import argparse
 import base64
 import hashlib
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PRIVATE = ROOT / 'test/fixtures/ota_test_private.pem'
-JSON_OUT = ROOT / 'test/fixtures/ota_signing_known_answer.json'
-HEADER_OUT = ROOT / 'test/fixtures/ota_signing_known_answer.generated.h'
+DEFAULT_OUTPUT_DIR = ROOT / 'build' / 'test' / 'ota-fixtures'
+
+PRIVATE_NAME = 'ota_test_private.pem'
+TEST_PUBLIC_HEADER_NAME = 'OtaSigningTestPublicKey.h'
+JSON_NAME = 'ota_signing_known_answer.json'
+KNOWN_ANSWER_HEADER_NAME = 'ota_signing_known_answer.generated.h'
+
+# Former committed test key (public and void; do not use for signing releases).
+VOID_OTA_TEST_KEY_SPKI_SHA256 = (
+    'b583a3d6edad2215e5def093eef52bfdff30b2ef242e9e0b03b45fd802282af4'
+)
 
 
-def main():
+def generate_ec_private_key_pem(private_path: Path) -> None:
+    private_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.check_call(
+        ['openssl', 'ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', str(private_path)]
+    )
+
+
+def public_pem_from_private_path(private_path: Path) -> str:
+    return subprocess.check_output(['openssl', 'ec', '-in', str(private_path), '-pubout'], text=True).strip()
+
+
+def format_test_public_key_header(public_pem: str) -> str:
+    lines = public_pem.strip().splitlines()
+    body = '\n'.join(f'    "{line}\\n"' for line in lines)
+    return (
+        '#pragma once\n\n'
+        '// Ephemeral OTA test public key (host tests only). Regenerate with '
+        'scripts/generate_ota_signing_fixture.py.\n'
+        'inline constexpr char OTA_SIGNING_TEST_PUBLIC_KEY_PEM[] =\n'
+        f'{body};\n'
+    )
+
+
+def write_known_answer_fixtures(private_path: Path, output_dir: Path) -> None:
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec
     from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
@@ -24,10 +59,10 @@ def main():
     sha = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
     canonical = f'{version}|{board}|{size}|{sha.lower()}'.encode()
     digest = hashlib.sha256(canonical).digest()
-    private_pem = PRIVATE.read_text()
+    private_pem = private_path.read_text()
     key = serialization.load_pem_private_key(private_pem.encode(), password=None)
     signature = key.sign(digest, ec.ECDSA(Prehashed(hashes.SHA256())))
-    public_pem = subprocess.check_output(['openssl', 'ec', '-in', str(PRIVATE), '-pubout'], text=True).strip()
+    public_pem = public_pem_from_private_path(private_path)
 
     fixture = {
         'version': version,
@@ -40,9 +75,11 @@ def main():
         'signatureHex': signature.hex(),
         'publicKeyPem': public_pem,
     }
-    JSON_OUT.write_text(json.dumps(fixture, indent=2) + '\n')
+    json_out = output_dir / JSON_NAME
+    json_out.write_text(json.dumps(fixture, indent=2) + '\n')
 
-    HEADER_OUT.write_text(
+    header_out = output_dir / KNOWN_ANSWER_HEADER_NAME
+    header_out.write_text(
         '#pragma once\n'
         f'inline constexpr char OTA_KNOWN_VERSION[] = "{version}";\n'
         f'inline constexpr char OTA_KNOWN_BOARD[] = "{board}";\n'
@@ -54,8 +91,33 @@ def main():
         + ''.join(f'    "{line}\\n"\n' for line in public_pem.splitlines())
         + ';\n'
     )
-    print(f'Wrote {JSON_OUT} and {HEADER_OUT}')
+
+
+def generate_all(output_dir: Path) -> Path:
+    """Create a fresh test keypair and known-answer fixtures under output_dir."""
+    output_dir = output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    private_path = output_dir / PRIVATE_NAME
+    generate_ec_private_key_pem(private_path)
+    public_pem = public_pem_from_private_path(private_path)
+    (output_dir / TEST_PUBLIC_HEADER_NAME).write_text(format_test_public_key_header(public_pem))
+    write_known_answer_fixtures(private_path, output_dir)
+    return output_dir
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '--output-dir',
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help=f'Directory for generated fixtures (default: {DEFAULT_OUTPUT_DIR})',
+    )
+    args = parser.parse_args()
+    out = generate_all(args.output_dir)
+    print(f'Wrote OTA test fixtures to {out}')
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

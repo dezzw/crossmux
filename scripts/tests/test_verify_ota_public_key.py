@@ -73,12 +73,15 @@ class VerifyOtaPublicKeyTest(unittest.TestCase):
         finally:
             header_path.unlink(missing_ok=True)
 
-    def test_fixture_key_rejected(self):
-        private_pem = verify.TEST_PRIVATE.read_text()
-        public_pem = subprocess.check_output(
-            ['openssl', 'ec', '-in', str(verify.TEST_PRIVATE), '-pubout'],
-            text=True,
-        )
+    def test_void_committed_test_key_rejected(self):
+        # Former repo test key (public and void; PEM removed from git).
+        private_pem = """-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIPvmyRwA0eTSPnCVwQdu5i+5EkxUqlfyvEgQK7oyAUx1oAoGCCqGSM49
+AwEHoUQDQgAENweb3c1fWGTjswl48pR9Cft06rNAZwDkN8W4CaTwBlsxmqJbDBCV
+lfYWni9HKeb6ypduBAMCCwpr+iv3E47ZzQ==
+-----END EC PRIVATE KEY-----
+"""
+        public_pem = subprocess.check_output(['openssl', 'ec', '-pubout'], input=private_pem, text=True)
         header_text = _format_ota_signing_header(public_pem)
         with tempfile.NamedTemporaryFile('w', suffix='.h', delete=False) as header_file:
             header_file.write(header_text)
