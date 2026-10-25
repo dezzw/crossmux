@@ -145,8 +145,10 @@ The main loop updates mapped input once per frame before
 - Simplified-Chinese UI fallbacks: 8, 10, 12pt
 - Offline reader fallback: 12pt; other sizes and styles use SD `.cpfont`
 
-OpenDyslexic and the broad Noto reader families live in the SD font catalog
-(`lib/EpdFont/scripts/sd-fonts.yaml`). Legacy IDs resolve to the 12pt fallback.
+The broad Noto reader families live in the SD font catalog
+(`lib/EpdFont/scripts/sd-fonts.yaml`). Legacy OpenDyslexic font-family IDs migrate
+to the default built-in Noto Sans reader font on load; other legacy IDs resolve
+to the 12pt fallback.
 
 **Compilation Flag**:
 ```cpp
