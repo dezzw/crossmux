@@ -533,11 +533,7 @@ TEST_F(SectionMemoryTest, MixedChapterCacheMatchesVerifiedLayout) {
     for (const unsigned char byte : value) digest = (digest ^ byte) * 1099511628211ULL;
   };
   ASSERT_FALSE(bytes.empty());
-<<<<<<< HEAD
-  EXPECT_EQ(static_cast<uint8_t>(bytes.front()), 73);
-=======
-  EXPECT_EQ(static_cast<uint8_t>(bytes.front()), 74);
->>>>>>> 279e9ef0 ([ci] fix ctest label exclude and clang-format hyphenation tests)
+  EXPECT_EQ(static_cast<uint8_t>(bytes.front()), 75);
   // This test uses a layout stub: only the version byte changes. Normalize it
   // to prove the pre-existing layout/text/footnote digest is unchanged.
   bytes.front() = 70;
