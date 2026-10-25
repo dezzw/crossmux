@@ -89,6 +89,11 @@ int main() {
   assert(settings.lastNeedsResave);
 
   settings = CrossPointSettings{};
+  settings.applyJsonFontFields(CrossPointSettings::NOTOSERIF, "");
+  assert(settings.fontFamily == CrossPointSettings::NOTOSANS);
+  assert(settings.lastNeedsResave);
+
+  settings = CrossPointSettings{};
   settings.applyJsonFontFields(CrossPointSettings::NOTOSERIF, "NotoSerif");
   assert(settings.fontFamily == CrossPointSettings::NOTOSERIF);
   assert(std::strcmp(settings.sdFontFamilyName, "NotoSerif") == 0);
