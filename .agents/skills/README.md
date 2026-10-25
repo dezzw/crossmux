@@ -16,7 +16,6 @@ procedures on demand.
 | [`port-device-bsp`](port-device-bsp/SKILL.md) | Bringing new hardware through SDK BSP, CrossMux HAL, builds, and recorded physical acceptance |
 | `scope-discipline` | Adding a feature, activity, service, setting, or dependency |
 | `refactor-for-review` | Refactoring, cleaning up, or preparing a focused change for review |
-| `sync-upstream` | Inspecting or rehearsing upstream synchronization and publishing separately authorized draft PRs |
 
 ## Maintaining skills
 

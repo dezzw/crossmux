@@ -32,18 +32,6 @@ any push, merge, reset, or other history-changing operation.
 - Create a focused branch from CrossMux `main`; agents use `codex/<topic>` by
   default. Human contributors may use `feature/`, `fix/`, `refactor/`, or `docs/`.
 
-## Upstream synchronization is a separate task
-
-Do not fetch and merge upstream automatically when starting an ordinary change.
-CrossMux integrates its SDK, simulator, and reader upstreams through isolated
-candidates; the current sources and procedure are in the
-[sync-upstream skill](../../.agents/skills/sync-upstream/SKILL.md).
-
-Only synchronize when the task calls for it. Preserve fork-specific behavior
-and follow the [guide merge policy](upstream-merge-policy.md) when upstream
-changes agent documentation. Publishing or merging is not implied by a read-only
-comparison or local rehearsal.
-
 ## Commits and verification
 
 Commit only when the user explicitly requests it. A completed feature, passing

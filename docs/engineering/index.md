@@ -23,8 +23,6 @@ that matches your task — don't load everything at once.
 | [firmware-release.md](firmware-release.md) | Changing Nightly targets, packaging, GitHub publishing, rolling indexes, rollback, or OTA release contracts. |
 | [device-variants.md](device-variants.md) | Building or flashing Waveshare ESP32-S3 ePaper 3.97 firmware or the desktop simulator. |
 | [waveshare-epaper-397.md](waveshare-epaper-397.md) | Building, flashing, or hardware-validating the Waveshare ESP32-S3 ePaper 3.97 target. |
-| [sdk-upstream-sync.md](sdk-upstream-sync.md) | Reviewing the September 2026 SDK integration, upstream touch-menu behavior, source snapshots, and hardware acceptance limits. |
-| [upstream-merge-policy.md](upstream-merge-policy.md) | Reconciling upstream guide changes with the canonical `AGENTS.md` layout — how to keep the map thin and route upstream changes into these docs. |
 
 ## Related docs outside this directory
 
@@ -32,4 +30,4 @@ that matches your task — don't load everything at once.
 - [../file-formats.md](../file-formats.md) — canonical binary cache format reference.
 - [../i18n.md](../i18n.md) — internationalization system.
 - [../webserver-endpoints.md](../webserver-endpoints.md) — web server API reference.
-- [../../SCOPE.md](../../SCOPE.md), [../../GOVERNANCE.md](../../GOVERNANCE.md) — project scope and governance guardrails.
+- [../../SCOPE.md](../../SCOPE.md) — project scope guardrails.

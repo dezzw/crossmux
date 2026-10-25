@@ -37,10 +37,6 @@ For documentation-only changes, verify local links and anchors, commands
 against repository configuration, and `git diff --check`; no firmware build is
 needed. Changes to scripts or workflows need a focused runnable check.
 
-Do not merge CrossPoint upstream as part of ordinary feature work. Upstream
-synchronization is a separate task using the
-[sync-upstream procedure](../../.agents/skills/sync-upstream/SKILL.md).
-
 ## 4) Open the PR
 
 - Target `0x1abin/crossmux:main` unless the task explicitly names another target
@@ -55,5 +51,3 @@ synchronization is a separate task using the
 - Be explicit and concise in responses
 - Keep discussions technical and respectful
 - Assume good intent and focus on code-level feedback
-
-For community expectations, see [GOVERNANCE.md](../../GOVERNANCE.md).

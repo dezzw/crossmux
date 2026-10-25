@@ -14,10 +14,6 @@ Targets: Waveshare ESP32-S3-ePaper-3.97 hardware plus the desktop simulator. See
 > `AGENTS.md` is the sole agent entrypoint and a regular file.
 > On-demand skills, scripts, and references live directly in `.agents/skills/`.
 > Links below are relative to the repository root.
->
-> **Maintainers** — when merging upstream changes to this file, follow
-> [docs/engineering/upstream-merge-policy.md](docs/engineering/upstream-merge-policy.md):
-> keep this map thin; route deep content into `docs/engineering/`.
 
 ## AI Agent Identity and Cognitive Rules
 
@@ -95,7 +91,7 @@ python3 scripts/debugging_monitor.py # Enhanced serial monitor
 | Binary file formats | Byte-level cache/notes/font formats | [docs/file-formats.md](docs/file-formats.md) |
 | i18n system | Translation workflow in depth | [docs/i18n.md](docs/i18n.md) |
 | Web server API | HTTP/WebSocket endpoints | [docs/webserver-endpoints.md](docs/webserver-endpoints.md) |
-| Scope & governance | Whether a feature belongs in the project | [SCOPE.md](SCOPE.md), [GOVERNANCE.md](GOVERNANCE.md) |
+| Scope | Whether a feature belongs in the project | [SCOPE.md](SCOPE.md) |
 
 ---
 
