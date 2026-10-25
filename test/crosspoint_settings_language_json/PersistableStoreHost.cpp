@@ -1,8 +1,8 @@
-#include "PersistableStore.h"
-
 #include <ArduinoJson.h>
 
 #include <string>
+
+#include "PersistableStore.h"
 
 namespace {
 
@@ -37,7 +37,7 @@ std::string PersistableStoreBase::extractPassword(JsonVariantConst doc, bool& ne
 }
 
 std::string PersistableStoreBase::extractPassword(JsonVariantConst doc, bool& needsResave, const size_t maxLength,
-                                                    bool& valid) {
+                                                  bool& valid) {
   (void)doc;
   (void)maxLength;
   needsResave = false;

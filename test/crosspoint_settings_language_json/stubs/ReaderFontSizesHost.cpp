@@ -1,7 +1,7 @@
-#include "ReaderFontSizes.h"
-
 #include <cstddef>
 #include <cstdint>
+
+#include "ReaderFontSizes.h"
 
 uint8_t snapToNearestPointSize(const uint8_t* sizes, const size_t count, const uint8_t pt) {
   if (count == 0 || sizes == nullptr) {

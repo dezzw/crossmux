@@ -6,7 +6,10 @@
 class HalFile {
  public:
   size_t write(const uint8_t*, size_t len) { return len; }
-  int read(uint8_t*, size_t len) { (void)len; return 0; }
+  int read(uint8_t*, size_t len) {
+    (void)len;
+    return 0;
+  }
   void flush() {}
 };
 

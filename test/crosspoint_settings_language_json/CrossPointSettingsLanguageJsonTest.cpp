@@ -1,9 +1,7 @@
-#include <CrossPointSettings.h>
-
 #include <ArduinoJson.h>
-#include <gtest/gtest.h>
-
+#include <CrossPointSettings.h>
 #include <I18nKeys.h>
+#include <gtest/gtest.h>
 
 extern int g_crosspoint_test_write_count;
 extern void crosspoint_test_set_settings_json(const char* json);
@@ -11,8 +9,7 @@ extern void crosspoint_test_set_settings_json(const char* json);
 namespace {
 
 // Fields that skip legacy fromJson migrations unrelated to language (see CrossPointSettings.cpp).
-constexpr char kStablePrefix[] =
-    R"({"fakeBoldVersion":1,"statusBarChapterPageCount":1,"fontSize":12,"fontFamily":1)";
+constexpr char kStablePrefix[] = R"({"fakeBoldVersion":1,"statusBarChapterPageCount":1,"fontSize":12,"fontFamily":1)";
 
 std::string docWithLanguage(const char* languageCode, int contentProfile) {
   std::string json = kStablePrefix;
