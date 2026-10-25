@@ -14,9 +14,8 @@ void setUncompiledPreferredLanguage() {
 }
 
 bool hasBreakAtOrAfter(const std::vector<Hyphenator::BreakInfo>& breaks, const size_t byteOffset) {
-  return std::any_of(breaks.begin(), breaks.end(), [byteOffset](const Hyphenator::BreakInfo& info) {
-    return info.byteOffset >= byteOffset;
-  });
+  return std::any_of(breaks.begin(), breaks.end(),
+                     [byteOffset](const Hyphenator::BreakInfo& info) { return info.byteOffset >= byteOffset; });
 }
 
 bool hasFallbackStyleBreak(const std::vector<Hyphenator::BreakInfo>& breaks) {
