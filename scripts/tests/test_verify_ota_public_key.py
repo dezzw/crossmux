@@ -69,6 +69,14 @@ class VerifyOtaPublicKeyTest(unittest.TestCase):
             generate_ota_signing_fixture.VOID_OTA_TEST_KEY_SPKI_SHA256,
         )
 
+    def test_void_test_key_fingerprint_matches_void_public_pem(self):
+        _require_openssl()
+        void_public = VOID_PUBLIC_PEM.read_text()
+        self.assertEqual(
+            verify.void_test_key_fingerprint(),
+            verify.spki_fingerprint_pem(void_public),
+        )
+
     def test_matching_key_passes(self):
         private_pem, public_pem = _generate_ec_keypair()
         header_text = _format_ota_signing_header(public_pem)
