@@ -9,3 +9,5 @@ CROSSPOINT_SIM_SD=<sim-sd-dir> CROSSPOINT_SIM_INPUT_SCRIPT='2000:BOOT;2400:RIGHT
 ```
 
 Convert the BMP to PNG (e.g. ImageMagick `convert`). The shot at 9500 ms is OPDS Add Server → Server Name with AZERTY visible.
+
+**Keyboard layout list** (`*-keyboard-layouts.png`): same simulator setup with `"keyboardLayouts":511`, navigate Settings → System → Keyboard Layouts (`9400:FUNCTION` after fifteen `DOWN` steps from the expanded System list; screenshot at `10000` ms). Native endonym labels should match `main` (Cyrillic, Hebrew, accents) in both EN and ZH_CN UI shells.

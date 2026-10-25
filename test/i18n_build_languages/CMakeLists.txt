@@ -6,6 +6,7 @@ add_executable(I18nBuildLanguagesTest
 
 target_include_directories(I18nBuildLanguagesTest PRIVATE
   ${REPO_ROOT}/lib/I18n
+  ${REPO_ROOT}/src
 )
 
 target_compile_definitions(I18nBuildLanguagesTest PRIVATE ENABLE_CHINESE_VERSION=1)

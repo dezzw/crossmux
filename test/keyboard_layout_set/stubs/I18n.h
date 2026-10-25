@@ -14,7 +14,11 @@ class I18n {
     return "layout";
   }
 
-  Language getLanguage() const { return Language::EN; }
+  Language getLanguage() const { return _language; }
+  void setLanguage(const Language lang) { _language = lang; }
+
+ private:
+  Language _language = Language::EN;
 };
 
 #define tr(id) I18n::getInstance().get(StrId::id)

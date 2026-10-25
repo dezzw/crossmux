@@ -18,6 +18,7 @@
 #include "ReaderFontSizes.h"
 #include "SettingsList.h"
 #include "fontIds.h"
+#include "util/StoredLanguageCode.h"
 
 // Resolved here (not in the header) so I18nKeys.h — auto-generated and
 // changed on every translation edit — doesn't pull a recompile of every
@@ -430,7 +431,12 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   copyToField(dictionaryName, doc["dictionaryName"] | "", sizeof(dictionaryName));
   // Language -- stored as code string for stability across enum reorders.
   if (doc["language"].is<const char*>()) {
-    language = static_cast<uint8_t>(I18n::languageFromCode(doc["language"].as<const char*>()));
+    const char* storedLanguageCode = doc["language"].as<const char*>();
+    const Language parsedLanguage = I18n::languageFromCode(storedLanguageCode);
+    language = static_cast<uint8_t>(parsedLanguage);
+    if (storedLanguageCodeNeedsResave(storedLanguageCode, parsedLanguage)) {
+      needsResave = true;
+    }
   }
 
   // Migrate the split-build region marker before enforcing the current rule

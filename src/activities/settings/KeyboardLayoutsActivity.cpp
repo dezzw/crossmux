@@ -16,7 +16,7 @@ void KeyboardLayoutsActivity::onEnter() {
   edited = false;
 
   for (int i = 0; i < keyboard_layouts::COUNT; ++i) {
-    rowItems[i].label = keyboard_layouts::layoutLabel(keyboard_layouts::ALL[i].label);
+    rowItems[i].label = keyboard_layouts::ALL[i].displayName;
     rowItems[i].actionValue = static_cast<int16_t>(i);
   }
 }

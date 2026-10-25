@@ -1,7 +1,7 @@
 #include "KeyboardLayoutSet.h"
 
 #include "CrossPointSettings.h"
-#include "I18nKeys.h"
+#include "I18n.h"
 
 namespace keyboard_layouts {
 
@@ -32,30 +32,6 @@ uint16_t layoutBit(const freeink::ui::KeyboardLayoutId id) {
 }
 
 }  // namespace
-
-const char* layoutLabel(const LayoutLabel label) {
-  switch (label) {
-    case LayoutLabel::EN:
-      return tr(STR_KEYBOARD_LAYOUT_EN);
-    case LayoutLabel::FR:
-      return tr(STR_KEYBOARD_LAYOUT_FR);
-    case LayoutLabel::DE:
-      return tr(STR_KEYBOARD_LAYOUT_DE);
-    case LayoutLabel::ES:
-      return tr(STR_KEYBOARD_LAYOUT_ES);
-    case LayoutLabel::RU:
-      return tr(STR_KEYBOARD_LAYOUT_RU);
-    case LayoutLabel::UK:
-      return tr(STR_KEYBOARD_LAYOUT_UK);
-    case LayoutLabel::BE:
-      return tr(STR_KEYBOARD_LAYOUT_BE);
-    case LayoutLabel::KK:
-      return tr(STR_KEYBOARD_LAYOUT_KK);
-    case LayoutLabel::HE:
-      return tr(STR_KEYBOARD_LAYOUT_HE);
-  }
-  return tr(STR_KEYBOARD_LAYOUT_EN);
-}
 
 uint16_t enabled() {
   // Drop bits naming no layout: the mask comes from a hand-editable file and

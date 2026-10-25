@@ -1,31 +1,29 @@
 #pragma once
 
 #include <FreeInkUI.h>
-#include <I18n.h>
 
 #include <cstdint>
 
 namespace keyboard_layouts {
 
-enum class LayoutLabel : uint8_t { EN, FR, DE, ES, RU, UK, BE, KK, HE };
-
 struct LayoutInfo {
   freeink::ui::KeyboardLayoutId id;
-  LayoutLabel label;
+  const char* displayName;
 };
 
 // Table position is the persisted bit assignment. Keep existing rows in place
 // and append new layouts so SDK enum changes cannot reinterpret saved masks.
+// displayName matches main's I18n language names (native endonyms, not UI i18n).
 inline constexpr LayoutInfo ALL[] = {
-    {freeink::ui::KeyboardLayoutId::QwertyEn, LayoutLabel::EN},
-    {freeink::ui::KeyboardLayoutId::AzertyFr, LayoutLabel::FR},
-    {freeink::ui::KeyboardLayoutId::QwertzDe, LayoutLabel::DE},
-    {freeink::ui::KeyboardLayoutId::SpanishEs, LayoutLabel::ES},
-    {freeink::ui::KeyboardLayoutId::CyrillicRu, LayoutLabel::RU},
-    {freeink::ui::KeyboardLayoutId::CyrillicUk, LayoutLabel::UK},
-    {freeink::ui::KeyboardLayoutId::CyrillicBe, LayoutLabel::BE},
-    {freeink::ui::KeyboardLayoutId::CyrillicKk, LayoutLabel::KK},
-    {freeink::ui::KeyboardLayoutId::HebrewIl, LayoutLabel::HE},
+    {freeink::ui::KeyboardLayoutId::QwertyEn, "English"},
+    {freeink::ui::KeyboardLayoutId::AzertyFr, "Français"},
+    {freeink::ui::KeyboardLayoutId::QwertzDe, "Deutsch"},
+    {freeink::ui::KeyboardLayoutId::SpanishEs, "Español"},
+    {freeink::ui::KeyboardLayoutId::CyrillicRu, "Русский"},
+    {freeink::ui::KeyboardLayoutId::CyrillicUk, "Українська"},
+    {freeink::ui::KeyboardLayoutId::CyrillicBe, "Беларуская"},
+    {freeink::ui::KeyboardLayoutId::CyrillicKk, "Қазақша"},
+    {freeink::ui::KeyboardLayoutId::HebrewIl, "עברית"},
 };
 inline constexpr uint8_t COUNT = sizeof(ALL) / sizeof(ALL[0]);
 static_assert(COUNT <= 16, "keyboard layout mask is uint16_t");
@@ -34,8 +32,6 @@ inline constexpr uint16_t bitAt(const uint8_t i) { return static_cast<uint16_t>(
 // Symbol layers have no Latin letters, so credentials and URLs require at
 // least one of these layouts to remain enabled.
 inline constexpr uint16_t LATIN_BITS = bitAt(0) | bitAt(1) | bitAt(2) | bitAt(3);
-
-const char* layoutLabel(LayoutLabel label);
 
 uint16_t enabled();
 freeink::ui::KeyboardLayoutId startingLayout();
