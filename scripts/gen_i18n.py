@@ -31,11 +31,38 @@ Examples:
     python gen_i18n.py --strip-unused --src-dirs src lib/EpdFont
 """
 
+import configparser
 import sys
 import os
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+
+
+def _project_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def read_build_languages(project_dir: Optional[str] = None) -> Optional[Set[str]]:
+    """
+    Read [crosspoint] i18n_languages from platformio.ini.
+
+    Returns None when the option is absent (build all languages in translations/).
+    English is always included by load_translations(); do not list EN here.
+    """
+    root = Path(project_dir) if project_dir else _project_root()
+    ini_path = root / "platformio.ini"
+    if not ini_path.is_file():
+        return None
+    config = configparser.ConfigParser()
+    config.read(ini_path, encoding="utf-8")
+    if not config.has_option("crosspoint", "i18n_languages"):
+        return None
+    raw = config.get("crosspoint", "i18n_languages").strip()
+    if not raw:
+        return None
+    codes = {part.strip().upper() for part in raw.split(",") if part.strip()}
+    return codes or None
 
 
 # ---------------------------------------------------------------------------
@@ -1035,7 +1062,7 @@ if __name__ == "__main__":
         ),
     )
     args = parser.parse_args()
-    only = set(args.only_languages) if args.only_languages else None
+    only = set(args.only_languages) if args.only_languages else read_build_languages()
     main(
         args.translations_dir,
         args.output_dir,
@@ -1047,7 +1074,16 @@ if __name__ == "__main__":
 else:
     try:
         Import("env")
-        print("[gen_i18n] unified firmware; building full i18n")
-        main(strip_unused=True)
+        project_dir = env["PROJECT_DIR"]
+        only = read_build_languages(project_dir)
+        if only:
+            print(
+                "[gen_i18n] firmware UI languages: "
+                + ", ".join(sorted(only))
+                + " (plus EN fallback)"
+            )
+        else:
+            print("[gen_i18n] building all translation YAML languages")
+        main(strip_unused=True, only_languages=only)
     except NameError:
         pass
