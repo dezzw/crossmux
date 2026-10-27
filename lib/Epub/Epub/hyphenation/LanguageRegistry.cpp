@@ -4,8 +4,9 @@
 #include <array>
 
 #include "HyphenationCommon.h"
-#include "generated/hyph-de.trie.h"
 #include "generated/hyph-en.trie.h"
+#ifdef CROSSPOINT_HYPHENATION_ALL_LANGUAGES
+#include "generated/hyph-de.trie.h"
 #include "generated/hyph-es.trie.h"
 #include "generated/hyph-fi.trie.h"
 #include "generated/hyph-fr.trie.h"
@@ -14,11 +15,13 @@
 #include "generated/hyph-ru.trie.h"
 #include "generated/hyph-sv.trie.h"
 #include "generated/hyph-uk.trie.h"
+#endif
 
 namespace {
 
 // English hyphenation patterns (3/3 minimum prefix/suffix length)
 LanguageHyphenator englishHyphenator(en_patterns, isLatinLetter, toLowerLatin, 3, 3);
+#ifdef CROSSPOINT_HYPHENATION_ALL_LANGUAGES
 LanguageHyphenator frenchHyphenator(fr_patterns, isLatinLetter, toLowerLatin);
 LanguageHyphenator germanHyphenator(de_patterns, isLatinLetter, toLowerLatin);
 LanguageHyphenator russianHyphenator(ru_patterns, isCyrillicLetter, toLowerCyrillic);
@@ -28,20 +31,23 @@ LanguageHyphenator swedishHyphenator(sv_patterns, isLatinLetter, toLowerLatin);
 LanguageHyphenator ukrainianHyphenator(uk_patterns, isCyrillicLetter, toLowerCyrillic);
 LanguageHyphenator polishHyphenator(pl_patterns, isLatinLetter, toLowerLatin);
 LanguageHyphenator finnishHyphenator(fi_patterns, isLatinLetter, toLowerLatin);
+#endif
 
-using EntryArray = std::array<LanguageEntry, 10>;
-
-const EntryArray& entries() {
-  static const EntryArray kEntries = {{{"english", "en", &englishHyphenator},
-                                       {"french", "fr", &frenchHyphenator},
-                                       {"german", "de", &germanHyphenator},
-                                       {"russian", "ru", &russianHyphenator},
-                                       {"spanish", "es", &spanishHyphenator},
-                                       {"italian", "it", &italianHyphenator},
-                                       {"polish", "pl", &polishHyphenator},
-                                       {"swedish", "sv", &swedishHyphenator},
-                                       {"ukrainian", "uk", &ukrainianHyphenator},
-                                       {"finnish", "fi", &finnishHyphenator}}};
+const auto& entries() {
+  static const auto kEntries = std::to_array<LanguageEntry>({
+      {"english", "en", &englishHyphenator},
+#ifdef CROSSPOINT_HYPHENATION_ALL_LANGUAGES
+      {"french", "fr", &frenchHyphenator},
+      {"german", "de", &germanHyphenator},
+      {"russian", "ru", &russianHyphenator},
+      {"spanish", "es", &spanishHyphenator},
+      {"italian", "it", &italianHyphenator},
+      {"polish", "pl", &polishHyphenator},
+      {"swedish", "sv", &swedishHyphenator},
+      {"ukrainian", "uk", &ukrainianHyphenator},
+      {"finnish", "fi", &finnishHyphenator},
+#endif
+  });
   return kEntries;
 }
 

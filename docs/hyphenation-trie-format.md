@@ -51,3 +51,9 @@ To use it, run:
 ```sh
 ./scripts/update_hyphenation.sh
 ```
+
+## Selecting languages for a firmware build
+
+All generated trie headers remain in the tree. By default, `LanguageRegistry`
+links English (`en`) only. Define `CROSSPOINT_HYPHENATION_ALL_LANGUAGES` in
+`build_flags` (or your host test target) to link every language again.
